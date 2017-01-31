@@ -300,7 +300,7 @@ def plot_correlation_fit(x, y, x_fit, y_fit, xlabel, fit_label, title, output_pd
         output_pdf.savefig(fig)
 
 
-def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, dut_name, prefix, non_interactive=False):
+def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, dut_name, prefix, pre_fit=None, non_interactive=False):
     '''PLots the correlation and lets the user cut on the data in an interactive way.
 
     Parameters
@@ -317,6 +317,9 @@ def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, d
         DUT name
     title : string
         Plot title
+    pre_fit : iterable
+        Tuple of offset and slope, e.g. (offset, slope). If proper values are provided, the
+        automatic pre-alignment precision can be improved. If None, the data will be fitted.
     non_interactive : bool
         Deactivate user interaction to apply cuts
     '''
@@ -551,6 +554,12 @@ def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, d
         fit_fn = np.poly1d(fit[::-1])
         offset = fit_fn(x) - mean_fitted  # Calculate straight line fit offset
 
+    def pre_fit_data():
+        global offset
+        global fit_fn
+        fit_fn = np.poly1d(pre_fit[::-1])
+        offset = fit_fn(x) - mean_fitted  # Calculate straight line fit offset
+
     # Require the gaussian fit error to be reasonable
 #     selected_data = (mean_error_fitted < 1e-2)
     # Check for nan's and inf's
@@ -558,7 +567,10 @@ def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, d
     initial_select = selected_data.copy()
 
     # Calculate and plot selected data + fit + fit offset and gauss fit error
-    fit_data()
+    if pre_fit is None:
+        fit_data()
+    else:
+        pre_fit_data()
     offset_limit = np.max(np.abs(offset[selected_data]))  # Calculate starting offset cut
     error_limit = np.max(np.abs(mean_error_fitted[selected_data]))  # Calculate starting fit error cut
     left_limit = np.min(x[selected_data])  # Calculate starting left cut
