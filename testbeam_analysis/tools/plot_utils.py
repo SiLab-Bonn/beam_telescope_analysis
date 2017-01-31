@@ -642,7 +642,7 @@ def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, d
     return selected_data, fit, do_refit  # Return cut data for further processing
 
 
-def plot_prealignment_fit(x, mean_fitted, mask, fit_fn, fit, pcov, chi2, mean_error_fitted, n_cluster, n_pixel_ref, n_pixel_dut, pixel_size_ref, pixel_size_dut, ref_name, dut_name, prefix, output_pdf=None, gui=False, figs=None):
+def plot_prealignment_fit(x, mean_fitted, mask, fit_fn, fit, fit_limit, pcov, chi2, mean_error_fitted, n_cluster, n_pixel_ref, n_pixel_dut, pixel_size_ref, pixel_size_dut, ref_name, dut_name, prefix, output_pdf=None, gui=False, figs=None):
     if not output_pdf and not gui:
         return
     fig = Figure()
@@ -669,6 +669,9 @@ def plot_prealignment_fit(x, mean_fitted, mask, fit_fn, fit, pcov, chi2, mean_er
     else:
         fit_legend_entry = 'Fit: $c_0+x$\n$c_0=%.1e \pm %.1e$' % (fit[0], np.absolute(pcov[0][0]) ** 0.5)
     ax1.plot(x, fit_fn(x), linestyle='-', color="darkorange", label=fit_legend_entry, zorder=11)
+    if fit_limit is not None:
+        ax1.axvline(x=fit_limit[0], linewidth=2, color='r', zorder=12)
+        ax1.axvline(x=fit_limit[1], linewidth=2, color='r', zorder=13)
     lines, labels = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines + lines2, labels + labels2, loc=0)

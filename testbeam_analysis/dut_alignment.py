@@ -306,6 +306,9 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
         result[0]['column_c1'], result[0]['column_c1_error'] = 1.0, 0.0
         result[0]['row_c0'], result[0]['row_c0_error'] = 0.0, 0.0
         result[0]['row_c1'], result[0]['row_c1_error'] = 1.0, 0.0
+
+        fit_limits = np.full((n_duts, 2, 2), fill_value=np.nan, dtype=np.float)  # col left, right, row left, right
+
         result[0]['z'] = z_positions[0]
         for node in in_file_h5.root:
             table_prefix = 'column' if 'column' in node.name.lower() else 'row'
@@ -375,6 +378,8 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                 result[dut_idx][table_prefix + '_c1'], result[dut_idx][table_prefix + '_c1_error'] = slope, 0.0
                 result[dut_idx][table_prefix + '_sigma'], result[dut_idx][table_prefix + '_sigma_error'] = 0.0, 0.0
                 result[dut_idx]['z'] = z_positions[dut_idx]
+
+                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [(x_dut.min() - 0.5 * n_pixel_dut) * pixel_size_dut, (x_dut.max() - 0.5 * n_pixel_dut) * pixel_size_dut]
 
                 plot_utils.plot_hough(x=x_dut,
                                       data=hough_data,
@@ -460,6 +465,8 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                 result[dut_idx][table_prefix + '_c1'], result[dut_idx][table_prefix + '_c1_error'] = re_fit[1], np.absolute(re_fit_pcov[1][1]) ** 0.5
                 result[dut_idx]['z'] = z_positions[dut_idx]
 
+                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [x_dut_scaled_selected.min(), x_dut_scaled_selected.max()]
+    
                 # Calculate mean sigma (is a residual when assuming straight tracks) and its error and store the actual data in result array
                 # This error is needed for track finding and track quality determination
                 mean_sigma = pixel_size_ref * np.mean(np.array(sigma_fitted_selected))
@@ -516,6 +523,7 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                                                  mask=mask,
                                                  fit_fn=fit_fn,
                                                  fit=re_fit,
+                                                 fit_limit=fit_limits[dut_idx][0 if table_prefix == "column" else 1],
                                                  pcov=re_fit_pcov,
                                                  chi2=chi2,
                                                  mean_error_fitted=mean_error_fitted_scaled,
@@ -539,6 +547,7 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
             try:
                 result_table = out_file_h5.create_table(out_file_h5.root, name='PreAlignment', description=result.dtype, title='Prealignment alignment from correlation', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
                 result_table.append(result)
+                result_table.attrs.fit_limits = fit_limits
             except tb.exceptions.NodeError:
                 logging.warning('Coarse alignment table exists already. Do not create new.')
 
