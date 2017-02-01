@@ -834,7 +834,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
     logging.debug('File with realigned hits %s', output_hit_file)
 
 
-def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel_size, align_duts=None, selection_fit_duts=None, selection_hit_duts=None, selection_track_quality=1, initial_rotation=None, initial_translation=None, max_iterations=10, use_n_tracks=200000, plot=False, chunk_size=100000):
+def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel_size, align_duts=None, selection_fit_duts=None, selection_hit_duts=None, selection_track_quality=1, initial_rotation=None, initial_translation=None, max_iterations=10, use_n_tracks=200000, new_alignment=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -890,6 +890,8 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
     use_n_tracks : uint
         Defines the amount of tracks to be used for the alignment. More tracks can potentially make the result
         more precise, but will also increase the calculation time.
+    new_alignment : bool
+        If True, discard existig alignment parameters from input alignment file and start all over.
     plot : bool
         If True, create additional output plots.
     chunk_size : uint
@@ -938,10 +940,14 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
         if np.any(np.abs(alignment_parameters['alpha']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['beta']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['gamma']) > np.pi / 4.):
             logging.warning('A rotation angle > pi / 4 is not supported, you should set the correct angle and translation as a start parameter, sorry!')
 
-    geometry_utils.store_alignment_parameters(
-        input_alignment_file,
-        alignment_parameters=alignment_parameters,
-        mode='absolute')
+    if new_alignment:
+        geometry_utils.store_alignment_parameters(
+            alignment_file=input_alignment_file,
+            alignment_parameters=alignment_parameters,
+            select_duts=np.unique(np.hstack(np.array(align_duts))),
+            mode='absolute')
+    else:
+        pass  # do nothing here
 
     # Create list with combinations of DUTs to align
     if align_duts is None:  # If None: align all DUTs

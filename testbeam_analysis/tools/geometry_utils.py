@@ -4,6 +4,7 @@
 from __future__ import division
 
 import logging
+from collections import Iterable
 
 import tables as tb
 import numpy as np
@@ -517,55 +518,38 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
 
 
 def merge_alignment_parameters(old_alignment, new_alignment, mode='relative',
-                               select_duts=None):
+                               select_duts=None, parameters=None):
     if select_duts is None:  # Select all DUTs
-        select_duts = np.ones(old_alignment.shape[0], dtype=np.bool)
+        select_duts = range(old_alignment.shape[0])
     else:
-        select = np.zeros(old_alignment.shape[0], dtype=np.bool)
-        select[np.array(select_duts)] = True
-        select_duts = select
+        if not isinstance(select_duts, Iterable):
+            select_duts = list(select_duts)
 
-    # Do not change input parameters
-    align_pars = old_alignment.copy()
-
-    if mode == 'absolute':
-        logging.info('Set alignment')
-        align_pars[select_duts] = new_alignment[select_duts]
-        return align_pars
-    elif mode == 'relative':
-        logging.info('Merge new alignment with old alignment')
-
-        align_pars['translation_x'][select_duts] += new_alignment[
-            'translation_x'][select_duts]
-        align_pars['translation_y'][select_duts] += new_alignment[
-            'translation_y'][select_duts]
-        align_pars['translation_z'][select_duts] += new_alignment[
-            'translation_z'][select_duts]
-
-        align_pars['alpha'][select_duts] += new_alignment['alpha'][select_duts]
-        align_pars['beta'][select_duts] += new_alignment['beta'][select_duts]
-        align_pars['gamma'][select_duts] += new_alignment['gamma'][select_duts]
-
-        # TODO: Is this always a good idea? Usually works, but what if one
-        # heavily tilted device?
-        # All alignments are relative, thus center them around 0 by
-        # substracting the mean (exception: z position)
-        if np.count_nonzero(select_duts) > 1:
-            align_pars['alpha'][select_duts] -= np.mean(align_pars['alpha'][select_duts])
-            align_pars['beta'][select_duts] -= np.mean(align_pars['beta'][select_duts])
-            align_pars['gamma'][select_duts] -= np.mean(align_pars['gamma'][select_duts])
-            align_pars['translation_x'][select_duts] -= np.mean(align_pars[
-                'translation_x'][select_duts])
-            align_pars['translation_y'][select_duts] -= np.mean(align_pars[
-                'translation_y'][select_duts])
-
-        return align_pars
+    all_parameters = set(["alpha", "beta", "gamma", "translation_x", "translation_y", "translation_z"])
+    if parameters is None:
+        parameters = all_parameters
     else:
-        raise RuntimeError('Unknown mode %s', str(mode))
+        if not isinstance(parameters, Iterable):
+            parameters = list(parameters)
+        unknown_parameters = set(parameters) - all_parameters  # difference
+        if unknown_parameters:
+            raise ValueError("Unknown parameter(s): %s" % ", ".join(unknown_parameters))
+
+    alignment_parameters = old_alignment.copy()  # Do not change input parameters
+
+    for dut in select_duts:
+        for parameter in parameters:
+            if mode == 'absolute':
+                alignment_parameters[dut][parameter] = new_alignment[dut][parameter]
+            elif mode == 'relative':
+                alignment_parameters[dut][parameter] += new_alignment[dut][parameter]
+            else:
+                raise RuntimeError('Unknown mode %s', str(mode))
+    return alignment_parameters
 
 
 def store_alignment_parameters(alignment_file, alignment_parameters,
-                               mode='absolute', select_duts=None):
+                               mode='absolute', select_duts=None, parameters=None):
     ''' Stores alignment parameters (rotations, translations) into file.
 
     Absolute (overwriting) and relative (add angles, translations) supported.
@@ -580,6 +564,10 @@ def store_alignment_parameters(alignment_file, alignment_parameters,
         Select relative or absolute alignment. The strings 'relative' and 'absolute' are supported.
     use_duts : iterable
         In relative mode only change specified DUTs.
+    parameters : iterable
+        Iterable of alignment parameters to be stored. Possible values are
+        "alpha", "beta", "gamma", "translation_x", "translation_y" and "translation_z".
+        If None, select all alignment parameters.
     '''
     # Open file with alignment data
     with tb.open_file(alignment_file, mode="r+") as out_file_h5:
@@ -599,7 +587,8 @@ def store_alignment_parameters(alignment_file, alignment_parameters,
                 old_alignment=out_file_h5.root.Alignment[:],
                 new_alignment=alignment_parameters,
                 mode=mode,
-                select_duts=select_duts)
+                select_duts=select_duts,
+                parameters=parameters)
 
             logging.info('Overwrite existing alignment!')
             # Remove old node
