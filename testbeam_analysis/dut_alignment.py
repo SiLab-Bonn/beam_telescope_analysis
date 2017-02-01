@@ -881,9 +881,9 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
     selection_track_quality : uint or iterable or iterable of iterable
         Track quality for each hit DUT.
     initial_rotation : array
-        Initial rotation array.
+        Initial rotation array. If None, deduce the rotation from pre-alignment.
     initial_translation : array
-        Initial translation array.
+        Initial translation array. If None, deduce the translation from pre-alignment.
     max_iterations : uint
         Maximum number of iterations of calc residuals, apply rotation refit loop until constant result is expected.
         Usually the procedure converges rather fast (< 5 iterations)
@@ -904,7 +904,12 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
         alignment_parameters = _create_alignment_array(n_duts)
         alignment_parameters['translation_z'] = prealignment['z']
 
-        if initial_rotation:
+        if initial_rotation is None:
+            for dut_index in range(n_duts):
+                alignment_parameters['alpha'][dut_index] = np.pi if np.isclose(-1, prealignment[dut_index]["row_c1"], atol=0.1) else 0.0
+                alignment_parameters['beta'][dut_index] = np.pi if np.isclose(-1, prealignment[dut_index]["column_c1"], atol=0.1) else 0.0
+#                 alignment_parameters['gamma'][dut_index] = initial_rotation[dut_index][2]
+        else:
             if isinstance(initial_rotation[0], Iterable):
                 for dut_index in range(n_duts):
                     alignment_parameters['alpha'][dut_index] = initial_rotation[dut_index][0]
@@ -916,7 +921,11 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
                     alignment_parameters['beta'][dut_index] = initial_rotation[1]
                     alignment_parameters['gamma'][dut_index] = initial_rotation[2]
 
-        if initial_translation:
+        if initial_translation is None:
+            for dut_index in range(n_duts):
+                alignment_parameters['translation_x'][dut_index] = prealignment[dut_index]["column_c0"]
+                alignment_parameters['translation_y'][dut_index] = prealignment[dut_index]["row_c0"]
+        else:
             if isinstance(initial_translation[0], Iterable):
                 for dut_index in range(n_duts):
                     alignment_parameters['translation_x'][dut_index] = initial_translation[dut_index][0]
