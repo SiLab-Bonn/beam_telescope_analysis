@@ -1009,7 +1009,7 @@ def plot_residuals(histogram, edges, fit, fit_errors, x_label, title, output_pdf
             output_pdf.savefig(fig)
 
 
-def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, res_mean=None, res_pos=None, selection=None, title=None, fit=None, cov=None, output_pdf=None, gui=False, figs=None):
+def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, res_mean=None, res_mean_err=None, res_pos=None, selection=None, title=None, fit=None, cov=None, fit_limit=None, output_pdf=None, gui=False, figs=None):
     '''Plot the residuals as a function of the position.
     '''
     if not output_pdf and not gui:
@@ -1034,6 +1034,11 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, res_mean=No
     if fit is not None:
         x_lim = np.array(ax.get_xlim(), dtype=np.float)
         ax.plot(x_lim, testbeam_analysis.tools.analysis_utils.linear(x_lim, *fit), linestyle='-', color="darkorange", linewidth=2, label='Mean residual fit\n%.2e + %.2e x' % (fit[0], fit[1]))
+    if fit_limit is not None:
+        if np.isfinite(fit_limit[0]):
+            ax.axvline(x=fit_limit[0], linewidth=2, color='r')
+        if np.isfinite(fit_limit[1]):
+            ax.axvline(x=fit_limit[1], linewidth=2, color='r')
     ax.set_xlim([xedges[0], xedges[-1]])
     ax.set_ylim([yedges[0], yedges[-1]])
     ax.legend(loc=0)

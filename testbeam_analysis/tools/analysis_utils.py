@@ -898,15 +898,41 @@ def fit_residuals(hist, edges, label="", title="", output_pdf=None, gui=False, f
     return fit, cov
 
 
-def fit_residuals_vs_position(hist, xedges, yedges, xlabel="", ylabel="", title="", output_pdf=None, gui=False, figs=None):
+def fit_residuals_vs_position(hist, xedges, yedges, xlabel="", ylabel="", title="", fit_limit=None, output_pdf=None, gui=False, figs=None):
     xcenter = (xedges[1:] + xedges[:-1]) / 2.0
     ycenter = (yedges[1:] + yedges[:-1]) / 2.0
     y_sum = np.sum(hist, axis=1)
     x_sel = (y_sum > 0.0) & np.isfinite(y_sum)
     y_mean = np.full_like(y_sum, np.nan, dtype=np.float)
     y_mean[x_sel] = np.average(hist, axis=1, weights=ycenter)[x_sel] * np.sum(ycenter) / y_sum[x_sel]
-    n_hits_threshold = np.percentile(y_sum, 100 - 68)
-    x_sel = (y_sum > n_hits_threshold) & np.isfinite(y_sum)
+    n_hits_threshold = np.percentile(y_sum[np.isfinite(y_mean)], 100-68)
+    if fit_limit is None or not np.all(np.isfinite(fit_limit)):
+        x_sel = np.logical_and(y_sum > n_hits_threshold, np.isfinite(y_mean))
+        # generate a contigous area
+        x_sel_left = np.where(x_sel == True)[0][0]
+        x_sel_right = np.where(x_sel == True)[0][-1] + 1
+    else:
+        fit_limit_left = fit_limit.min()
+        fit_limit_right = fit_limit.max()
+        x_sel = np.isfinite(y_mean)
+        if np.isfinite(fit_limit_left):
+            try:
+                x_sel_left = np.where(xcenter >= fit_limit_left)[0][0]
+            except IndexError:
+                x_sel_left = 0
+        else:
+            x_sel_left = 0
+        if np.isfinite(fit_limit_right):
+            try:
+                x_sel_right = np.where(xcenter <= fit_limit_right)[0][-1] + 1
+            except IndexError:
+                x_sel_right = x_sel.shape[0]
+        else:
+            x_sel_right = x_sel.shape[0]
+    range_sel = np.zeros_like(x_sel)
+    range_sel[x_sel_left:x_sel_right] = 1
+    x_sel = np.isfinite(y_mean)
+    x_sel = np.logical_and(x_sel, range_sel)
     y_rel_err = np.full_like(y_sum, np.nan, dtype=np.float)
     y_rel_err[x_sel] = np.sum(y_sum[x_sel]) / y_sum[x_sel]
     fit, cov = curve_fit(linear, xcenter[x_sel], y_mean[x_sel], sigma=y_rel_err[x_sel], absolute_sigma=False)
@@ -918,11 +944,13 @@ def fit_residuals_vs_position(hist, xedges, yedges, xlabel="", ylabel="", title=
         xlabel=xlabel,
         ylabel=ylabel,
         res_mean=y_mean,
+        res_mean_err=y_rel_err,
         res_pos=xcenter,
         selection=x_sel,
         fit=fit,
         cov=cov,
         title=title,
+        fit_limit=fit_limit,
         output_pdf=output_pdf,
         gui=gui,
         figs=figs
