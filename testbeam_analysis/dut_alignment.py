@@ -940,15 +940,6 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
         if np.any(np.abs(alignment_parameters['alpha']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['beta']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['gamma']) > np.pi / 4.):
             logging.warning('A rotation angle > pi / 4 is not supported, you should set the correct angle and translation as a start parameter, sorry!')
 
-    if new_alignment:
-        geometry_utils.store_alignment_parameters(
-            alignment_file=input_alignment_file,
-            alignment_parameters=alignment_parameters,
-            select_duts=np.unique(np.hstack(np.array(align_duts))),
-            mode='absolute')
-    else:
-        pass  # do nothing here
-
     # Create list with combinations of DUTs to align
     if align_duts is None:  # If None: align all DUTs
         align_duts = range(n_duts)
@@ -975,6 +966,17 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
     no_align_duts = set(range(n_duts)) - set(all_align_duts)
     if no_align_duts:
         logging.warning('These DUTs will not be aligned: %s', ", ".join(str(align_dut) for align_dut in no_align_duts))
+
+    # overwrite configuration for align DUTs
+    # keep configuration for DUTs that will not be aligned
+    if new_alignment:
+        geometry_utils.store_alignment_parameters(
+            alignment_file=input_alignment_file,
+            alignment_parameters=alignment_parameters,
+            select_duts=np.unique(np.hstack(np.array(align_duts))),
+            mode='absolute')
+    else:
+        pass  # do nothing here, keep existing configuration
 
     # Create track, hit selection
     if selection_hit_duts is None:  # If None: use all DUTs
