@@ -440,8 +440,7 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                                                                                   dut_name=dut_name,
                                                                                   prefix=table_prefix,
                                                                                   non_interactive=non_interactive,
-                                                                                  pre_fit=[offset_center, slope])
-
+                                                                                  pre_fit=[offset_center, slope] if actual_iteration == 0 else None)
                     x_selected = x_selected[selected_data]
                     x_dut_scaled_selected = x_dut_scaled_selected[selected_data]
                     mean_fitted_scaled_selected = mean_fitted_scaled_selected[selected_data]
