@@ -792,48 +792,20 @@ def simple_peak_detect(x, y):
     return max_position, center, fwhm_value, fwhm_left_right
 
 
-def get_rotation_from_residual_fit(m_xx, m_xy, m_yx, m_yy, alpha_inverted=None, beta_inverted=None):
-    if np.abs(m_xy) > 1. or np.abs(m_yx) > 1.:
-        raise NotImplementedError('Device seems to be heavily tilted in gamma. This is not supported.')
-
-    # Detect device rotation around y-axis (beta angle)
-    if m_yy < -1. or alpha_inverted:
-        logging.info('Device most likely inverted in beam around the x axis (y coordinates switched)!')
-        alpha_inverted = True
-        m_yy = 2 + m_yy
-    else:
-        alpha_inverted = False
-
-    # Detect device rotation around y-axis (beta angle)
-    if m_xx < -1.:
-        logging.info('Device most likely inverted in beam around the y axis (x coordinates switched)!')
-        beta_inverted = True
-        m_xx = 2 + m_xx
-    else:
-        beta_inverted = False
-
-    # Sanity checks
-    if m_xx < -2:
-        raise
-        m_xx = -2.
-
-    if m_yy < -2:
-        raise
-        m_yy = -2.
-
+def get_rotation_from_residual_fit(m_xx, m_xy, m_yx, m_yy, mirror_x=1.0, mirror_y=1.0):
     # Deduce from reidual correlations the rotation matrix
     # gamma (rotation around z)
     # TODO: adding some weighting factor based on fit error
     factor_xy = 1.0
-    gamma = factor_xy * np.arctan2(m_xy, 1 - m_xx)
+    gamma = factor_xy * np.arctan(m_xy)
     factor_yx = 1.0
-    gamma -= factor_yx * np.arctan2(m_yx, 1 - m_yy)
-    gamma /= (factor_xy + factor_yx)
+    gamma -= factor_yx * np.arctan(m_yx)
+    gamma /= mirror_x * mirror_y * (factor_xy + factor_yx)
 
     # cos(gamma) = 1 - m_xx / cos(gamma) = (1 - m_xx) * sqrt(m_xy**2 / (1 - m_xx**2) + 1.) ?
     cosbeta = (1 - m_xx) * np.sqrt(np.square(m_xy) / np.square(1 - m_xx) + 1.)
 
-    # TODO: Why is this needed? Most likely stability reasons
+    # Arccos limited to [-1:1]
     if np.abs(cosbeta) > 1:
         cosbeta = 1 - (cosbeta - 1)
     beta = np.arccos(cosbeta)
@@ -841,35 +813,10 @@ def get_rotation_from_residual_fit(m_xx, m_xy, m_yx, m_yy, alpha_inverted=None, 
     # cos(alpha) = - myy - tan(gamma) * myx + 1 / (cos(gamma) + sin(gamma) * tan(gamma)) = - myy - m_xy / (1 - m_xx) * myx + 1 / (cos(gamma) + sin(gamma) * tan(gamma)) ?
     cosalpha = (-m_yy - m_xy / (1 - m_xx) * m_yx + 1) / (np.cos(gamma) + np.sin(gamma) * np.tan(gamma))
 
-    # TODO: Why is this needed? Most likely stability reasons
+    # Arccos limited to [-1:1]
     if np.abs(cosalpha) > 1:
         cosalpha = 1 - (cosalpha - 1)
     alpha = np.arccos(cosalpha)
-
-    if alpha_inverted:
-        alpha -= np.pi
-
-        # Try to deduce correct beta sign
-        value_1 = -m_xy / (1 + m_xx)
-        value_2 = (m_yx - np.sin(alpha) * np.sin(beta) * np.cos(gamma)) / (1 + m_yy - np.sin(alpha) * np.sin(beta) * np.sin(gamma))
-        value_3 = (m_yx + np.sin(alpha) * np.sin(beta) * np.cos(gamma)) / (1 + m_yy + np.sin(alpha) * np.sin(beta) * np.sin(gamma))
-
-        if np.abs(value_2 - value_1) > np.abs(value_3 - value_1):
-            beta *= -1.
-
-        alpha *= -1.
-
-    if beta_inverted:
-        beta -= np.pi
-
-        # Try to deduce correct alpha sign
-        value_1 = -m_xy / (1 + m_xx)
-        value_2 = (m_yx - np.sin(alpha) * np.sin(beta) * np.cos(gamma)) / (1 + m_yy - np.sin(alpha) * np.sin(beta) * np.sin(gamma))
-        value_3 = (m_yx + np.sin(alpha) * np.sin(beta) * np.cos(gamma)) / (1 + m_yy + np.sin(alpha) * np.sin(beta) * np.sin(gamma))
-
-        if np.abs(value_2 - value_1) < np.abs(value_3 - value_1):
-            alpha *= -1.
-        beta *= -1.
 
     return alpha, beta, gamma
 
