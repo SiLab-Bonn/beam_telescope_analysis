@@ -1173,17 +1173,16 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
 
             apply_alignment(input_hit_file=track_candidates_file,  # Always apply alignment to starting file
                             input_alignment_file=alignment_file,
-                            # TODO: rename, use DUTs
-                            output_hit_file=os.path.splitext(track_candidates_file)[0] + '_no_align_%d_tmp.h5' % (iteration_step),
+                            output_hit_file=os.path.splitext(track_candidates_file)[0] + '_new_alignment_%d_tmp.h5' % (iteration_step),
                             inverse=False,
                             force_prealignment=False,
                             chunk_size=chunk_size)
 
             # Step 2: Fit tracks for all DUTs
             logging.info('= Alignment step 2 / iteration %d: Fit tracks for all DUTs =', (iteration_step))
-            fit_tracks(input_track_candidates_file=os.path.splitext(track_candidates_file)[0] + '_no_align_%d_tmp.h5' % (iteration_step),
+            fit_tracks(input_track_candidates_file=os.path.splitext(track_candidates_file)[0] + '_new_alignment_%d_tmp.h5' % (iteration_step),
                        input_alignment_file=alignment_file,
-                       output_tracks_file=os.path.splitext(track_candidates_file)[0] + '_tracks_%d_tmp.h5' % (iteration_step),
+                       output_tracks_file=os.path.splitext(track_candidates_file)[0] + '_tracks_aligned_%d_tmp.h5' % (iteration_step),
                        # TODO: really None?
                        fit_duts=None,  # fit tracks for all DUTs
                        selection_fit_duts=selection_fit_duts,   # Only use selected DUTs for track fit
@@ -1195,9 +1194,9 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
 
             # Step 3: Calculate the residuals for each DUT
             logging.info('= Alignment step 3 / iteration %d: Calculate the residuals for each selected DUT =', (iteration_step))
-            calculate_residuals(input_tracks_file=os.path.splitext(track_candidates_file)[0] + '_tracks_%d_tmp.h5' % (iteration_step),
+            calculate_residuals(input_tracks_file=os.path.splitext(track_candidates_file)[0] + '_tracks_aligned_%d_tmp.h5' % (iteration_step),
                                 input_alignment_file=alignment_file,
-                                output_residuals_file=os.path.splitext(track_candidates_file)[0] + '_residuals_%d_tmp.h5' % (iteration_step),
+                                output_residuals_file=os.path.splitext(track_candidates_file)[0] + '_residuals_aligned_%d_tmp.h5' % (iteration_step),
                                 n_pixels=n_pixels,
                                 pixel_size=pixel_size,
                                 force_prealignment=False,
@@ -1211,7 +1210,7 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
 
             # Step 4: Deduce rotations from the residuals
             logging.info('= Alignment step 4 / iteration %d: Deduce rotations and translations from the residuals =', (iteration_step))
-            alignment_parameters_changed, new_total_residual = _analyze_residuals(residuals_file=os.path.splitext(track_candidates_file)[0] + '_residuals_%d_tmp.h5' % (iteration_step),
+            alignment_parameters_changed, new_total_residual = _analyze_residuals(residuals_file=os.path.splitext(track_candidates_file)[0] + '_residuals_aligned_%d_tmp.h5' % (iteration_step),
                                                                                   alignment_file=alignment_file,
                                                                                   use_duts=use_duts,  # fit all duts currently beeing investigated
                                                                                   pixel_size=pixel_size,
@@ -1237,10 +1236,10 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
 #                                                                                pixel_size=pixel_size)
 
             # Delete temporary files
-            os.remove(os.path.splitext(track_candidates_file)[0] + '_no_align_%d_tmp.h5' % (iteration_step))
-            os.remove(os.path.splitext(track_candidates_file)[0] + '_tracks_%d_tmp.h5' % (iteration_step))
-            os.remove(os.path.splitext(track_candidates_file)[0] + '_tracks_%d_tmp.pdf' % (iteration_step))
-            os.remove(os.path.splitext(track_candidates_file)[0] + '_residuals_%d_tmp.h5' % (iteration_step))
+            os.remove(os.path.splitext(track_candidates_file)[0] + '_new_alignment_%d_tmp.h5' % (iteration_step))
+            os.remove(os.path.splitext(track_candidates_file)[0] + '_tracks_aligned_%d_tmp.h5' % (iteration_step))
+            os.remove(os.path.splitext(track_candidates_file)[0] + '_tracks_aligned_%d_tmp.pdf' % (iteration_step))
+            os.remove(os.path.splitext(track_candidates_file)[0] + '_residuals_aligned_%d_tmp.h5' % (iteration_step))
             logging.info('Total residual %1.4e', new_total_residual)
 
             logging.info('= Alignment step 6 / iteration %d: Set new rotation / translation information in alignment file =', (iteration_step))
