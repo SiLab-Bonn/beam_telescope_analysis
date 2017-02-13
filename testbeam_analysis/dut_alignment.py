@@ -938,9 +938,6 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
                     alignment_parameters['translation_x'][dut_index] = initial_translation[0]
                     alignment_parameters['translation_y'][dut_index] = initial_translation[1]
 
-        if np.any(np.abs(alignment_parameters['alpha']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['beta']) > np.pi / 4.) or np.any(np.abs(alignment_parameters['gamma']) > np.pi / 4.):
-            logging.warning('A rotation angle > pi / 4 is not supported, you should set the correct angle and translation as a start parameter, sorry!')
-
     # Create list with combinations of DUTs to align
     if align_duts is None:  # If None: align all DUTs
         align_duts = range(n_duts)
