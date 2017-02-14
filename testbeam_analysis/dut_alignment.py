@@ -1200,6 +1200,7 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
                                 n_pixels=n_pixels,
                                 pixel_size=pixel_size,
                                 force_prealignment=False,
+                                use_duts=use_duts,
                                 # smaller devices needs None, otherwise npixels_per_bin=5 and nbins_per_pixel=1 might improve the first step
                                 npixels_per_bin=None,
                                 nbins_per_pixel=None,
