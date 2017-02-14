@@ -141,26 +141,26 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                         raise RuntimeError('The transformation to the local coordinate system did not give all z = 0. Wrong alignment used?')
 
                     limit_x_selection = np.ones_like(hit_x_local, dtype=np.bool)
-                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local.min()):
-                        limit_x_selection &= hit_x_local >= fit_limit_x_local.min()
-                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local.max()):
-                        limit_x_selection &= hit_x_local <= fit_limit_x_local.max()
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
+                        limit_x_selection &= hit_x_local >= fit_limit_x_local[0]
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
+                        limit_x_selection &= hit_x_local <= fit_limit_x_local[1]
 
                     limit_y_selection = np.ones_like(hit_x_local, dtype=np.bool)
-                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local.min()):
-                        limit_y_selection &= hit_y_local >= fit_limit_y_local.min()
-                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local.max()):
-                        limit_y_selection &= hit_y_local <= fit_limit_y_local.max()
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
+                        limit_y_selection &= hit_y_local >= fit_limit_y_local[0]
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
+                        limit_y_selection &= hit_y_local <= fit_limit_y_local[1]
 
                     limit_xy_selection = np.ones_like(hit_x_local, dtype=np.bool)
-                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local.min()):
-                        limit_xy_selection &= hit_x_local >= fit_limit_x_local.min()
-                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local.max()):
-                        limit_xy_selection &= hit_x_local <= fit_limit_x_local.max()
-                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local.min()):
-                        limit_xy_selection &= hit_y_local >= fit_limit_y_local.min()
-                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local.max()):
-                        limit_xy_selection &= hit_y_local <= fit_limit_y_local.max()
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
+                        limit_xy_selection &= hit_x_local >= fit_limit_x_local[0]
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
+                        limit_xy_selection &= hit_x_local <= fit_limit_x_local[1]
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
+                        limit_xy_selection &= hit_y_local >= fit_limit_y_local[0]
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
+                        limit_xy_selection &= hit_y_local <= fit_limit_y_local[1]
 
                     hit_x_local_limit_x = hit_x_local[limit_x_selection]
                     hit_y_local_limit_x = hit_y_local[limit_x_selection]

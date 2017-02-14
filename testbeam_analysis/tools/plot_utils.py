@@ -670,8 +670,10 @@ def plot_prealignment_fit(x, mean_fitted, mask, fit_fn, fit, fit_limit, pcov, ch
         fit_legend_entry = 'Fit: $c_0+x$\n$c_0=%.1e \pm %.1e$' % (fit[0], np.absolute(pcov[0][0]) ** 0.5)
     ax1.plot(x, fit_fn(x), linestyle='-', color="darkorange", label=fit_legend_entry, zorder=11)
     if fit_limit is not None:
-        ax1.axvline(x=fit_limit[0], linewidth=2, color='r', zorder=12)
-        ax1.axvline(x=fit_limit[1], linewidth=2, color='r', zorder=13)
+        if np.isfinite(fit_limit[0]):
+            ax1.axvline(x=fit_limit[0], linewidth=2, color='r', zorder=12)
+        if np.isfinite(fit_limit[1]):
+            ax1.axvline(x=fit_limit[1], linewidth=2, color='r', zorder=13)
     lines, labels = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines + lines2, labels + labels2, loc=0)

@@ -853,14 +853,14 @@ def fit_residuals_vs_position(hist, xedges, yedges, xlabel="", ylabel="", title=
     y_mean = np.full_like(y_sum, np.nan, dtype=np.float)
     y_mean[x_sel] = np.average(hist, axis=1, weights=ycenter)[x_sel] * np.sum(ycenter) / y_sum[x_sel]
     n_hits_threshold = np.percentile(y_sum[np.isfinite(y_mean)], 100-68)
-    if fit_limit is None or not np.all(np.isfinite(fit_limit)):
+    if fit_limit is None:
         x_sel = np.logical_and(y_sum > n_hits_threshold, np.isfinite(y_mean))
         # generate a contigous area
         x_sel_left = np.where(x_sel == True)[0][0]
         x_sel_right = np.where(x_sel == True)[0][-1] + 1
     else:
-        fit_limit_left = fit_limit.min()
-        fit_limit_right = fit_limit.max()
+        fit_limit_left = fit_limit[0]
+        fit_limit_right = fit_limit[1]
         x_sel = np.isfinite(y_mean)
         if np.isfinite(fit_limit_left):
             try:

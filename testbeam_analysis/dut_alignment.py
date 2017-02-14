@@ -379,8 +379,6 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                 result[dut_idx][table_prefix + '_sigma'], result[dut_idx][table_prefix + '_sigma_error'] = 0.0, 0.0
                 result[dut_idx]['z'] = z_positions[dut_idx]
 
-                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [(x_dut.min() - 0.5 * n_pixel_dut) * pixel_size_dut, (x_dut.max() - 0.5 * n_pixel_dut) * pixel_size_dut]
-
                 plot_utils.plot_hough(x=x_dut,
                                       data=hough_data,
                                       accumulator=accumulator,
@@ -464,7 +462,8 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
                 result[dut_idx][table_prefix + '_c1'], result[dut_idx][table_prefix + '_c1_error'] = re_fit[1], np.absolute(re_fit_pcov[1][1]) ** 0.5
                 result[dut_idx]['z'] = z_positions[dut_idx]
 
-                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [x_dut_scaled_selected.min(), x_dut_scaled_selected.max()]
+                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [x_dut_scaled_selected.min() if x_dut_scaled.min() < x_dut_scaled_selected.min() else np.nan,
+                                                                             x_dut_scaled_selected.max() if x_dut_scaled.max() > x_dut_scaled_selected.max() else np.nan]
 
                 # Calculate mean sigma (is a residual when assuming straight tracks) and its error and store the actual data in result array
                 # This error is needed for track finding and track quality determination
