@@ -1257,14 +1257,14 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
 def _create_alignment_array(n_duts):
     # Result Translation / rotation table
     description = [('DUT', np.int32)]
-    description.append(('translation_x', np.float))
-    description.append(('translation_y', np.float))
-    description.append(('translation_z', np.float))
-    description.append(('alpha', np.float))
-    description.append(('beta', np.float))
-    description.append(('gamma', np.float))
-    description.append(('correlation_x', np.float))
-    description.append(('correlation_y', np.float))
+    description.append(('translation_x', np.double))
+    description.append(('translation_y', np.double))
+    description.append(('translation_z', np.double))
+    description.append(('alpha', np.double))
+    description.append(('beta', np.double))
+    description.append(('gamma', np.double))
+    description.append(('correlation_x', np.double))
+    description.append(('correlation_y', np.double))
 
     array = np.zeros((n_duts,), dtype=description)
     array[:]['DUT'] = np.array(range(n_duts))
