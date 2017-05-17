@@ -164,7 +164,7 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
 
     # Merge the cluster data from different DUTs into one table
     with tb.open_file(output_merged_file, mode='w') as out_file_h5:
-        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedCluster', description=np.zeros((1,), dtype=description).dtype, title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedCluster', description=np.dtype(description), title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
         with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
             progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Cluster.shape[0], term_width=80)
             progress_bar.start()
@@ -813,7 +813,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
                 if new_node_name == 'MergedCluster':  # Merged cluster with alignment are tracklets
                     new_node_name = 'Tracklets'
 
-                hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=new_node_name, description=np.zeros((1,), dtype=hits.dtype).dtype, title=hits.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=new_node_name, description=hits.dtype, title=hits.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
                 progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=hits.shape[0], term_width=80)
                 progress_bar.start()

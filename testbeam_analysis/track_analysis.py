@@ -447,7 +447,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         try:  # Check if table exists already, than append data
             tracklets_table = out_file_h5.get_node('/Tracks_DUT_%d' % fit_dut)
         except tb.NoSuchNodeError:  # Table does not exist, thus create new
-            tracklets_table = out_file_h5.create_table(out_file_h5.root, name='Tracks_DUT_%d' % fit_dut, description=np.zeros((1,), dtype=tracks_array.dtype).dtype, title='Tracks fitted for DUT_%d' % fit_dut, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+            tracklets_table = out_file_h5.create_table(out_file_h5.root, name='Tracks_DUT_%d' % fit_dut, description=tracks_array.dtype, title='Tracks fitted for DUT_%d' % fit_dut, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
         # Remove tracks that are too close when extrapolated to the actual DUT
         # All merged track are signaled by n_tracks = -1
