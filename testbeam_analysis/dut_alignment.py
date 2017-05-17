@@ -749,8 +749,8 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
         with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
             if use_prealignment:
                 logging.info('Use pre-alignment data')
-                prealignment = in_file_h5.root.PreAlignment[:]
-                n_duts = prealignment.shape[0]
+                alignment = in_file_h5.root.PreAlignment[:]
+                n_duts = alignment.shape[0]
             else:
                 logging.info('Use alignment data')
                 alignment = in_file_h5.root.Alignment[:]
@@ -760,7 +760,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
         try:  # Check if array is prealignent array
             alignment['column_c0']
             logging.info('Use pre-alignment data')
-            n_duts = prealignment.shape[0]
+            n_duts = alignment.shape[0]
             use_prealignment = True
         except ValueError:
             logging.info('Use alignment data')
@@ -782,7 +782,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
                 hits_yerr=hits_chunk['yerr_dut_%d' % dut_index],
                 hits_zerr=hits_chunk['zerr_dut_%d' % dut_index],
                 dut_index=dut_index,
-                prealignment=prealignment,
+                prealignment=alignment,
                 inverse=inverse)
         else:  # Apply transformation from fine alignment information
             (hits_chunk['x_dut_%d' % dut_index],
@@ -823,7 +823,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
                         if use_duts is not None and dut_index not in use_duts:  # omit DUT
                             continue
 
-                        apply_alignment_to_chunk(hits_chunk=hits_chunk, dut_index=dut_index, use_prealignment=use_prealignment, alignment=prealignment if use_prealignment else alignment, inverse=inverse, no_z=no_z)
+                        apply_alignment_to_chunk(hits_chunk=hits_chunk, dut_index=dut_index, use_prealignment=use_prealignment, alignment=alignment, inverse=inverse, no_z=no_z)
 
                     hits_aligned_table.append(hits_chunk)
                     progress_bar.update(index)
