@@ -1182,8 +1182,7 @@ def _calculate_translation_alignment(track_candidates_file, alignment_file, use_
             fit_tracks(input_track_candidates_file=os.path.splitext(track_candidates_file)[0] + '_new_alignment_%d_tmp.h5' % (iteration_step),
                        input_alignment_file=alignment_file,
                        output_tracks_file=os.path.splitext(track_candidates_file)[0] + '_tracks_aligned_%d_tmp.h5' % (iteration_step),
-                       # TODO: really None?
-                       fit_duts=None,  # fit tracks for all DUTs
+                       fit_duts=use_duts,
                        selection_fit_duts=selection_fit_duts,   # Only use selected DUTs for track fit
                        selection_hit_duts=selection_hit_duts,  # Only use selected duts
                        exclude_dut_hit=False,  # For constrained residuals
