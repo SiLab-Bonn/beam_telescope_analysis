@@ -1122,6 +1122,7 @@ def _duts_alignment(track_candidates_file, alignment_file, align_duts, selection
             apply_alignment(input_hit_file=os.path.splitext(track_candidates_reduced)[0] + '_not_aligned.h5',
                             input_alignment_file=alignment_file,
                             output_hit_file=os.path.splitext(track_candidates_file)[0] + '_final_tmp_duts_%s.h5' % alignment_duts,
+                            force_prealignment=False,
                             chunk_size=chunk_size)
             fit_tracks(input_track_candidates_file=os.path.splitext(track_candidates_file)[0] + '_final_tmp_duts_%s.h5' % alignment_duts,
                        input_alignment_file=alignment_file,
@@ -1137,6 +1138,7 @@ def _duts_alignment(track_candidates_file, alignment_file, align_duts, selection
                                 output_residuals_file=os.path.splitext(track_candidates_file)[0] + '_residuals_final_tmp_duts_%s.h5' % alignment_duts,
                                 n_pixels=n_pixels,
                                 pixel_size=pixel_size,
+                                force_prealignment=False,
                                 use_fit_limits=use_fit_limits,
                                 plot=plot,
                                 chunk_size=chunk_size)
