@@ -906,36 +906,28 @@ def alignment(input_track_candidates_file, input_alignment_file, n_pixels, pixel
         alignment_parameters = _create_alignment_array(n_duts)
         alignment_parameters['translation_z'] = prealignment['z']
 
-        if initial_rotation is None:
-            for dut_index in range(n_duts):
+        for dut_index in range(n_duts):
+            if (isinstance(initial_translation, Iterable) and initial_translation[dut_index] is None) or initial_translation is None:
+                alignment_parameters['translation_x'][dut_index] = prealignment[dut_index]["column_c0"]
+                alignment_parameters['translation_y'][dut_index] = prealignment[dut_index]["row_c0"]
+            elif isinstance(initial_translation, Iterable) and isinstance(initial_translation[dut_index], Iterable) and len(initial_translation[dut_index]) in [2, 3]:
+                alignment_parameters['translation_x'][dut_index] = initial_translation[dut_index][0]
+                alignment_parameters['translation_y'][dut_index] = initial_translation[dut_index][1]
+                if len(initial_translation[dut_index]) == 3 and initial_translation[dut_index][2] is not None:
+                    alignment_parameters['translation_z'][dut_index] = initial_translation[dut_index][2]
+            else:
+                raise ValueError('initial_translation format not supported')
+
+            if (isinstance(initial_rotation, Iterable) and initial_rotation[dut_index] is None) or initial_rotation is None:
                 alignment_parameters['alpha'][dut_index] = np.pi if np.isclose(-1, prealignment[dut_index]["row_c1"], atol=0.1) else 0.0
                 alignment_parameters['beta'][dut_index] = np.pi if np.isclose(-1, prealignment[dut_index]["column_c1"], atol=0.1) else 0.0
 #                 alignment_parameters['gamma'][dut_index] = initial_rotation[dut_index][2]
-        else:
-            if isinstance(initial_rotation[0], Iterable):
-                for dut_index in range(n_duts):
+            elif isinstance(initial_rotation, Iterable) and isinstance(initial_rotation[dut_index], Iterable) and len(initial_rotation[dut_index]) == 3:
                     alignment_parameters['alpha'][dut_index] = initial_rotation[dut_index][0]
                     alignment_parameters['beta'][dut_index] = initial_rotation[dut_index][1]
                     alignment_parameters['gamma'][dut_index] = initial_rotation[dut_index][2]
             else:
-                for dut_index in range(n_duts):
-                    alignment_parameters['alpha'][dut_index] = initial_rotation[0]
-                    alignment_parameters['beta'][dut_index] = initial_rotation[1]
-                    alignment_parameters['gamma'][dut_index] = initial_rotation[2]
-
-        if initial_translation is None:
-            for dut_index in range(n_duts):
-                alignment_parameters['translation_x'][dut_index] = prealignment[dut_index]["column_c0"]
-                alignment_parameters['translation_y'][dut_index] = prealignment[dut_index]["row_c0"]
-        else:
-            if isinstance(initial_translation[0], Iterable):
-                for dut_index in range(n_duts):
-                    alignment_parameters['translation_x'][dut_index] = initial_translation[dut_index][0]
-                    alignment_parameters['translation_y'][dut_index] = initial_translation[dut_index][1]
-            else:
-                for dut_index in range(n_duts):
-                    alignment_parameters['translation_x'][dut_index] = initial_translation[0]
-                    alignment_parameters['translation_y'][dut_index] = initial_translation[1]
+                raise ValueError('initial_rotation format not supported')
 
     # Create list with combinations of DUTs to align
     if align_duts is None:  # If None: align all DUTs
