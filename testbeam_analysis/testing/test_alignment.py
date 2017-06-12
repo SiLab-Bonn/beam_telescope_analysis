@@ -141,7 +141,7 @@ class TestAlignmentAnalysis(unittest.TestCase):
                                                                                    output=os.path.join(testing_path,
                                                                                                        'fixtures/dut_alignment/Prealignment_result.h5')),
                                       output_hit_file=os.path.join(self.output_folder, 'Tracklets.h5'),
-                                      force_prealignment=True)
+                                      use_prealignment=True)
         data_equal, error_msg = test_tools.compare_h5_files(analysis_utils.get_data('fixtures/dut_alignment/Tracklets_result.h5',
                                                                                     output=os.path.join(testing_path,
                                                                                                         'fixtures/dut_alignment/Tracklets_result.h5')),
@@ -156,7 +156,7 @@ class TestAlignmentAnalysis(unittest.TestCase):
                                                                                    output=os.path.join(testing_path,
                                                                                                        'fixtures/dut_alignment/Prealignment_result.h5')),
                                       output_hit_file=os.path.join(self.output_folder, 'Tracklets_2.h5'),
-                                      force_prealignment=True,
+                                      use_prealignment=True,
                                       chunk_size=293)
         data_equal, error_msg = test_tools.compare_h5_files(analysis_utils.get_data('fixtures/dut_alignment/Tracklets_result.h5',
                                                                                     output=os.path.join(testing_path,

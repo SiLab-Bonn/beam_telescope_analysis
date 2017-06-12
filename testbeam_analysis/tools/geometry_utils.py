@@ -5,10 +5,28 @@ from __future__ import division
 
 import logging
 from collections import Iterable
+import math
 
 import tables as tb
 import numpy as np
+from scipy.optimize import minimize, basinhopping
+import scipy
 
+
+def skew(v):
+    matr = np.zeros(np.prod(np.r_[v.shape, 3]))
+    matr[::9] = v.flatten()[::3]
+    matr[4::9] = v.flatten()[1::3]
+    matr[8::9] = v.flatten()[2::3]
+    matr = matr.reshape(np.r_[v.shape, 3])
+    
+    if len(v.shape) == 1:
+        matr_skv = np.roll(np.roll(matr, 1, 1), -1, 0)
+        return matr_skv - matr_skv.T
+    else:
+        matr_skv = np.roll(np.roll(matr, 1, 2), -1, 1)
+        return matr_skv - matr_skv.transpose((0, 2, 1))
+    
 
 def get_plane_normal(direction_vector_1, direction_vector_2):
     ''' Normal vector of a plane.
@@ -174,7 +192,7 @@ def rotation_matrix_y(beta):
     -------
     Array with shape (3, 3).
     '''
-    return np.array([[np.cos(beta), 0, - np.sin(beta)],
+    return np.array([[np.cos(beta), 0, -np.sin(beta)],
                      [0, 1, 0],
                      [np.sin(beta), 0, np.cos(beta)]])
 
@@ -232,7 +250,103 @@ def rotation_matrix(alpha, beta, gamma):
     -------
     Array with shape (3, 3).
     '''
-    return np.dot(rotation_matrix_x(alpha=alpha), np.dot(rotation_matrix_y(beta=beta), rotation_matrix_z(gamma=gamma)))
+    return np.linalg.multi_dot([rotation_matrix_x(alpha=alpha), rotation_matrix_y(beta=beta), rotation_matrix_z(gamma=gamma)])
+
+
+def euler_angles(R):
+    ''' Calculates the Euler angles from rotation matrix R.
+
+    Note
+    ----
+    In a right-handed system. The rotation is done around x then y then z.
+
+    Remember:
+        - Transform to the locale coordinate system before applying rotations
+        - Rotations are associative but not commutative
+
+    Parameters
+    ----------
+    R : array
+        Rotation matrix.
+
+    Returns
+    -------
+    Returns Euler angles alpha, beta and gamma.
+    '''
+    def is_rotation_matrix(R):
+        norm = np.linalg.norm(np.identity(3, dtype=R.dtype) - np.dot(R.T, R))
+        return np.isclose(0.0, norm)
+
+    if not is_rotation_matrix(R):
+        raise ValueError("%s is not a rotation matrix" % str(R))
+    
+#     sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
+#     
+#     singular = np.isclose(0.0, sy)
+
+#     if not singular:
+#         alpha = -math.atan2(R[2,1], R[2,2])
+#         beta = -math.atan2(-R[2,0], sy)
+#         gamma = -math.atan2(R[1,0], R[0,0])
+#     else:
+#         alpha = -math.atan2(-R[1,2], R[1,1])
+#         beta = -math.atan2(-R[2,0], sy)
+#         gamma = 0.0
+
+
+    sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
+     
+    singular = np.isclose(0.0, sy)
+
+    if not singular:
+        alpha = math.atan2(R[1,0], R[0,0])
+        beta = math.atan2(-R[2,0], sy)
+        gamma = math.atan2(R[2,1], R[2,2])
+    else:
+        raise
+        alpha = math.atan2(-R[1,2], R[1,1])
+        beta = math.atan2(-R[2,0], sy)
+        gamma = 0.0
+
+    return alpha, beta, gamma
+
+
+def euler_angles_minimizer(R, alpha_start=0.0, beta_start=0.0, gamma_start=0.0, limit=0.5, tol=None):
+    print "R", R.dtype
+    def _minimize_me(angles, R):
+        calculated_R = rotation_matrix(alpha=angles[0],
+                                       beta=angles[1],
+                                       gamma=angles[2])
+
+        return np.linalg.norm(np.identity(3, dtype=R.dtype) - np.dot(calculated_R.T, R), ord=None)
+
+    bounds = [(alpha_start - limit * np.pi, alpha_start + limit * np.pi), (beta_start - limit * np.pi, beta_start + limit * np.pi), (gamma_start - limit * np.pi, gamma_start + limit * np.pi)]
+#     result = minimize(fun=_minimize_me,
+#                       x0=np.array([alpha_start, beta_start, gamma_start]),  # Start values from residual fit
+#                       args=(R,),
+#                       tol=tol,
+#                       bounds=bounds,
+#                       method='L-BFGS-B')
+#     if not result.success:
+#         raise ValueError("Couldn't find Euler angles for rotation matrix")
+    result = basinhopping(func=_minimize_me,
+                          x0=np.array([alpha_start, beta_start, gamma_start], dtype=np.double),  # Start values from residual fit
+                          niter=1000,
+                          T=1e-6,
+                          stepsize=1e-3,
+                          interval=10,
+                          niter_success=50,
+                          minimizer_kwargs={"args": (R,), "method": 'TNC', "bounds": bounds, "tol": tol})
+#     result = minimize(fun=_minimize_me,
+#                       x0=[alpha_start, beta_start, gamma_start],
+#                       args=(R,),
+#                       method='SLSQP',
+#                       bounds=bounds,
+#                       options={"ftol": 1e-8, "maxiter":1000, 'eps': 1e-10})
+#     if not result.success:
+#         raise ValueError("Couldn't find Euler angles for rotation matrix")
+    alpha, beta, gamma = result.x
+    return alpha, beta, gamma
 
 
 def translation_matrix(x, y, z):
@@ -399,7 +513,7 @@ def apply_rotation_matrix(x, y, z, rotation_matrix):
 
 def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                     hits_xerr=None, hits_yerr=None, hits_zerr=None,
-                    alignment=None, prealignment=None, inverse=False):
+                    alignment=None, prealignment=None, inverse=False, beam_alignment=None):
     ''' Takes hits with errors and applies a transformation according to the alignment data.
 
     If alignment data with rotations and translations are given the hits are
@@ -413,10 +527,10 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
     ---------
     hits_x, hits_y, hits_z : array
         Array(s) with hit positions.
+    hits_xerr, hits_yerr, hits_zerr : array
+        Array(s) with hit errors.
     dut_index : int
         Needed to select the corrct alignment info.
-    hits_x, hits_y, hits_z : array
-        Array(s) with hit errors.
     alignment : array
         Alignment information with rotations and translations.
     prealignment : array
@@ -433,6 +547,9 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
        (alignment is not None and prealignment is not None):
         raise RuntimeError('Neither pre-alignment or alignment data given.')
 
+    if beam_alignment is not None and prealignment is not None:
+        raise RuntimeError('Beam-alignment cannot be used with pre-alignment.')
+
     if alignment is not None:
         if inverse:
             logging.debug('Transform hit position into the local coordinate '
@@ -444,13 +561,29 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                 alpha=alignment[dut_index]['alpha'],
                 beta=alignment[dut_index]['beta'],
                 gamma=alignment[dut_index]['gamma'])
+
             rotation_matrix = global_to_local_transformation_matrix(
-                x=0.,
-                y=0.,
-                z=0.,
+                x=0.0,
+                y=0.0,
+                z=0.0,
                 alpha=alignment[dut_index]['alpha'],
                 beta=alignment[dut_index]['beta'],
                 gamma=alignment[dut_index]['gamma'])
+            if beam_alignment is not None:
+                beam_transformation_matrix = global_to_local_transformation_matrix(
+                    x=0.0,
+                    y=0.0,
+                    z=0.0,
+                    alpha=beam_alignment[0]['beam_alpha'],
+                    beta=beam_alignment[0]['beam_beta'],
+                    gamma=0.0)
+                beam_rotation_matrix = global_to_local_transformation_matrix(
+                    x=0.0,
+                    y=0.0,
+                    z=0.0,
+                    alpha=beam_alignment[0]['beam_alpha'],
+                    beta=beam_alignment[0]['beam_beta'],
+                    gamma=0.0)
         else:
             logging.debug('Transform hit position into the global coordinate '
                           'system using alignment data')
@@ -462,18 +595,40 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                 beta=alignment[dut_index]['beta'],
                 gamma=alignment[dut_index]['gamma'])
             rotation_matrix = local_to_global_transformation_matrix(
-                x=0.,
-                y=0.,
-                z=0.,
+                x=0.0,
+                y=0.0,
+                z=0.0,
                 alpha=alignment[dut_index]['alpha'],
                 beta=alignment[dut_index]['beta'],
                 gamma=alignment[dut_index]['gamma'])
+            if beam_alignment is not None:
+                beam_transformation_matrix = local_to_global_transformation_matrix(
+                    x=0.0,
+                    y=0.0,
+                    z=0.0,
+                    alpha=beam_alignment[0]['beam_alpha'],
+                    beta=beam_alignment[0]['beam_beta'],
+                    gamma=0.0)
+                beam_rotation_matrix = local_to_global_transformation_matrix(
+                    x=0.0,
+                    y=0.0,
+                    z=0.0,
+                    alpha=beam_alignment[0]['beam_alpha'],
+                    beta=beam_alignment[0]['beam_beta'],
+                    gamma=0.0)
 
         hits_x, hits_y, hits_z = apply_transformation_matrix(
             x=hits_x,
             y=hits_y,
             z=hits_z,
             transformation_matrix=transformation_matrix)
+
+        if beam_alignment is not None:
+            hits_x, hits_y, hits_z = apply_transformation_matrix(
+                x=hits_x,
+                y=hits_y,
+                z=hits_z,
+                transformation_matrix=beam_transformation_matrix)
 
         if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
             # Errors need only rotation but no translation
@@ -482,6 +637,13 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                 y=hits_yerr,
                 z=hits_zerr,
                 transformation_matrix=rotation_matrix)
+
+            if beam_alignment is not None:
+                hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
+                    x=hits_xerr,
+                    y=hits_yerr,
+                    z=hits_zerr,
+                    transformation_matrix=beam_rotation_matrix)
 
     else:
         c0_column = prealignment[dut_index]['column_c0']
@@ -517,7 +679,89 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
     return hits_x, hits_y, hits_z
 
 
-def merge_alignment_parameters(old_alignment, new_alignment, mode='relative',
+def apply_alignment_to_hits(hits, dut_index, use_prealignment, alignment, inverse, no_z, beam_alignment=None):
+    if use_prealignment:  # Apply transformation from pre-alignment information
+        (hits['x_dut_%d' % dut_index],
+         hits['y_dut_%d' % dut_index],
+         hit_z,
+         hits['xerr_dut_%d' % dut_index],
+         hits['yerr_dut_%d' % dut_index],
+         hits['zerr_dut_%d' % dut_index]) = apply_alignment(
+            hits_x=hits['x_dut_%d' % dut_index],
+            hits_y=hits['y_dut_%d' % dut_index],
+            hits_z=hits['z_dut_%d' % dut_index],
+            hits_xerr=hits['xerr_dut_%d' % dut_index],
+            hits_yerr=hits['yerr_dut_%d' % dut_index],
+            hits_zerr=hits['zerr_dut_%d' % dut_index],
+            dut_index=dut_index,
+            prealignment=alignment,
+            beam_alignment=beam_alignment,
+            inverse=inverse)
+    else:  # Apply transformation from fine alignment information
+        (hits['x_dut_%d' % dut_index],
+         hits['y_dut_%d' % dut_index],
+         hit_z,
+         hits['xerr_dut_%d' % dut_index],
+         hits['yerr_dut_%d' % dut_index],
+         hits['zerr_dut_%d' % dut_index]) = apply_alignment(
+            hits_x=hits['x_dut_%d' % dut_index],
+            hits_y=hits['y_dut_%d' % dut_index],
+            hits_z=hits['z_dut_%d' % dut_index],
+            hits_xerr=hits['xerr_dut_%d' % dut_index],
+            hits_yerr=hits['yerr_dut_%d' % dut_index],
+            hits_zerr=hits['zerr_dut_%d' % dut_index],
+            dut_index=dut_index,
+            alignment=alignment,
+            beam_alignment=beam_alignment,
+            inverse=inverse)
+    if not no_z:
+        hits['z_dut_%d' % dut_index] = hit_z
+
+
+def get_alignment_parameters(alignment, inverse=False):
+    n_duts = alignment.shape[0]
+
+    rotation = [None] * n_duts
+    translation = [None] * n_duts
+
+    for dut_index in range(n_duts):
+        x=alignment[dut_index]['translation_x']
+        y=alignment[dut_index]['translation_y']
+        z=alignment[dut_index]['translation_z']
+        alpha=alignment[dut_index]['alpha']
+        beta=alignment[dut_index]['beta']
+        gamma=alignment[dut_index]['gamma']
+
+        if inverse:
+            transformation_matrix = geometry_utils.global_to_local_transformation_matrix(
+                x=alignment[dut_index]['translation_x'],
+                y=alignment[dut_index]['translation_y'],
+                z=alignment[dut_index]['translation_z'],
+                alpha=alignment[dut_index]['alpha'],
+                beta=alignment[dut_index]['beta'],
+                gamma=alignment[dut_index]['gamma'])
+    
+            rotation_dut = geometry_utils.rotation_matrix(alpha=alpha, beta=beta, gamma=gamma).T
+            translation_dut = np.array([-x, -y, -z])
+        else:
+            transformation_matrix = geometry_utils.local_to_global_transformation_matrix(
+                x=alignment[dut_index]['translation_x'],
+                y=alignment[dut_index]['translation_y'],
+                z=alignment[dut_index]['translation_z'],
+                alpha=alignment[dut_index]['alpha'],
+                beta=alignment[dut_index]['beta'],
+                gamma=alignment[dut_index]['gamma'])
+    
+            rotation_dut = geometry_utils.rotation_matrix(alpha=alpha, beta=beta, gamma=gamma)
+            translation_dut = np.array([x, y, z])
+            
+        rotation[dut_index] = rotation_dut
+        translation[dut_index] = translation_dut
+
+    return rotation, translation
+
+
+def merge_alignment_parameters(old_alignment, new_alignment, mode='absolute',
                                select_duts=None, parameters=None):
     if select_duts is None:  # Select all DUTs
         select_duts = range(old_alignment.shape[0])
@@ -548,14 +792,14 @@ def merge_alignment_parameters(old_alignment, new_alignment, mode='relative',
     return alignment_parameters
 
 
-def store_alignment_parameters(alignment_file, alignment_parameters,
-                               mode='absolute', select_duts=None, parameters=None):
-    ''' Stores alignment parameters (rotations, translations) into file.
+def save_alignment_parameters(alignment_file, alignment_parameters,
+                              mode='absolute', select_duts=None, parameters=None):
+    ''' Saving alignment parameters (rotations, translations) to file.
 
     Absolute (overwriting) and relative (add angles, translations) supported.
 
     Parameters
-    ---------
+    ----------
     alignment_file : string
         The pytables file name containing the alignment.
     alignment_parameters : recarray
@@ -572,45 +816,75 @@ def store_alignment_parameters(alignment_file, alignment_parameters,
     # Open file with alignment data
     with tb.open_file(alignment_file, mode="r+") as out_file_h5:
         try:
-            align_tab = out_file_h5.create_table(out_file_h5.root, name='Alignment',
-                                                 title='Table containing the '
-                                                 'alignment geometry parameters '
-                                                 '(translations and rotations)',
-                                                 description=alignment_parameters.dtype,
-                                                 filters=tb.Filters(
-                                                     complib='blosc',
-                                                     complevel=5,
-                                                     fletcher32=False))
-            align_tab.append(alignment_parameters)
+            old_alignment = out_file_h5.root.Alignment[:]
         except tb.NodeError:
+            if mode != 'absolute':
+                raise ValueError("No existing alignment found. Mode %s will not work." % (mode,))
+        else:
+            logging.info('Overwrite existing alignment (Mode: %s).' % (mode,))
+            out_file_h5.root.Alignment._f_remove()
             alignment_parameters = merge_alignment_parameters(
-                old_alignment=out_file_h5.root.Alignment[:],
+                old_alignment=old_alignment,
                 new_alignment=alignment_parameters,
                 mode=mode,
                 select_duts=select_duts,
                 parameters=parameters)
+        finally:
+            alignment_table = out_file_h5.create_table(out_file_h5.root, name='Alignment',
+                                                       title='Transformation parameters',
+                                                       description=alignment_parameters.dtype)
+            alignment_table.append(alignment_parameters)
 
-            logging.info('Overwrite existing alignment!')
-            # Remove old node
-            out_file_h5.root.Alignment._f_remove()
-            align_tab = out_file_h5.create_table(out_file_h5.root, name='Alignment',
-                                                 title='Table containing the '
-                                                 'alignment geometry parameters '
-                                                 '(translations and rotations)',
-                                                 description=alignment_parameters.dtype,
-                                                 filters=tb.Filters(
-                                                     complib='blosc',
-                                                     complevel=5,
-                                                     fletcher32=False))
-            align_tab.append(alignment_parameters)
 
-        string = "\n".join(['DUT%d: alpha=%1.4f, beta=%1.4f, gamma=%1.4f Rad, '
-                            'x/y/z=%d/%d/%d um' % (dut_values['DUT'],
-                                                   dut_values['alpha'],
-                                                   dut_values['beta'],
-                                                   dut_values['gamma'],
-                                                   dut_values['translation_x'],
-                                                   dut_values['translation_y'],
-                                                   dut_values['translation_z'])
+        string = "\n".join(['DUT%d: alpha/beta/gamma=%1.4f/%1.4f/%1.4f Rad, '
+                            'x/y/z=%.2f/%.2f/%.2f um' % (dut_values['DUT'],
+                                                         dut_values['alpha'],
+                                                         dut_values['beta'],
+                                                         dut_values['gamma'],
+                                                         dut_values['translation_x'],
+                                                         dut_values['translation_y'],
+                                                         dut_values['translation_z'])
                             for dut_values in alignment_parameters])
-        logging.info('Set alignment parameters to:\n%s' % string)
+        logging.info('Setting alignment parameters to:\n%s' % string)
+
+
+def load_alignment_parameters(alignment_file):
+    ''' Loading alignment parameters (rotations, translations) from file.
+
+    Parameters
+    ----------
+    alignment_file : string
+        The pytables file name containing the alignment.
+    '''
+    # Open file with alignment data
+    with tb.open_file(alignment_file, mode="r") as out_file_h5:
+        alignment = out_file_h5.root.Alignment[:]
+    
+    return alignment
+
+
+def save_beam_alignment_parameters(alignment_file, beam_alignment):
+    with tb.open_file(alignment_file, mode="r+") as out_file_h5:
+        try:
+            old_alignment = out_file_h5.root.BeamAlignment[:]
+        except tb.NodeError:
+            pass
+        else:
+            logging.info('Overwrite existing beam-alignment.')
+            out_file_h5.root.BeamAlignment._f_remove()
+        finally:
+            alignment_table = out_file_h5.create_table(out_file_h5.root, name='BeamAlignment',
+                                                       title='Beam axis parameters',
+                                                       description=beam_alignment.dtype)
+            alignment_table.append(beam_alignment)
+
+
+        logging.info('Setting beam-alignment parameters to: alpha/beta=%1.4f/%1.4f Rad' % (beam_alignment[0]['beam_alpha'],
+                                                                                           beam_alignment[0]['beam_beta']))
+
+
+def load_beam_alignment_parameters(alignment_file):
+    with tb.open_file(alignment_file, mode="r") as out_file_h5:
+        beam_alignment = out_file_h5.root.BeamAlignment[:]
+    
+    return beam_alignment

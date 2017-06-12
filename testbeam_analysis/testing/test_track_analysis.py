@@ -65,7 +65,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                                                                                    'fixtures/track_analysis/Alignment_result.h5')),
                                   output_tracks_file=os.path.join(self.output_folder, 'Tracks.h5'),
                                   selection_track_quality=1,
-                                  force_prealignment=True)
+                                  use_prealignment=True)
         data_equal, error_msg = test_tools.compare_h5_files(analysis_utils.get_data('fixtures/track_analysis/Tracks_result.h5',
                                                                                     output=os.path.join(testing_path,
                                                                                                         'fixtures/track_analysis/Tracks_result.h5')),
@@ -81,7 +81,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                                                                                    'fixtures/track_analysis/Alignment_result.h5')),
                                   output_tracks_file=os.path.join(self.output_folder, 'Tracks_2.h5'),
                                   selection_track_quality=1,
-                                  force_prealignment=True,
+                                  use_prealignment=True,
                                   chunk_size=4999)
         data_equal, error_msg = test_tools.compare_h5_files(analysis_utils.get_data('fixtures/track_analysis/Tracks_result.h5',
                                                                                     output=os.path.join(testing_path,
@@ -99,7 +99,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                   output_tracks_file=os.path.join(self.output_folder, 'Tracks_All.h5'),
                                   exclude_dut_hit=False,
                                   selection_track_quality=1,
-                                  force_prealignment=True)
+                                  use_prealignment=True)
         # Fit DUTs consecutevly, but use always the same DUTs. Should result in the same data as above
         track_analysis.fit_tracks(input_track_candidates_file=analysis_utils.get_data('fixtures/track_analysis/TrackCandidates_result.h5',
                                                                                       output=os.path.join(testing_path, 'fixtures/track_analysis/TrackCandidates_result.h5')),
@@ -110,7 +110,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                   selection_hit_duts=range(4),
                                   exclude_dut_hit=False,
                                   selection_track_quality=1,
-                                  force_prealignment=True)
+                                  use_prealignment=True)
         data_equal, error_msg = test_tools.compare_h5_files(os.path.join(self.output_folder, 'Tracks_All.h5'), os.path.join(self.output_folder, 'Tracks_All_Iter.h5'), exact=False)
         self.assertTrue(data_equal, msg=error_msg)
         # Fit DUTs consecutevly, but use always the same DUTs defined for each DUT separately. Should result in the same data as above
@@ -124,7 +124,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                   selection_hit_duts=[range(4), range(4), range(4), range(4)],
                                   exclude_dut_hit=False,
                                   selection_track_quality=1,
-                                  force_prealignment=True)
+                                  use_prealignment=True)
         data_equal, error_msg = test_tools.compare_h5_files(os.path.join(self.output_folder, 'Tracks_All.h5'), os.path.join(self.output_folder, 'Tracks_All_Iter_2.h5'), exact=False)
         self.assertTrue(data_equal, msg=error_msg)
 
@@ -138,7 +138,7 @@ class TestTrackAnalysis(unittest.TestCase):
                                   output_tracks_file=os.path.join(self.output_folder, 'Tracks_merged.h5'),
                                   selection_track_quality=1,
                                   min_track_distance=True,  # Activate track merge cut,
-                                  force_prealignment=True)
+                                  use_prealignment=True)
         data_equal, error_msg = test_tools.compare_h5_files(analysis_utils.get_data('fixtures/track_analysis/Tracks_merged_result.h5',
                                                                                     output=os.path.join(testing_path, 'fixtures/track_analysis/Tracks_merged_result.h5')), os.path.join(self.output_folder, 'Tracks_merged.h5'), exact=False)
         self.assertTrue(data_equal, msg=error_msg)

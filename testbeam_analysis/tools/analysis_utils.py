@@ -792,36 +792,7 @@ def simple_peak_detect(x, y):
     return max_position, center, fwhm_value, fwhm_left_right
 
 
-def get_rotation_from_residual_fit(m_xx, m_xy, m_yx, m_yy, mirror_x=1.0, mirror_y=1.0):
-    # Deduce from reidual correlations the rotation matrix
-    # gamma (rotation around z)
-    # TODO: adding some weighting factor based on fit error
-    factor_xy = 1.0
-    gamma = factor_xy * np.arctan(m_xy)
-    factor_yx = 1.0
-    gamma -= factor_yx * np.arctan(m_yx)
-    gamma /= mirror_x * mirror_y * (factor_xy + factor_yx)
-
-    # cos(gamma) = 1 - m_xx / cos(gamma) = (1 - m_xx) * sqrt(m_xy**2 / (1 - m_xx**2) + 1.) ?
-    cosbeta = (1 - m_xx) * np.sqrt(np.square(m_xy) / np.square(1 - m_xx) + 1.)
-
-    # Arccos limited to [-1:1]
-    if np.abs(cosbeta) > 1:
-        cosbeta = 1 - (cosbeta - 1)
-    beta = np.arccos(cosbeta)
-
-    # cos(alpha) = - myy - tan(gamma) * myx + 1 / (cos(gamma) + sin(gamma) * tan(gamma)) = - myy - m_xy / (1 - m_xx) * myx + 1 / (cos(gamma) + sin(gamma) * tan(gamma)) ?
-    cosalpha = (-m_yy - m_xy / (1 - m_xx) * m_yx + 1) / (np.cos(gamma) + np.sin(gamma) * np.tan(gamma))
-
-    # Arccos limited to [-1:1]
-    if np.abs(cosalpha) > 1:
-        cosalpha = 1 - (cosalpha - 1)
-    alpha = np.arccos(cosalpha)
-
-    return alpha, beta, gamma
-
-
-def fit_residuals(hist, edges, label="", title="", output_pdf=None, gui=False, figs=None):
+def fit_residuals(hist, edges):
     bin_center = (edges[1:] + edges[:-1]) / 2.0
     hist_mean = get_mean_from_histogram(hist, bin_center)
     hist_std = get_rms_from_histogram(hist, bin_center)
@@ -830,80 +801,44 @@ def fit_residuals(hist, edges, label="", title="", output_pdf=None, gui=False, f
     except RuntimeError:
         fit, cov = [np.amax(hist), hist_mean, hist_std], np.full((3, 3), np.nan)
 
-    testbeam_analysis.tools.plot_utils.plot_residuals(
-        histogram=hist,
-        edges=edges,
-        fit=fit,
-        fit_errors=cov,
-        x_label=label,
-        title=title,
-        output_pdf=output_pdf,
-        gui=gui,
-        figs=figs
-    )
-
     return fit, cov
 
 
-def fit_residuals_vs_position(hist, xedges, yedges, xlabel="", ylabel="", title="", fit_limit=None, output_pdf=None, gui=False, figs=None):
+def fit_residuals_vs_position(hist, xedges, yedges, mean, count, fit_limit=None):
     xcenter = (xedges[1:] + xedges[:-1]) / 2.0
-    ycenter = (yedges[1:] + yedges[:-1]) / 2.0
-    y_sum = np.sum(hist, axis=1)
-    x_sel = (y_sum > 0.0) & np.isfinite(y_sum)
-    y_mean = np.full_like(y_sum, np.nan, dtype=np.float)
-    y_mean[x_sel] = np.average(hist, axis=1, weights=ycenter)[x_sel] * np.sum(ycenter) / y_sum[x_sel]
-    n_hits_threshold = np.percentile(y_sum[np.isfinite(y_mean)], 100-68)
+    select = (count > 0)
+
     if fit_limit is None:
-        x_sel = np.logical_and(y_sum > n_hits_threshold, np.isfinite(y_mean))
-        # generate a contigous area
-        x_sel_left = np.where(x_sel == True)[0][0]
-        x_sel_right = np.where(x_sel == True)[0][-1] + 1
+        n_hits_threshold = np.percentile(count[select], 100-68)
+        select &= (count > n_hits_threshold)
     else:
         fit_limit_left = fit_limit[0]
         fit_limit_right = fit_limit[1]
-        x_sel = np.isfinite(y_mean)
         if np.isfinite(fit_limit_left):
             try:
-                x_sel_left = np.where(xcenter >= fit_limit_left)[0][0]
+                select_left = np.where(xcenter >= fit_limit_left)[0][0]
             except IndexError:
-                x_sel_left = 0
+                select_left = 0
         else:
-            x_sel_left = 0
+            select_left = 0
         if np.isfinite(fit_limit_right):
             try:
-                x_sel_right = np.where(xcenter <= fit_limit_right)[0][-1] + 1
+                select_right = np.where(xcenter <= fit_limit_right)[0][-1] + 1
             except IndexError:
-                x_sel_right = x_sel.shape[0]
+                select_right = select.shape[0]
         else:
-            x_sel_right = x_sel.shape[0]
-    range_sel = np.zeros_like(x_sel)
-    range_sel[x_sel_left:x_sel_right] = 1
-    x_sel = np.isfinite(y_mean)
-    x_sel = np.logical_and(x_sel, range_sel)
-    y_rel_err = np.full_like(y_sum, np.nan, dtype=np.float)
-    y_rel_err[x_sel] = np.sum(y_sum[x_sel]) / y_sum[x_sel]
-    fit, cov = curve_fit(linear, xcenter[x_sel], y_mean[x_sel], sigma=y_rel_err[x_sel], absolute_sigma=False)
-
-    testbeam_analysis.tools.plot_utils.plot_residuals_vs_position(
-        hist,
-        xedges=xedges,
-        yedges=yedges,
-        xlabel=xlabel,
-        ylabel=ylabel,
-        res_mean=y_mean,
-        res_mean_err=y_rel_err,
-        res_pos=xcenter,
-        selection=x_sel,
-        fit=fit,
-        cov=cov,
-        title=title,
-        fit_limit=fit_limit,
-        output_pdf=output_pdf,
-        gui=gui,
-        figs=figs
-    )
-
-    return fit, cov
+            select_right = select.shape[0]
+        select_range = np.zeros_like(select)
+        select_range[select_left:select_right] = 1
+        select &= select_range
+#         n_hits_threshold = np.median(count[select]) * 0.1
+#         select &= (count > n_hits_threshold)
+    if np.count_nonzero(select) > 1:
+        y_rel_err = np.sum(count[select]) / count[select]
+        fit, cov = curve_fit(linear, xcenter[select], mean[select], sigma=y_rel_err, absolute_sigma=False)
+    else:
+        fit, cov = [np.nan, np.nan], [[np.nan, np.nan], [np.nan, np.nan]]
+    return fit, cov, select
 
 
 def hough_transform(img, theta_res=1.0, rho_res=1.0, return_edges=False):

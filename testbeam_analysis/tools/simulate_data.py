@@ -425,7 +425,6 @@ class SimulateData(object):
         self._n_duts = 6  # Std. settinng for the number of DUTs
         self.set_random_seed(self.random_seed)
         self.set_std_settings()
-        self._hit_files = None
 
     def create_data_and_store(self, base_file_name, n_events,
                               chunk_size=100000):

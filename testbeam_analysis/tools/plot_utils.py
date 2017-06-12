@@ -24,8 +24,18 @@ import testbeam_analysis.tools.analysis_utils
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")  # Plot backend error not important
 
 
+def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, output_pdf=None):
+    if not output_pdf:
+        return
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    plot_2d_pixel_hist(fig=fig, ax=ax, hist2d=hist2d, plot_range=plot_range, title=title, x_axis_title=x_axis_title, y_axis_title=y_axis_title, z_min=z_min, z_max=z_max)
+    output_pdf.savefig(fig)
+
+
 def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None):
-    extent = [0.5, plot_range[0] + .5, plot_range[1] + .5, 0.5]
+#     extent = [0.5, plot_range[0] + .5, plot_range[1] + .5, 0.5]
     if z_max is None:
         if hist2d.all() is np.ma.masked:  # check if masked array is fully masked
             z_max = 1
@@ -34,7 +44,7 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
     bounds = np.linspace(start=z_min, stop=z_max, num=255, endpoint=True)
     cmap = cm.get_cmap('viridis')
     cmap.set_bad('w')
-    im = ax.imshow(hist2d, interpolation='none', aspect="auto", extent=extent, cmap=cmap, clim=(0, z_max))
+    im = ax.imshow(hist2d, interpolation='none', aspect="auto", extent=plot_range, cmap=cmap, clim=(0, z_max))
     if title is not None:
         ax.set_title(title)
     if x_axis_title is not None:
@@ -975,7 +985,7 @@ def plot_track_chi2(chi2s, fit_dut, output_pdf=None):
         output_pdf.savefig(fig)
 
 
-def plot_residuals(histogram, edges, fit, fit_errors, x_label, title, output_pdf=None, gui=False, figs=None):
+def plot_residuals(histogram, edges, fit, cov, xlabel, title, output_pdf=None, gui=False, figs=None):
     if not output_pdf and not gui:
         return
 
@@ -990,16 +1000,18 @@ def plot_residuals(histogram, edges, fit, fit_errors, x_label, title, output_pdf
         ax.set_xlim(plot_range)
         ax.grid()
         ax.set_title(title)
-        ax.set_xlabel(x_label)
+        ax.set_xlabel(xlabel)
         ax.set_ylabel('#')
 
         if plot_log:
             ax.set_ylim(1, int(ceil(np.amax(histogram) / 10.0)) * 100)
 
-        ax.bar(x, histogram, log=plot_log, align='center')
+        # fixing bin width in plotting
+        width = (edges[1:] - edges[:-1])
+        ax.bar(x, histogram, width=width, log=plot_log, align='center')
         if np.any(fit):
             ax.plot([fit[1], fit[1]], [0, ax.get_ylim()[1]], color='red', label='Entries %d\nRMS %.1f um' % (histogram.sum(), testbeam_analysis.tools.analysis_utils.get_rms_from_histogram(histogram, x)))
-            gauss_fit_legend_entry = 'Gauss fit: \nA=$%.1f\pm %.1f$\nmu=$%.1f\pm %.1f$\nsigma=$%.1f\pm %.1f$' % (fit[0], np.absolute(fit_errors[0][0] ** 0.5), fit[1], np.absolute(fit_errors[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(fit_errors[2][2] ** 0.5))
+            gauss_fit_legend_entry = 'Gauss fit: \nA=$%.1f\pm %.1f$\nmu=$%.1f\pm %.1f$\nsigma=$%.1f\pm %.1f$' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5))
             x_gauss = np.arange(np.floor(np.min(edges)), np.ceil(np.max(edges)), step=0.1)
             ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, *fit), 'r--', label=gauss_fit_legend_entry, linewidth=2)
             ax.legend(loc=0)
@@ -1011,7 +1023,7 @@ def plot_residuals(histogram, edges, fit, fit_errors, x_label, title, output_pdf
             output_pdf.savefig(fig)
 
 
-def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, res_mean=None, res_mean_err=None, res_pos=None, selection=None, title=None, fit=None, cov=None, fit_limit=None, output_pdf=None, gui=False, figs=None):
+def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, res_mean=None, select=None, fit=None, cov=None, fit_limit=None, output_pdf=None, gui=False, figs=None):
     '''Plot the residuals as a function of the position.
     '''
     if not output_pdf and not gui:
@@ -1021,18 +1033,16 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, res_mean=No
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     ax.grid()
-    if title:
-        ax.set_title(title)
-    else:
-        ax.set_title("Residual vs. Position")
+    ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.imshow(np.ma.masked_equal(hist, 0).T, extent=[xedges[0], xedges[-1] , yedges[0], yedges[-1]], origin='low', aspect='auto', interpolation='none')
-    if res_mean is not None and res_pos is not None:
-        if selection is None:
-            selection = np.full_like(res_pos, True, dtype=np.bool)
-        ax.plot(res_pos[selection], res_mean[selection], linestyle='', color="blue", marker='o',  label='Mean residual')
-        ax.plot(res_pos[~selection], res_mean[~selection], linestyle='', color="darkblue", marker='o')
+    if res_mean is not None:
+        res_pos = (xedges[1:] + xedges[:-1]) / 2.0
+        if select is None:
+            select = np.full_like(res_pos, True, dtype=np.bool)
+        ax.plot(res_pos[select], res_mean[select], linestyle='', color="blue", marker='o',  label='Mean residual')
+        ax.plot(res_pos[~select], res_mean[~select], linestyle='', color="darkblue", marker='o')
     if fit is not None:
         x_lim = np.array(ax.get_xlim(), dtype=np.float)
         ax.plot(x_lim, testbeam_analysis.tools.analysis_utils.linear(x_lim, *fit), linestyle='-', color="darkorange", linewidth=2, label='Mean residual fit\n%.2e + %.2e x' % (fit[0], fit[1]))
@@ -1378,14 +1388,16 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
                 edges = node._v_attrs.edges * 1000  # conversion to mrad
                 mean = node._v_attrs.mean * 1000  # conversion to mrad
                 sigma = node._v_attrs.sigma * 1000  # conversion to mrad
-                amp = node._v_attrs.amp
+                amplitude = node._v_attrs.amplitude
                 bin_center = (edges[1:] + edges[:-1]) / 2.0
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                ax.bar(bin_center, track_angle_hist, label=('Angular Distribution for %s' % dut_name), width=(edges[0]-edges[-1])/len(edges), color='b', align='center')
+                # fixing bin width in plotting
+                width = (edges[1:] - edges[:-1])
+                ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if dut_name else ""), width=width, color='b', align='center')
                 x_gauss = np.arange(np.min(edges), np.max(edges), step=0.00001)
-                ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amp, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
+                ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amplitude, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
                 ax.set_ylabel('#')
                 if 'x' in node.name:
                     direction = "X"
@@ -1397,3 +1409,4 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
                 ax.grid()
                 ax.set_xlim(min(edges), max(edges))
                 output_pdf.savefig(fig)
+

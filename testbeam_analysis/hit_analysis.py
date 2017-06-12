@@ -243,10 +243,7 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
 
     # Define end of cluster function to
     # calculate the size in col/row for each cluster
-    def calc_cluster_dimensions(hits, clusters, cluster_size,
-                                cluster_hit_indices, cluster_index, cluster_id,
-                                charge_correction, noisy_pixels,
-                                disabled_pixels, seed_hit_index):
+    def end_of_cluster_function(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
         min_col = hits[cluster_hit_indices[0]].column
         max_col = hits[cluster_hit_indices[0]].column
         min_row = hits[cluster_hit_indices[0]].row
@@ -262,18 +259,45 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                 min_row = hits[i].row
             if hits[i].row > max_row:
                 max_row = hits[i].row
-        clusters[cluster_index].err_cols = max_col - min_col + 1
-        clusters[cluster_index].err_rows = max_row - min_row + 1
-    # Create clusterizer object with parameters
+        clusters[cluster_index].err_column = max_col - min_col + 1
+        clusters[cluster_index].err_row = max_row - min_row + 1
+
+    # Adding number of clusters
+    def end_of_event_function(hits, clusters, start_event_hit_index, stop_event_hit_index, start_event_cluster_index, stop_event_cluster_index):
+        for i in range(start_event_cluster_index, stop_event_cluster_index):
+            clusters[i]['n_cluster'] = hits["n_cluster"][start_event_hit_index]
+
+    hit_dtype = np.dtype([('event_number', '<i8'),
+                          ('frame', '<u1'),
+                          ('column', '<u2'),
+                          ('row', '<u2'),
+                          ('charge', '<u2'),  # TODO: change that
+                          ('cluster_ID', '<i4'),  # TODO: change that
+                          ('is_seed', '<u1'),
+                          ('cluster_size', '<u4'),
+                          ('n_cluster', '<u4')])
+
+    cluster_dtype = np.dtype([('event_number', '<i8'),
+                              ('ID', '<u4'),
+                              ('n_hits', '<u4'),
+                              ('charge', '<f4'),
+                              ('seed_column', '<u2'),
+                              ('seed_row', '<u2'),
+                              ('mean_column', '<f8'),
+                              ('mean_row', '<f8')])
+
     clz = HitClusterizer(column_cluster_distance=column_cluster_distance,
-                         row_cluster_distance=row_cluster_distance,
-                         frame_cluster_distance=frame_cluster_distance,
-                         min_hit_charge=min_hit_charge,
-                         max_hit_charge=max_hit_charge)
-    # Add an additional fields to hold the cluster size in x/y
-    clz.add_cluster_field(description=('err_cols', '<f4'))
-    clz.add_cluster_field(description=('err_rows', '<f4'))
-    clz.set_end_of_cluster_function(calc_cluster_dimensions)
+                                 row_cluster_distance=row_cluster_distance,
+                                 frame_cluster_distance=frame_cluster_distance,
+                                 min_hit_charge=min_hit_charge,
+                                 max_hit_charge=max_hit_charge,
+                                 hit_dtype=hit_dtype,
+                                 cluster_dtype=cluster_dtype)
+    clz.add_cluster_field(description=('err_column', '<f4'))  # Add an additional field to hold the cluster size in x
+    clz.add_cluster_field(description=('err_row', '<f4'))  # Add an additional field to hold the cluster size in y
+    clz.add_cluster_field(description=('n_cluster', '<u4'))  # Adding additional field for number of clusters per event
+    clz.set_end_of_cluster_function(end_of_cluster_function)  # Set the new function to the clusterizer
+    clz.set_end_of_event_function(end_of_event_function)
 
     # Run clusterizer on hit table in parallel on all cores
     def cluster_func(hits, clz, noisy_pixels, disabled_pixels):
@@ -327,22 +351,22 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
     def pos_error_func(clusters):
         # Check if end_of_cluster function was called
         # Under unknown and rare circumstances this might not be the case
-        if not np.any(clusters['err_cols']):
+        if not np.any(clusters['err_column']):
             raise RuntimeError('Clustering failed, please report bug at:'
                                'https://github.com/SiLab-Bonn/testbeam_analysis/issues')
         # Set errors for small clusters, where charge sharing enhances
         # resolution
         for css in [(1, 1), (1, 2), (2, 1), (2, 2)]:
-            sel = np.logical_and(clusters['err_cols'] == css[0],
-                                 clusters['err_rows'] == css[1])
-            clusters['err_cols'][sel] = get_eff_pitch(hist=hight,
+            sel = np.logical_and(clusters['err_column'] == css[0],
+                                 clusters['err_row'] == css[1])
+            clusters['err_column'][sel] = get_eff_pitch(hist=hight,
                                                       cluster_size=css[0]) / np.sqrt(12)
-            clusters['err_rows'][sel] = get_eff_pitch(hist=hight,
+            clusters['err_row'][sel] = get_eff_pitch(hist=hight,
                                                       cluster_size=css[1]) / np.sqrt(12)
         # Set errors for big clusters, where delta electrons reduce resolution
-        sel = np.logical_or(clusters['err_cols'] > 2, clusters['err_rows'] > 2)
-        clusters['err_cols'][sel] = clusters['err_cols'][sel] / np.sqrt(12)
-        clusters['err_rows'][sel] = clusters['err_rows'][sel] / np.sqrt(12)
+        sel = np.logical_or(clusters['err_column'] > 2, clusters['err_row'] > 2)
+        clusters['err_column'][sel] = clusters['err_column'][sel] / np.sqrt(12)
+        clusters['err_row'][sel] = clusters['err_row'][sel] / np.sqrt(12)
 
         return clusters
 

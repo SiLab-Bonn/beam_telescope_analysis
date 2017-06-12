@@ -115,7 +115,8 @@ def run_analysis(data_files):
                                dut_names=dut_names,
                                # This data has several tracks per event and
                                # noisy pixel, thus fit existing background
-                               fit_background=True,
+                               fit_background=False,
+                               reduce_background=True,
                                # Tries to find cuts automatically;
                                # deactivate to do this manualy
                                non_interactive=True)
@@ -127,166 +128,204 @@ def run_analysis(data_files):
                                      n_pixels=n_pixels,
                                      pixel_size=pixel_size)
 
-    # Apply the prealignment to the merged cluster table to create tracklets
-    dut_alignment.apply_alignment(
-        input_hit_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_hit_file=os.path.join(output_folder,
-                                     'Tracklets_prealigned.h5'),
-        force_prealignment=True)
+# #     # Apply the prealignment to the merged cluster table to create tracklets
+# #     dut_alignment.apply_alignment(
+# #         input_hit_file=os.path.join(output_folder, 'Merged.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_hit_file=os.path.join(output_folder,
+# #                                      'Tracklets_prealigned.h5'),
+# #         force_prealignment=True)
+# # 
+# #     # Find tracks from the prealigned tracklets and stores them with quality
+# #     # indicator into track candidates table
+# #     track_analysis.find_tracks(
+# #         input_tracklets_file=os.path.join(output_folder,
+# #                                           'Tracklets_prealigned.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_track_candidates_file=os.path.join(
+# #             output_folder, 'TrackCandidates_prealignment.h5')
+# #     )
+# # 
+# #     # The following two steps are for demonstration only.
+# #     # They show track fitting and residual calculation on
+# #     # prealigned hits. Usually you are not interested in this and will use
+# #     # the aligned hits directly.
+# # 
+# #     # Step 1.: Fit the track candidates and create new track table (using the
+# #     # prealignment!)
+# #     track_analysis.fit_tracks(
+# #         input_track_candidates_file=os.path.join(
+# #             output_folder, 'TrackCandidates_prealignment.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+# #         # To get unconstrained residuals do not use DUT
+# #         # hit for track fit
+# #         exclude_dut_hit=True,
+# #         # This is just for demonstration purpose, usually
+# #         # uses fully aligned hits
+# #         force_prealignment=True,
+# #         selection_track_quality=0)  # We will cut on chi2
+# # 
+# #     # Step 2.:  Calculate the residuals to check the alignment (using the
+# #     # prealignment!)
+# #     result_analysis.calculate_residuals(
+# #         input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_residuals_file=os.path.join(output_folder,
+# #                                            'Residuals_prealigned.h5'),
+# #         n_pixels=n_pixels,
+# #         pixel_size=pixel_size,
+# #         max_chi2=2000,
+# #         # This is just for demonstration purpose
+# #         # you usually use fully aligned hits
+# #         force_prealignment=True)
 
-    # Find tracks from the prealigned tracklets and stores them with quality
-    # indicator into track candidates table
-    track_analysis.find_tracks(
-        input_tracklets_file=os.path.join(output_folder,
-                                          'Tracklets_prealigned.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealignment.h5')
-    )
-
-    # The following two steps are for demonstration only.
-    # They show track fitting and residual calculation on
-    # prealigned hits. Usually you are not interested in this and will use
-    # the aligned hits directly.
-
-    # Step 1.: Fit the track candidates and create new track table (using the
-    # prealignment!)
-    track_analysis.fit_tracks(
-        input_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealignment.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
-        # To get unconstrained residuals do not use DUT
-        # hit for track fit
-        exclude_dut_hit=True,
-        # This is just for demonstration purpose, usually
-        # uses fully aligned hits
-        force_prealignment=True,
-        selection_track_quality=0)  # We will cut on chi2
-
-    # Step 2.:  Calculate the residuals to check the alignment (using the
-    # prealignment!)
-    result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder,
-                                           'Residuals_prealigned.h5'),
-        n_pixels=n_pixels,
-        pixel_size=pixel_size,
-        max_chi2=2000,
-        # This is just for demonstration purpose
-        # you usually use fully aligned hits
-        force_prealignment=True)
+#     track_analysis.find_tracks(
+#         input_tracklets_file=os.path.join(output_folder, 'Merged.h5'),
+#         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+#         output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_prealignment.h5'),
+#         use_prealignment=True)
 
     # Do an alignment step with the track candidates, corrects rotations and
     # is therefore much more precise than simple prealignment
     dut_alignment.alignment(
-        input_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealignment.h5'),
+        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+        align_duts=[0, 1, 2, 3, 4, 5],
+        align_telescope=[0, 5],
+        selection_fit_duts=[0, 1, 2, 3, 4, 5],
+        selection_hit_duts=[0, 1, 2, 3, 4, 5],
+        max_iterations=[5],
+        max_events=100000,
         n_pixels=n_pixels,
-        pixel_size=pixel_size)
+        pixel_size=pixel_size,
+        dut_names=dut_names,
+        use_fit_limits=True,
+        plot=True)
 
-    # Apply the alignment to the merged cluster table to create tracklets
-    dut_alignment.apply_alignment(
-        input_hit_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_hit_file=os.path.join(output_folder, 'Tracklets.h5')
-    )
+# #     # Apply the alignment to the merged cluster table to create tracklets
+# #     dut_alignment.apply_alignment(
+# #         input_hit_file=os.path.join(output_folder, 'Merged.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_hit_file=os.path.join(output_folder, 'Tracklets.h5')
+# #     )
 
     # Find tracks from the tracklets and stores the with quality indicator
     # into track candidates table
     track_analysis.find_tracks(
-        input_tracklets_file=os.path.join(output_folder, 'Tracklets.h5'),
+        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
         output_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates.h5')
-    )
+            output_folder, 'TrackCandidates_alignment.h5'),
+        use_prealignment=False,
+        correct_beam_alignment=True)
 
     # Example 1: use all DUTs in fit and cut on chi2
     track_analysis.fit_tracks(
         input_track_candidates_file=os.path.join(output_folder,
-                                                 'TrackCandidates.h5'),
+                                                 'TrackCandidates_alignment.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
         output_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
+        use_prealignment=False,
+        fit_duts=[0, 1, 2, 3, 4, 5],
+        selection_hit_duts=[0, 1, 2, 3, 4, 5],
+        selection_fit_duts=[0, 1, 2, 3, 4, 5],
+        quality_sigma=5.0,
         # To get unconstrained residuals do not use DUT
         # hit for track fit
         exclude_dut_hit=True,
         # We do not cut on track quality but on chi2 later
         selection_track_quality=0)
 
+    data_selection.select_tracks(input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
+                                 output_tracks_file=os.path.join(output_folder, 'Tracks_selected.h5'),
+    #                              max_events=10000,
+                                 select_duts=[0, 1, 2, 3, 4, 5],
+                                 duts_hit_selection=None,
+                                 duts_no_hit_selection=None,
+                                 duts_quality_selection=[[1, 2, 3, 4, 5],
+                                                         [0, 2, 3, 4, 5],
+                                                         [0, 1, 3, 4, 5],
+                                                         [0, 1, 2, 4, 5],
+                                                         [0, 1, 2, 3, 5],
+                                                         [0, 1, 2, 3, 4]],
+                                 duts_no_quality_selection=None,
+                                 condition=None)
+
     # Create unconstrained residuals with chi2 cut
     result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
+        input_tracks_file=os.path.join(output_folder, 'Tracks_selected.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
         output_residuals_file=os.path.join(output_folder, 'Residuals_all_chi2_cut.h5'),
+        use_fit_limits=True,
+        use_prealignment=False,
         # The chi2 cut has a large influence on
         # the residuals and number of tracks,
         # since the resolution is dominated by
         # multiple scattering
         max_chi2=500,
         n_pixels=n_pixels,
-        pixel_size=pixel_size)
-
-    # Create unconstrained residuals
-    result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_all.h5'),
-        n_pixels=n_pixels,
-        pixel_size=pixel_size)
-
-    # Example 2: Use only 2 DUTs next to the fit DUT and cut on track quality.
-    # Thus the track fit is just a track interpolation with chi2 = 0.
-    # This is better here due to heavily scatterd tracks, where a straight line
-    # assumption for all DUTs is wrong.
-    # This leads to symmetric residuals in x and y for all DUTs between 2 DUTs
-    # (= DUTs: 1, 2, 3, 4)
-    track_analysis.fit_tracks(
-        input_track_candidates_file=os.path.join(output_folder,
-                                                 'TrackCandidates.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_some.h5'),
-        selection_hit_duts=[[1, 2],  # Only select DUTs next to the DUT to fit
-                            [0, 2],
-                            [1, 3],
-                            [2, 4],
-                            [3, 5],
-                            [3, 4]],
-        selection_track_quality=1)  # We cut on track quality
-
-    # Create unconstrained residuals
-    result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_some.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_some.h5'),
-        n_pixels=n_pixels,
-        pixel_size=pixel_size)
-
-    # Example 3: Use a Kalman Filter to build tracks. This is the best way to build
-    # tracks in case of heavily scattered tracks.
-    track_analysis.fit_tracks(
-        input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_all_Kalman.h5'),
-        exclude_dut_hit=True,
         pixel_size=pixel_size,
-        n_pixels=n_pixels,
-        beam_energy=5000.,
-        material_budget=[100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390.],
-        selection_track_quality=0,
-        method='Kalman')
+        dut_names=dut_names)
 
-    # Create unconstrained residuals
-    result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_all_Kalman.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_all_Kalman.h5'),
-        n_pixels=n_pixels,
-        pixel_size=pixel_size,
-        npixels_per_bin=10,
-        nbins_per_pixel=50)
+# #     # Create unconstrained residuals
+# #     result_analysis.calculate_residuals(
+# #         input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_residuals_file=os.path.join(output_folder, 'Residuals_all.h5'),
+# #         n_pixels=n_pixels,
+# #         pixel_size=pixel_size)
+# # 
+# #     # Example 2: Use only 2 DUTs next to the fit DUT and cut on track quality.
+# #     # Thus the track fit is just a track interpolation with chi2 = 0.
+# #     # This is better here due to heavily scatterd tracks, where a straight line
+# #     # assumption for all DUTs is wrong.
+# #     # This leads to symmetric residuals in x and y for all DUTs between 2 DUTs
+# #     # (= DUTs: 1, 2, 3, 4)
+# #     track_analysis.fit_tracks(
+# #         input_track_candidates_file=os.path.join(output_folder,
+# #                                                  'TrackCandidates.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_tracks_file=os.path.join(output_folder, 'Tracks_some.h5'),
+# #         selection_hit_duts=[[1, 2],  # Only select DUTs next to the DUT to fit
+# #                             [0, 2],
+# #                             [1, 3],
+# #                             [2, 4],
+# #                             [3, 5],
+# #                             [3, 4]],
+# #         selection_track_quality=1)  # We cut on track quality
+# # 
+# #     # Create unconstrained residuals
+# #     result_analysis.calculate_residuals(
+# #         input_tracks_file=os.path.join(output_folder, 'Tracks_some.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_residuals_file=os.path.join(output_folder, 'Residuals_some.h5'),
+# #         n_pixels=n_pixels,
+# #         pixel_size=pixel_size)
+# # 
+# #     # Example 3: Use a Kalman Filter to build tracks. This is the best way to build
+# #     # tracks in case of heavily scattered tracks.
+# #     track_analysis.fit_tracks(
+# #         input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_tracks_file=os.path.join(output_folder, 'Tracks_all_Kalman.h5'),
+# #         exclude_dut_hit=True,
+# #         pixel_size=pixel_size,
+# #         n_pixels=n_pixels,
+# #         beam_energy=5000.,
+# #         material_budget=[100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390.],
+# #         selection_track_quality=0,
+# #         method='Kalman')
+# # 
+# #     # Create unconstrained residuals
+# #     result_analysis.calculate_residuals(
+# #         input_tracks_file=os.path.join(output_folder, 'Tracks_all_Kalman.h5'),
+# #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+# #         output_residuals_file=os.path.join(output_folder, 'Residuals_all_Kalman.h5'),
+# #         n_pixels=n_pixels,
+# #         pixel_size=pixel_size,
+# #         npixels_per_bin=10,
+# #         nbins_per_pixel=50)
 
 
 # Main entry point is needed for multiprocessing under windows
