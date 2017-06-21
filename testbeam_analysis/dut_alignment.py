@@ -801,7 +801,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
     logging.debug('File with realigned hits %s', output_hit_file)
 
 # TODO: selection_track_quality to selection_track_quality_sigma
-def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, use_prealignment=True, align_duts=None, align_telescope=None, selection_fit_duts=None, selection_hit_duts=None, selection_track_quality=1, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
+def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, use_prealignment=True, align_duts=None, align_telescope=None, selection_fit_duts=None, selection_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -845,7 +845,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
         does not have to be used in the fit itself! This is useful for time reference planes.
         E.g.  To use telescope planes (first and last 3 planes) + time reference plane (3)
         selection_hit_duts = [0, 1, 2, 4, 5, 6, 7]
-    selection_track_quality : uint or iterable or iterable of iterable
+    quality_sigma : float
         Track quality for each hit DUT.
     initial_rotation : array
         Initial rotation array. If None, deduce the rotation from pre-alignment.
@@ -991,26 +991,32 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
         if set(fit_dut) - set(selection_hit_duts[index]):  # fit DUTs are required to have a hit
             raise ValueError("DUT in selection_fit_duts is not in selection_hit_duts")
 
-    # Create track, hit selection
-    if not isinstance(selection_track_quality, Iterable):  # all items the same, special case for selection_track_quality
-        selection_track_quality = [[selection_track_quality] * len(hit_duts) for hit_duts in selection_hit_duts]  # every hit DUTs require a track quality value
-    # Check iterable and length
-    if not isinstance(selection_track_quality, Iterable):
-        raise ValueError("selection_track_quality is no iterable")
-    elif not selection_track_quality:  # empty iterable
-        raise ValueError("selection_track_quality has no items")
-    # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-        selection_track_quality = [selection_track_quality for _ in align_duts]
-    # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
-        raise ValueError("not all items in selection_track_quality are iterable")
+#     # Create track, hit selection
+#     if not isinstance(selection_track_quality, Iterable):  # all items the same, special case for selection_track_quality
+#         selection_track_quality = [[selection_track_quality] * len(hit_duts) for hit_duts in selection_hit_duts]  # every hit DUTs require a track quality value
+#     # Check iterable and length
+#     if not isinstance(selection_track_quality, Iterable):
+#         raise ValueError("selection_track_quality is no iterable")
+#     elif not selection_track_quality:  # empty iterable
+#         raise ValueError("selection_track_quality has no items")
+#     # Check if only non-iterable in iterable
+#     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
+#         selection_track_quality = [selection_track_quality for _ in align_duts]
+#     # Check if only iterable in iterable
+#     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
+#         raise ValueError("not all items in selection_track_quality are iterable")
+#     # Finally check length of all arrays
+#     if len(selection_track_quality) != len(align_duts):  # empty iterable
+#         raise ValueError("selection_track_quality has the wrong length")
+#     for index, track_quality in enumerate(selection_track_quality):
+#         if len(track_quality) != len(selection_hit_duts[index]):  # check the length of each items
+#             raise ValueError("item in selection_track_quality and selection_hit_duts does not have the same length")
+
+    if not isinstance(quality_sigma, Iterable):
+        quality_sigma = [quality_sigma] * len(align_duts)
     # Finally check length of all arrays
-    if len(selection_track_quality) != len(align_duts):  # empty iterable
-        raise ValueError("selection_track_quality has the wrong length")
-    for index, track_quality in enumerate(selection_track_quality):
-        if len(track_quality) != len(selection_hit_duts[index]):  # check the length of each items
-            raise ValueError("item in selection_track_quality and selection_hit_duts does not have the same length")
+    if len(quality_sigma) != len(align_duts):  # empty iterable
+        raise ValueError("quality_sigma has the wrong length")
 
     if not isinstance(max_iterations, Iterable):
         max_iterations = [max_iterations] * len(align_duts)
@@ -1036,7 +1042,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             align_telescope=align_telescope,
             selection_fit_duts=selection_fit_duts[index],
             selection_hit_duts=selection_hit_duts[index],
-            selection_track_quality=selection_track_quality[index],
+            quality_sigma=quality_sigma[index],
             alignment_order=alignment_order,
             dut_names=dut_names,
             n_pixels=n_pixels,
@@ -1049,7 +1055,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             chunk_size=chunk_size)
 
 
-def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, selection_fit_duts, selection_hit_duts, selection_track_quality, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_prealignment, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, selection_fit_duts, selection_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_prealignment, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
 
@@ -1112,7 +1118,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                        exclude_dut_hit=False,  # For constrained residuals
                        use_prealignment=False,
                        chunk_size=chunk_size,
-                       quality_sigma=5.0)
+                       quality_sigma=quality_sigma)
 
             logging.info('= Alignment step 2 / iteration %d: Selecting tracks for DUTs %s =', iteration_step, alignment_duts_str)
             data_selection.select_tracks(input_tracks_file=output_tracks_file,
@@ -1204,7 +1210,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                    selection_hit_duts=selection_hit_duts,
                    exclude_dut_hit=False,  # For unconstrained residuals
                    use_prealignment=False,
-                   chunk_size=chunk_size)
+                   chunk_size=chunk_size,
+                   quality_sigma=quality_sigma)
 
         data_selection.select_tracks(input_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
                                      output_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_selected_tracks_tmp_duts_%s.h5' % alignment_duts,

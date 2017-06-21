@@ -124,7 +124,7 @@ def select_hits(hit_file, max_hits=None, condition=None,
     condition : string
         A condition that is applied to the hits in numexpr. Only if the
         expression evaluates to True the hit is taken.
-        E.g.: condition = 'track_quality == 2 & event_number < 1000'
+        E.g.: condition = '(track_quality == 2) & (event_number < 1000)'
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
@@ -284,7 +284,7 @@ def select_tracks(input_tracks_file, select_duts, output_tracks_file=None, condi
         condition = ['' for _ in select_duts]
     # Check if iterable
     if isinstance(condition, str):
-        condition = [condition] * select_duts
+        condition = [condition] * len(select_duts)
     # Check if only strings in iterable
     if not all(map(lambda val: isinstance(val, str), condition)):
         raise ValueError("not all items in condition are strings")

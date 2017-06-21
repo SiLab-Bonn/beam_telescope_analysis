@@ -19,7 +19,7 @@ from testbeam_analysis import hit_analysis
 from testbeam_analysis import dut_alignment
 from testbeam_analysis import track_analysis
 from testbeam_analysis import result_analysis
-from testbeam_analysis.tools import plot_utils, analysis_utils
+from testbeam_analysis.tools import plot_utils, data_selection, analysis_utils
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
@@ -39,9 +39,19 @@ def run_analysis(data_files):
     # The following shows a complete test beam analysis by calling the seperate
     # function in correct order
 
+    # Generate noisy pixel mask for all DUTs
+    for i, data_file in enumerate(data_files):
+        hit_analysis.generate_pixel_mask(input_hits_file=data_file,
+                                         n_pixel=n_pixels[i],
+                                         pixel_mask_name='NoisyPixelMask',
+                                         pixel_size=pixel_size[i],
+                                         threshold=7.5,
+                                         dut_name=dut_names[i])
+
     # Cluster hits from all DUTs
     for i, data_file in enumerate(data_files):
         hit_analysis.cluster_hits(input_hits_file=data_file,
+                                  input_noisy_pixel_mask_file=os.path.splitext(data_file)[0] + '_noisy_pixel_mask.h5',
                                   min_hit_charge=0,
                                   max_hit_charge=13,
                                   column_cluster_distance=1,
@@ -58,8 +68,17 @@ def run_analysis(data_files):
                                     output_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
                                     n_pixels=n_pixels,
                                     pixel_size=pixel_size,
-                                    dut_names=dut_names
-                                    )
+                                    dut_names=dut_names)
+
+    # Create prealignment data for the DUT positions to the first DUT from the correlations
+    dut_alignment.prealignment(input_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
+                               output_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                               z_positions=z_positions,
+                               pixel_size=pixel_size,
+                               fit_background=False,
+                               reduce_background=True,
+                               dut_names=dut_names,
+                               non_interactive=True)  # Tries to find cuts automatically; deactivate to do this manualy
 
     # Correct all DUT hits via alignment information and merge the cluster tables to one tracklets table aligned at the event number
     dut_alignment.merge_cluster_data(input_cluster_files=input_cluster_files,
@@ -67,52 +86,72 @@ def run_analysis(data_files):
                                      output_merged_file=os.path.join(output_folder, 'Merged.h5'),
                                      pixel_size=pixel_size)
 
-    # Create prealignment data for the DUT positions to the first DUT from the correlations
-    dut_alignment.prealignment(input_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
-                               output_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-                               z_positions=z_positions,
-                               pixel_size=pixel_size,
-                               s_n=0.1,
-                               fit_background=False,
-                               reduce_background=False,
-                               dut_names=dut_names,
-                               non_interactive=True)  # Tries to find cuts automatically; deactivate to do this manualy
-
-    dut_alignment.apply_alignment(input_hit_file=os.path.join(output_folder, 'Merged.h5'),
-                                  input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-                                  output_hit_file=os.path.join(output_folder, 'Tracklets_prealigned.h5'),
-                                  force_prealignment=True)  # If there is already an alignment info in the alignment file this has to be set)
+    dut_alignment.alignment(
+        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+        align_duts=[0, 1, 2, 3],
+        align_telescope=[0, 3],
+        selection_fit_duts=[0, 1, 2, 3],
+        selection_hit_duts=[0, 1, 2, 3],
+        max_iterations=[5],
+        max_events=100000,
+        n_pixels=n_pixels,
+        pixel_size=pixel_size,
+        dut_names=dut_names,
+        use_fit_limits=True,
+        plot=True,
+        quality_sigma=2.0)
 
     # Find tracks from the tracklets and stores the with quality indicator into track candidates table
-    track_analysis.find_tracks(input_tracklets_file=os.path.join(output_folder, 'Tracklets_prealigned.h5'),
+    track_analysis.find_tracks(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
                                input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-                               output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_prealigned.h5'))  # If there is already an alignment info in the alignment file this has to be set
+                               output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+                               correct_beam_alignment=True,
+                               use_prealignment=False)  # If there is already an alignment info in the alignment file this has to be set
 
     # Fit the track candidates and create new track table
-    track_analysis.fit_tracks(input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_prealigned.h5'),
+    track_analysis.fit_tracks(input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-                              output_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+                              output_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
                               fit_duts=[0, 1, 2, 3],
-                              selection_track_quality=1,
-                              force_prealignment=True)
+                              selection_hit_duts=[0, 1, 2, 3],
+                              selection_fit_duts=[0, 1, 2, 3],
+                              exclude_dut_hit=True,
+                              quality_sigma=2.0,
+                              use_prealignment=False)
+
+    data_selection.select_tracks(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
+                                 output_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
+                                 select_duts=[0, 1, 2, 3],
+                                 duts_hit_selection=None,
+                                 duts_no_hit_selection=None,
+                                 duts_quality_selection=[[1, 2, 3],
+                                                         [0, 2, 3],
+                                                         [0, 1, 3],
+                                                         [0, 1, 2]],
+                                 duts_no_quality_selection=None,
+                                 condition=['(n_cluster_dut_1 == 1) & (n_cluster_dut_2 == 1) & (n_cluster_dut_3 == 1)',
+                                            '(n_cluster_dut_0 == 1) & (n_cluster_dut_2 == 1) & (n_cluster_dut_3 == 1)',
+                                            '(n_cluster_dut_0 == 1) & (n_cluster_dut_1 == 1) & (n_cluster_dut_3 == 1)',
+                                            '(n_cluster_dut_0 == 1) & (n_cluster_dut_1 == 1) & (n_cluster_dut_2 == 1)'])
 
     # Optional: plot some tracks (or track candidates) of a selected event range
-    plot_utils.plot_events(input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+    plot_utils.plot_events(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                            output_pdf_file=os.path.join(output_folder, 'Event.pdf'),
                            event_range=(0, 40),
                            dut=1)
 
     # Calculate the unconstrained residuals to check the alignment
-    result_analysis.calculate_residuals(input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+    result_analysis.calculate_residuals(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                                         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-                                        output_residuals_file=os.path.join(output_folder, 'Residuals_prealigned.h5'),
+                                        output_residuals_file=os.path.join(output_folder, 'Residuals_aligned.h5'),
                                         n_pixels=n_pixels,
                                         pixel_size=pixel_size,
-                                        force_prealignment=True)
+                                        use_prealignment=False)
 
     # Calculate the efficiency and mean hit/track hit distance
     # When needed, set included column and row range for each DUT as list of tuples
-    result_analysis.calculate_efficiency(input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
+    result_analysis.calculate_efficiency(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                                          input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                                          output_efficiency_file=os.path.join(output_folder, 'Efficiency.h5'),
                                          bin_size=[(250, 50)],
@@ -120,12 +159,11 @@ def run_analysis(data_files):
                                          minimum_track_density=2,
                                          use_duts=None,
                                          cut_distance=500,
-                                         max_distance=500,
                                          col_range=None,
                                          row_range=None,
                                          pixel_size=pixel_size,
                                          n_pixels=n_pixels,
-                                         force_prealignment=True)
+                                         use_prealignment=False)
 
 
 if __name__ == '__main__':  # Main entry point is needed for multiprocessing under windows
