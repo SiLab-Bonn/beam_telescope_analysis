@@ -94,7 +94,7 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                 actual_dut = int(re.findall(r'\d+', node.name)[-1])
                 if use_duts and actual_dut not in use_duts:
                     continue
-                logging.debug('Calculate residuals for DUT%d', actual_dut)
+                logging.info('Calculating residuals for DUT%d', actual_dut)
 
                 if use_fit_limits:
                     fit_limit_x_local, fit_limit_y_local = fit_limits[actual_dut][0], fit_limits[actual_dut][1]
@@ -171,17 +171,24 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                     if not np.allclose(hit_z_local, 0.0) or not np.allclose(intersection_z_local, 0.0):
                         raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
+                    difference = np.column_stack((hit_x, hit_y)) - np.column_stack((intersection_x, intersection_y))
+                    difference_local = np.column_stack((hit_x_local, hit_y_local)) - np.column_stack((intersection_x_local, intersection_y_local))
+
                     limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                         limit_x_local_sel &= hit_x_local >= fit_limit_x_local[0]
+                        limit_x_local_sel &= intersection_x_local >= fit_limit_x_local[0]
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                         limit_x_local_sel &= hit_x_local <= fit_limit_x_local[1]
+                        limit_x_local_sel &= intersection_x_local <= fit_limit_x_local[1]
 
                     limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                         limit_y_local_sel &= hit_y_local >= fit_limit_y_local[0]
+                        limit_y_local_sel &= intersection_y_local >= fit_limit_y_local[0]
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
                         limit_y_local_sel &= hit_y_local <= fit_limit_y_local[1]
+                        limit_y_local_sel &= intersection_y_local <= fit_limit_y_local[1]
 
                     limit_xy_local_sel = np.logical_and(limit_x_local_sel, limit_y_local_sel)
 
@@ -200,8 +207,6 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                     intersection_x_local_limit_xy = intersection_x_local[limit_xy_local_sel]
                     intersection_y_local_limit_xy = intersection_y_local[limit_xy_local_sel]
 
-                    difference = np.column_stack((hit_x, hit_y)) - np.column_stack((intersection_x, intersection_y))
-                    difference_local = np.column_stack((hit_x_local, hit_y_local)) - np.column_stack((intersection_x_local, intersection_y_local))
                     difference_local_limit_x = np.column_stack((hit_x_local_limit_x, hit_y_local_limit_x)) - np.column_stack((intersection_x_local_limit_x, intersection_y_local_limit_x))
                     difference_local_limit_y = np.column_stack((hit_x_local_limit_y, hit_y_local_limit_y)) - np.column_stack((intersection_x_local_limit_y, intersection_y_local_limit_y))
                     difference_local_limit_xy = np.column_stack((hit_x_local_limit_xy, hit_y_local_limit_xy)) - np.column_stack((intersection_x_local_limit_xy, intersection_y_local_limit_xy))
@@ -437,6 +442,10 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                         stat_2d_res_hist = np.nan_to_num(stat_2d_res_hist)
                         count_2d_res_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance, statistic='count', bins=hist_2d_edges)
 
+                        # 2D hits
+                        count_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)
+
+
                     else:  # adding data to existing histograms
                         x_res_hist += np.histogram(difference[:, 0], bins=x_res_hist_edges)[0]
                         y_res_hist += np.histogram(difference[:, 1], bins=y_res_hist_edges)[0]
@@ -524,10 +533,14 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                         count_col_res_row_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='count', bins=row_pos_hist_edges)
                         stat_col_res_row_pos_hist, count_col_res_row_pos_hist = np.ma.average(a=np.stack([stat_col_res_row_pos_hist, stat_col_res_row_pos_tmp]), axis=0, weights=np.stack([count_col_res_row_pos_hist, count_col_res_row_pos_hist_tmp]), returned=True)
 
+                        # 2D residuals
                         stat_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance, statistic='mean', bins=hist_2d_edges)
                         stat_2d_res_hist_tmp = np.nan_to_num(stat_2d_res_hist_tmp)
                         count_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance, statistic='count', bins=hist_2d_edges)
                         stat_2d_res_hist, count_2d_res_hist = np.ma.average(a=np.stack([stat_2d_res_hist, stat_2d_res_hist_tmp]), axis=0, weights=np.stack([count_2d_res_hist, count_2d_res_hist_tmp]), returned=True)
+
+                        # 2D hits
+                        count_2d_hist += stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
 
                 logging.debug('Storing residual histograms...')
 
@@ -744,6 +757,18 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                 plot_utils.plot_2d_map(hist2d=stat_2d_res_hist.T,
                                        plot_range=[-dut_x_size / 2.0, dut_x_size / 2.0, dut_y_size / 2.0, -dut_y_size / 2.0],
                                        title='2D average residuals for %s' % (dut_name,),
+                                       x_axis_title='Column position [um]',
+                                       y_axis_title='Row position [um]',
+                                       z_min=0,
+                                       z_max=z_max,
+                                       output_pdf=output_pdf)
+
+                # 2D hits plot
+                z_max = count_2d_hist.max()
+                count_2d_hist = np.ma.masked_equal(count_2d_hist, 0)
+                plot_utils.plot_2d_map(hist2d=count_2d_hist.T,
+                                       plot_range=[-dut_x_size / 2.0, dut_x_size / 2.0, dut_y_size / 2.0, -dut_y_size / 2.0],
+                                       title='2D occupancy for %s' % (dut_name,),
                                        x_axis_title='Column position [um]',
                                        y_axis_title='Row position [um]',
                                        z_min=0,
