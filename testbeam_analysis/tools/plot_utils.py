@@ -1374,7 +1374,7 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
     '''
     logging.info('Plotting track angle histogram')
     if output_pdf_file is None:
-        output_pdf_file = os.path.splitext(input_track_angle_file)[0] + '_track_angle.pdf'
+        output_pdf_file = os.path.splitext(input_track_angle_file)[0] + '.pdf'
 
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_track_angle_file, mode="r") as in_file_h5:

@@ -246,11 +246,11 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                                 center_y, fwhm_y = 0.0, pixel_size[actual_dut][1] * plot_n_pixels
 
                         if nbins_per_pixel is not None:
-                            min_difference, max_difference = np.min(difference_local[:, 0]), np.max(difference_local[:, 0])
+                            min_difference, max_difference = np.min(difference_local_limit_xy[:, 0]), np.max(difference_local_limit_xy[:, 0])
                             nbins = np.arange(min_difference - (pixel_size[actual_dut][0] / nbins_per_pixel), max_difference + 2 * (pixel_size[actual_dut][0] / nbins_per_pixel), pixel_size[actual_dut][0] / nbins_per_pixel)
                         else:
                             nbins = "auto"
-                        hist, edges = np.histogram(difference_local[:, 0], bins=nbins)
+                        hist, edges = np.histogram(difference_local_limit_xy[:, 0], bins=nbins)
                         edge_center = (edges[1:] + edges[:-1]) / 2.0
                         try:
                             _, center_col, fwhm_col, _ = analysis_utils.peak_detect(edge_center, hist)
@@ -262,11 +262,11 @@ def calculate_residuals(input_tracks_file, input_alignment_file, n_pixels, pixel
                                 center_col, fwhm_col = 0.0, pixel_size[actual_dut][0] * plot_n_pixels
 
                         if nbins_per_pixel is not None:
-                            min_difference, max_difference = np.min(difference_local[:, 1]), np.max(difference_local[:, 1])
+                            min_difference, max_difference = np.min(difference_local_limit_xy[:, 1]), np.max(difference_local_limit_xy[:, 1])
                             nbins = np.arange(min_difference - (pixel_size[actual_dut][1] / nbins_per_pixel), max_difference + 2 * (pixel_size[actual_dut][1] / nbins_per_pixel), pixel_size[actual_dut][1] / nbins_per_pixel)
                         else:
                             nbins = "auto"
-                        hist, edges = np.histogram(difference_local[:, 1], bins=nbins)
+                        hist, edges = np.histogram(difference_local_limit_xy[:, 1], bins=nbins)
                         edge_center = (edges[1:] + edges[:-1]) / 2.0
                         try:
                             _, center_row, fwhm_row, _ = analysis_utils.peak_detect(edge_center, hist)
