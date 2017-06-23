@@ -48,7 +48,8 @@ import logging
 
 from testbeam_analysis import (hit_analysis, dut_alignment, track_analysis,
                                result_analysis)
-from testbeam_analysis.tools import analysis_utils
+from testbeam_analysis.tools import analysis_utils, data_selection
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
@@ -163,7 +164,7 @@ def run_analysis(data_files):
         use_prealignment=False)
 
     data_selection.select_tracks(input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
-                                 output_tracks_file=os.path.join(output_folder, 'Tracks_selected.h5'),
+                                 output_tracks_file=os.path.join(output_folder, 'Tracks_selected_chi2.h5'),
                                  select_duts=[0, 1, 2, 3, 4, 5],
                                  duts_hit_selection=None,
                                  duts_no_hit_selection=None,
@@ -174,20 +175,19 @@ def run_analysis(data_files):
                                                          [0, 1, 2, 3, 5],
                                                          [0, 1, 2, 3, 4]],
                                  duts_no_quality_selection=None,
-                                 condition=None)
+                                 # The chi2 cut has a large influence on
+                                 # the residuals and number of tracks,
+                                 # since the resolution is dominated by
+                                 # multiple scattering
+                                 condition='track_chi2 < 500')
 
     # Create unconstrained residuals with chi2 cut
     result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_selected.h5'),
+        input_tracks_file=os.path.join(output_folder, 'Tracks_selected_chi2.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_all_chi2_cut.h5'),
+        output_residuals_file=os.path.join(output_folder, 'Residuals_selected_chi2.h5'),
         select_duts=[0, 1, 2, 3, 4, 5],
         use_fit_limits=True,
-        # The chi2 cut has a large influence on
-        # the residuals and number of tracks,
-        # since the resolution is dominated by
-        # multiple scattering
-        max_chi2=500,
         n_pixels=n_pixels,
         pixel_size=pixel_size,
         dut_names=dut_names,

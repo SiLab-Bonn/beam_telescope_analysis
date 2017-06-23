@@ -834,8 +834,8 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
         The combination of duts that are algined at once. One should always align the high resolution planes first.
         E.g. for a telesope (first and last 3 planes) with 2 devices in the center (3, 4):
         align_duts=[[0, 1, 2, 5, 6, 7],  # align the telescope planes first
-        [4],  # Align first DUT
-        [3]],  # Align second DUT
+                    [4],  # align first DUT
+                    [3]]  # align second DUT
     align_telescope : iterable
         The telescope will be aligned to the given DUTs. The translation in x and y of these DUTs will not be changed.
         Usually the two outermost telescope DUTs are selected.
@@ -933,10 +933,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             raise ValueError("item in align_duts has length 0")
 
     # Check if some DUTs will not be aligned
-    all_align_duts = []
-    for duts in align_duts:
-        all_align_duts.extend(duts)
-    no_align_duts = set(range(n_duts)) - set(all_align_duts)
+    no_align_duts = set(range(n_duts)) - set(np.unique(np.hstack(np.array(align_duts))).tolist())
     if no_align_duts:
         logging.warning('These DUTs will not be aligned: %s', ", ".join(str(align_dut) for align_dut in no_align_duts))
 
@@ -945,7 +942,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
     if new_alignment:
         geometry_utils.save_alignment_parameters(alignment_file=input_alignment_file,
                                                  alignment_parameters=alignment_parameters,
-                                                 select_duts=np.unique(np.hstack(np.array(align_duts))),
+                                                 select_duts=np.unique(np.hstack(np.array(align_duts))).tolist(),
                                                  mode='absolute')
     else:
         pass  # do nothing here, keep existing configuration
