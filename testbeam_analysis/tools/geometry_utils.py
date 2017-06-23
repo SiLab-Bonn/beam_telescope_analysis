@@ -870,7 +870,7 @@ def save_beam_alignment_parameters(alignment_file, beam_alignment):
         except tb.NodeError:
             pass
         else:
-            logging.info('Overwrite existing beam-alignment.')
+            logging.info('Overwrite existing beam-alignment')
             out_file_h5.root.BeamAlignment._f_remove()
         finally:
             alignment_table = out_file_h5.create_table(out_file_h5.root, name='BeamAlignment',

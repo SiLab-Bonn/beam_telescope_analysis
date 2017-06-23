@@ -382,7 +382,7 @@ def get_data_in_event_range(array, event_start=None, event_stop=None, assume_sor
         return array[ne.evaluate('event_number >= event_start & event_number < event_stop')]
 
 
-def data_aligned_at_events(table, start_event_number=None, stop_event_number=None, start_index=None, stop_index=None, chunk_size=10000000, try_speedup=False, first_event_aligned=True, fail_on_missing_events=True):
+def data_aligned_at_events(table, start_event_number=None, stop_event_number=None, start_index=None, stop_index=None, chunk_size=1000000, try_speedup=False, first_event_aligned=True, fail_on_missing_events=True):
     '''Takes the table with a event_number column and returns chunks with the size up to chunk_size. The chunks are chosen in a way that the events are not splitted.
     Additional parameters can be set to increase the readout speed. Events between a certain range can be selected.
     Also the start and the stop indices limiting the table size can be specified to improve performance.

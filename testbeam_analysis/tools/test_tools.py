@@ -344,10 +344,15 @@ def create_fixture(function, **kwargs):
 
     # Store function return values in compressed pytable array
     data = np.array(data)
-    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'w') as out_file:
-        data_array = out_file.create_carray(out_file.root, name='Data',
-                                            title='%s return values' % function.__name__, atom=tb.Atom.from_dtype(data.dtype),
-                                            shape=data.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'w') as out_file_h5:
+        data_array = out_file_h5.create_carray(out_file_h5.root,
+                                               name='Data',
+                                               title='%s return values' % function.__name__,
+                                               atom=tb.Atom.from_dtype(data.dtype),
+                                               shape=data.shape,
+                                               filters=tb.Filters(complib='blosc',
+                                                                  complevel=5,
+                                                                  fletcher32=False))
         data_array[:] = data
 
 
@@ -358,8 +363,8 @@ def check_with_fixture(function, **kwargs):
     function calls.
     '''
 
-    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'r') as in_file:
-        data_fixture = in_file.root.Data[:]
+    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'r') as in_file_h5:
+        data_fixture = in_file_h5.root.Data[:]
 
     data = _call_function_with_args(function, **kwargs)
 

@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(leve
 
 def run_analysis(data_files):
     # Dimensions
-    pixel_size = [(250, 50)] * 4  # in um
+    pixel_size = [(250.0, 50.0)] * 4  # in um
     n_pixels = [(80, 336)] * 4
     z_positions = [0., 19500, 108800, 128300]  # in um
     dut_names = ("Tel_0", "Tel_1", "Tel_2", "Tel_3")
@@ -145,19 +145,29 @@ def run_analysis(data_files):
     result_analysis.calculate_residuals(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                                         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                                         output_residuals_file=os.path.join(output_folder, 'Residuals_aligned.h5'),
+                                        select_duts=[0, 1, 2, 3],
                                         n_pixels=n_pixels,
                                         pixel_size=pixel_size,
                                         use_prealignment=False)
+
+    result_analysis.histogram_track_angle(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
+                                          output_track_angle_file=None,
+                                          input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                                          select_duts=[0, 1, 2, 3],
+                                          n_bins=200,
+                                          dut_names=dut_names,
+                                          plot=True,
+                                          chunk_size=499999)
 
     # Calculate the efficiency and mean hit/track hit distance
     # When needed, set included column and row range for each DUT as list of tuples
     result_analysis.calculate_efficiency(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                                          input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                                          output_efficiency_file=os.path.join(output_folder, 'Efficiency.h5'),
+                                         select_duts=[0, 1, 2, 3],
                                          bin_size=[(250, 50)],
                                          sensor_size=[(250. * 80, 50. * 336)],
                                          minimum_track_density=2,
-                                         use_duts=None,
                                          cut_distance=500,
                                          col_range=None,
                                          row_range=None,

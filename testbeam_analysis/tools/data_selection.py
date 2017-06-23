@@ -37,7 +37,7 @@ def combine_hit_files(input_hit_files, output_hit_file=None, event_number_offset
 
     last_event_number = 0
     used_event_number_offsets = []
-    with tb.open_file(output_hit_file, mode="w") as out_file:
+    with tb.open_file(output_hit_file, mode="w") as out_file_h5:
         hits_out = None
         for index, hit_file in enumerate(input_hit_files):
             if event_number_offsets and event_number_offsets[index] is not None:
@@ -52,13 +52,13 @@ def combine_hit_files(input_hit_files, output_hit_file=None, event_number_offset
                         in_file_h5.root.Hits, chunk_size=chunk_size):
                     hits[:]['event_number'] += event_number_offset
                     if hits_out is None:
-                        hits_out = out_file.create_table(where=out_file.root,
-                                                         name='Hits',
-                                                         description=in_file_h5.root.Hits.dtype,
-                                                         title=in_file_h5.root.Hits.title,
-                                                         filters=tb.Filters(complib='blosc',
-                                                                            complevel=5,
-                                                                            fletcher32=False))
+                        hits_out = out_file_h5.create_table(where=out_file_h5.root,
+                                                            name='Hits',
+                                                            description=in_file_h5.root.Hits.dtype,
+                                                            title=in_file_h5.root.Hits.title,
+                                                            filters=tb.Filters(complib='blosc',
+                                                                               complevel=5,
+                                                                               fletcher32=False))
                     hits_out.append(hits)
                     hits_out.flush()
                 last_event_number = hits[-1]['event_number']
@@ -84,9 +84,9 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
     if not output_file:
         output_file = os.path.splitext(input_file)[0] + '_reduced.h5'
 
-    with tb.open_file(input_file, mode='r') as in_file:
-        with tb.open_file(output_file, mode="w") as out_file:
-            for node in in_file.root:
+    with tb.open_file(input_file, mode='r') as in_file_h5:
+        with tb.open_file(output_file, mode="w") as out_file_h5:
+            for node in in_file_h5.root:
                 logging.info('Reducing events for node %s', node.name)
                 total_n_tracks = node.shape[0]
                 total_n_tracks_stored = 0
@@ -99,14 +99,13 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                                                        term_width=80)
                 progress_bar.start()
 
-                tracks_table_out = out_file.create_table(where=out_file.root,
-                                                         name=node.name,
-                                                         description=node.dtype,
-                                                         title=node.title,
-                                                         filters=tb.Filters(
-                                                             complib='blosc',
-                                                             complevel=5,
-                                                             fletcher32=False))
+                tracks_table_out = out_file_h5.create_table(where=out_file_h5.root,
+                                                            name=node.name,
+                                                            description=node.dtype,
+                                                            title=node.title,
+                                                            filters=tb.Filters(complib='blosc',
+                                                                               complevel=5,
+                                                                               fletcher32=False))
 
                 for data_chunk, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = data_chunk.shape[0]
@@ -246,10 +245,10 @@ def select_tracks(input_tracks_file, select_duts, output_tracks_file=None, condi
     if len(condition) != len(select_duts):  # empty iterable
         raise ValueError("condition has the wrong length")
 
-    with tb.open_file(input_tracks_file, mode='r') as in_file:
-        with tb.open_file(output_tracks_file, mode="w") as out_file:
+    with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
+        with tb.open_file(output_tracks_file, mode="w") as out_file_h5:
             for dut_index, actual_dut in enumerate(select_duts):
-                node = in_file.get_node(in_file.root, 'Tracks_DUT_%d' % actual_dut)
+                node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT_%d' % actual_dut)
                 logging.info('Selecting tracks for DUT%d', actual_dut)
 
                 hit_flags = 0
@@ -271,14 +270,13 @@ def select_tracks(input_tracks_file, select_duts, output_tracks_file=None, condi
                 print quality_flags, bin(quality_flags)
                 print quality_mask, bin(quality_mask)
 
-                tracks_table_out = out_file.create_table(where=out_file.root,
-                                                         name=node.name,
-                                                         description=node.dtype,
-                                                         title=node.title,
-                                                         filters=tb.Filters(
-                                                             complib='blosc',
-                                                             complevel=5,
-                                                             fletcher32=False))
+                tracks_table_out = out_file_h5.create_table(where=out_file_h5.root,
+                                                            name=node.name,
+                                                            description=node.dtype,
+                                                            title=node.title,
+                                                            filters=tb.Filters(complib='blosc',
+                                                                               complevel=5,
+                                                                               fletcher32=False))
 
                 total_n_tracks = node.shape[0]
                 total_n_tracks_stored = 0

@@ -426,8 +426,7 @@ class SimulateData(object):
         self.set_random_seed(self.random_seed)
         self.set_std_settings()
 
-    def create_data_and_store(self, base_file_name, n_events,
-                              chunk_size=100000):
+    def create_data_and_store(self, base_file_name, n_events, chunk_size=100000):
         logging.info('Simulate %d events with %d DUTs', n_events, self._n_duts)
 
         # Special case: all events can be created at once
@@ -440,13 +439,25 @@ class SimulateData(object):
         for dut_index in range(self._n_duts):
             output_files.append(
                 tb.open_file(base_file_name + '_DUT%d.h5' % dut_index, 'w'))
-            hit_tables.append(output_files[dut_index].create_table(output_files[dut_index].root, name='Hits', description=self._hit_dtype,
-                                                                   title='Simulated hits for test beam analysis', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False)))
+            hit_tables.append(output_files[dut_index].create_table(output_files[dut_index].root,
+                                                                   name='Hits',
+                                                                   description=self._hit_dtype,
+                                                                   title='Simulated hits for test beam analysis',
+                                                                   filters=tb.Filters(complib='blosc',
+                                                                                      complevel=5,
+                                                                                      fletcher32=False)))
 
         if n_events * self.tracks_per_event > 100000:
-            progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(
-                marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=len(range(0, n_events, chunk_size)), term_width=80)
+            show_progress = True
+            widgets = ['', progressbar.Percentage(),' ',
+                       progressbar.Bar(marker='*', left='|', right='|'),
+                       ' ', progressbar.AdaptiveETA()]
+            progress_bar = progressbar.ProgressBar(widgets=widgets,
+                                                   maxval=len(range(0, n_events, chunk_size)),
+                                                   term_width=80)
             progress_bar.start()
+        else:
+            show_progress = False
         # Fill output files in chunks
         for chunk_index, _ in enumerate(range(0, n_events, chunk_size)):
             actual_events, actual_digitized_hits = self._create_data(
@@ -462,9 +473,9 @@ class SimulateData(object):
                 actual_hits['charge'] = actual_dut_hits.T[
                     2] / 10.  # One charge LSB corresponds to 10 electrons
                 hit_tables[dut_index].append(actual_hits)
-            if n_events * self.tracks_per_event > 100000:
+            if show_progress:
                 progress_bar.update(chunk_index)
-        if n_events * self.tracks_per_event > 100000:
+        if show_progress:
             progress_bar.finish()
 
         for output_file in output_files:
