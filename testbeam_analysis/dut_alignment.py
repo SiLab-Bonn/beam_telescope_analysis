@@ -1097,6 +1097,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
 
             # find tracks in the beginning and each time for telescope/track fit DUTs
             if iteration == 0 or (set(align_duts) & set(selection_fit_duts)):
+                if iteration != 0:
+                    os.remove(output_track_candidates_file)
                 output_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
                 # TODO: adding find_tracks() to the loop to improve alignment quality
                 if iteration != 0 or not (set(align_duts) & set(selection_fit_duts)):
@@ -1143,7 +1145,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                       select_duts=align_duts,
                                       dut_names=dut_names,
                                       n_bins=200, # TODO: fix n_bins
-                                      plot=True)
+                                      plot=plot)
                 with tb.open_file(track_angles_file, mode="r") as in_file_h5:
                     beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
                     beam_beta = -in_file_h5.root.Beta_Track_Angle_Hist.attrs.mean
@@ -1196,6 +1198,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                                      parameters=selected_alignment_parameters)
 
 #     # remove temporary files
+    os.remove(output_track_candidates_file)
 #     os.remove(output_tracks_file)
 #     os.remove(output_selected_tracks_file)
 
