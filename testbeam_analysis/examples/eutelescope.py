@@ -125,43 +125,40 @@ def run_analysis(data_files):
 
     # Do an alignment step with the track candidates, corrects rotations and
     # is therefore much more precise than simple prealignment
-    dut_alignment.alignment(
-        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        align_duts=[0, 1, 2, 3, 4, 5],
-        align_telescope=[0, 5],
-        selection_fit_duts=[0, 1, 2, 3, 4, 5],
-        selection_hit_duts=[0, 1, 2, 3, 4, 5],
-        max_iterations=[5],
-        max_events=100000,
-        n_pixels=n_pixels,
-        pixel_size=pixel_size,
-        dut_names=dut_names,
-        use_fit_limits=True,
-        plot=True)
+    dut_alignment.alignment(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+                            input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                            align_duts=[0, 1, 2, 3, 4, 5],
+                            align_telescope=[0, 5],
+                            selection_fit_duts=[0, 1, 2, 3, 4, 5],
+                            selection_hit_duts=[0, 1, 2, 3, 4, 5],
+                            max_iterations=[5],
+                            max_events=100000,
+                            n_pixels=n_pixels,
+                            pixel_size=pixel_size,
+                            dut_names=dut_names,
+                            use_fit_limits=True,
+                            plot=True)
 
     # Find tracks from the tracklets and stores the with quality indicator
     # into track candidates table
-    track_analysis.find_tracks(
-        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_alignment.h5'),
-        use_prealignment=False,
-        correct_beam_alignment=True)
+    track_analysis.find_tracks(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                               output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_alignment.h5'),
+                               use_prealignment=False,
+                               correct_beam_alignment=True)
 
     # Example 1: use all DUTs in fit and cut on chi2
-    track_analysis.fit_tracks(
-        input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_alignment.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
-        fit_duts=[0, 1, 2, 3, 4, 5],
-        selection_hit_duts=[0, 1, 2, 3, 4, 5],
-        selection_fit_duts=[0, 1, 2, 3, 4, 5],
-        quality_sigma=5.0,
-        # To get unconstrained residuals do not use DUT
-        # hit for track fit
-        exclude_dut_hit=True,
-        use_prealignment=False)
+    track_analysis.fit_tracks(input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_alignment.h5'),
+                              input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                              output_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
+                              fit_duts=[0, 1, 2, 3, 4, 5],
+                              selection_hit_duts=[0, 1, 2, 3, 4, 5],
+                              selection_fit_duts=[0, 1, 2, 3, 4, 5],
+                              quality_sigma=5.0,
+                              # To get unconstrained residuals do not use DUT
+                              # hit for track fit
+                              exclude_dut_hit=True,
+                              use_prealignment=False)
 
     data_selection.select_tracks(input_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
                                  output_tracks_file=os.path.join(output_folder, 'Tracks_selected_chi2.h5'),
@@ -182,16 +179,15 @@ def run_analysis(data_files):
                                  condition='track_chi2 < 500')
 
     # Create unconstrained residuals with chi2 cut
-    result_analysis.calculate_residuals(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_selected_chi2.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_selected_chi2.h5'),
-        select_duts=[0, 1, 2, 3, 4, 5],
-        use_fit_limits=True,
-        n_pixels=n_pixels,
-        pixel_size=pixel_size,
-        dut_names=dut_names,
-        use_prealignment=False)
+    result_analysis.calculate_residuals(input_tracks_file=os.path.join(output_folder, 'Tracks_selected_chi2.h5'),
+                                        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                                        output_residuals_file=os.path.join(output_folder, 'Residuals_selected_chi2.h5'),
+                                        select_duts=[0, 1, 2, 3, 4, 5],
+                                        use_fit_limits=True,
+                                        n_pixels=n_pixels,
+                                        pixel_size=pixel_size,
+                                        dut_names=dut_names,
+                                        use_prealignment=False)
 
 # TBD:
 # #     # Create unconstrained residuals

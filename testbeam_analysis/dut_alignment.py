@@ -1132,7 +1132,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                          select_duts=align_duts,
                                          duts_hit_selection=duts_selection,
                                          duts_quality_selection=duts_selection,
-                                         chunk_size=chunk_size)
+                                         chunk_size=chunk_size,
+                                         condition=['n_hits_dut_%d < 3' % dut for dut in align_duts])
 
             if set(align_duts) & set(selection_fit_duts):
                 track_angles_file = os.path.splitext(merged_file)[0] + '_tracks_angles_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)

@@ -86,21 +86,20 @@ def run_analysis(data_files):
                                      output_merged_file=os.path.join(output_folder, 'Merged.h5'),
                                      pixel_size=pixel_size)
 
-    dut_alignment.alignment(
-        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        align_duts=[0, 1, 2, 3],
-        align_telescope=[0, 3],
-        selection_fit_duts=[0, 1, 2, 3],
-        selection_hit_duts=[0, 1, 2, 3],
-        max_iterations=[5],
-        max_events=100000,
-        n_pixels=n_pixels,
-        pixel_size=pixel_size,
-        dut_names=dut_names,
-        use_fit_limits=True,
-        plot=True,
-        quality_sigma=2.0)
+    dut_alignment.alignment(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+                            input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                            align_duts=[0, 1, 2, 3],
+                            align_telescope=[0, 3],
+                            selection_fit_duts=[0, 1, 2, 3],
+                            selection_hit_duts=[0, 1, 2, 3],
+                            max_iterations=[5],
+                            max_events=100000,
+                            n_pixels=n_pixels,
+                            pixel_size=pixel_size,
+                            dut_names=dut_names,
+                            use_fit_limits=True,
+                            plot=True,
+                            quality_sigma=2.0)
 
     # Find tracks from the tracklets and stores the with quality indicator into track candidates table
     track_analysis.find_tracks(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
