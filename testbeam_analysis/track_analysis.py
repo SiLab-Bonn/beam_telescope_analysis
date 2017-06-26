@@ -603,15 +603,15 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         # FIXME: calculate real slope in z direction
         slopes = np.column_stack([track_estimates_chunk[:, fit_dut, 2],
                                   track_estimates_chunk[:, fit_dut, 3],
-                                  np.ones(track_estimates_chunk.shape[0]).reshape(track_estimates_chunk.shape[0], 1)])
+                                  np.sqrt(1.0 - track_estimates_chunk[:, fit_dut, 2]**2 - track_estimates_chunk[:, fit_dut, 3]**2)])
 
         # z position of each track estimate
         z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack([track_estimates_chunk[:, fit_dut, 0],
                                                                                                     track_estimates_chunk[:, fit_dut, 1],
-                                                                                                    np.ones(track_estimates_chunk[:, fit_dut, 0].shape)]),
+                                                                                                    np.zeros(track_estimates_chunk[:, fit_dut, 0].shape)]),
                                                                       line_directions=np.column_stack([np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
                                                                                                        np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
-                                                                                                       np.ones(track_estimates_chunk[:, fit_dut, 0].shape)]),
+                                                                                                       slopes[2]]),
                                                                       position_plane=dut_position,
                                                                       normal_plane=dut_plane_normal)[:, -1]
 
@@ -672,7 +672,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                                                             slopes_full[:, 2]])
 
             tracks_array = create_results_array(slopes=slopes,
-                                                offsets=dut_offsets,
+                                                offsets=actual_offsets,
                                                 chi2s=chi2s,
                                                 n_duts=n_duts,
                                                 good_track_selection=good_track_selection,
@@ -680,7 +680,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                                 track_estimates_chunk_full=track_estimates_chunk_full)
         else:
             tracks_array = create_results_array(slopes=slopes,
-                                                offsets=dut_offsets,
+                                                offsets=actual_offsets,
                                                 chi2s=chi2s,
                                                 n_duts=n_duts,
                                                 good_track_selection=good_track_selection,
