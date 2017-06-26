@@ -790,42 +790,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                         # also include tracks where no hit is required but have hit in fit DUT
                         good_track_selection &= (track_candidates_chunk['hit_flag'] & dut_fit_selection_dut_removed) > 0
                     n_tracks_quality = np.count_nonzero(good_track_selection)
-                    removed_n_tracks_quality = n_tracks_chunk - n_tracks_quality
-                    # remove merged clusters
-                    good_track_selection &= (track_candidates_chunk['n_tracks'] > 0)  # n_tracks < 0 means merged cluster, omit these to allow valid efficiency calculation
-                    n_tracks_not_merged = np.count_nonzero(good_track_selection)
-                    removed_n_tracks_merged = n_tracks_quality - n_tracks_not_merged
+                    removed_n_tracks = n_tracks_chunk - n_tracks_quality
 
-#                     if max_tracks_per_event:  # Option to neglect events with too many hits
-#                         good_track_selection &= (track_candidates_chunk['n_tracks'] <= max_tracks_per_event)
-#                         n_tracks_max_tracks = np.count_nonzero(good_track_selection)
-#                         removed_n_tracks_max_tracks = n_tracks_not_merged - n_tracks_max_tracks
-#                         removed_n_tracks = removed_n_tracks_quality + removed_n_tracks_merged + removed_n_tracks_max_tracks
-#                         logging.info('Removed %d of %d (%.1f%%) track candidates (quality: %d tracks, merged clusters: %d tracks, max tracks: %d tracks)',
-#                                      removed_n_tracks,
-#                                      n_tracks_chunk,
-#                                      100.0 * removed_n_tracks / n_tracks_chunk,
-#                                      removed_n_tracks_quality,
-#                                      removed_n_tracks_merged,
-#                                      removed_n_tracks_max_tracks)
-#                     else:
-                    removed_n_tracks = removed_n_tracks_quality + removed_n_tracks_merged
-                    logging.info('Removed %d of %d (%.1f%%) track candidates (require hits: %d tracks, merged clusters: %d tracks)',
+                    logging.info('Removed %d of %d (%.1f%%) track candidates (requiring hit in DUT)',
                                  removed_n_tracks,
                                  n_tracks_chunk,
-                                 100.0 * removed_n_tracks / n_tracks_chunk,
-                                 removed_n_tracks_quality,
-                                 removed_n_tracks_merged)
-
-#                     if use_correlated:  # Reduce track selection to correlated DUTs only
-#                         good_track_selection &= (track_candidates_chunk['track_quality'] & (dut_selection << 24) == (dut_selection << 24))
-#                         n_tracks_correlated = np.count_nonzero(good_track_selection)
-#                         removed_n_tracks_correlated = n_tracks_chunk - n_tracks_correlated - removed_n_tracks
-#                         logging.info('Removed %d of %d (%.1f%%) track candidates due to correlated cuts',
-#                                      removed_n_tracks_correlated,
-#                                      n_tracks_chunk,
-#                                      100.0 * removed_n_tracks_correlated / n_tracks_chunk)
-#                         good_track_candidates = track_candidates_chunk[good_track_selection]
+                                 100.0 * removed_n_tracks / n_tracks_chunk)
 
 #                     if max_tracks is not None:
 #                         cut_index = np.where(np.cumsum(good_track_selection) + total_n_tracks > max_tracks)[0]
@@ -1157,7 +1127,7 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
 
 
 @njit
-def _find_merged_tracks(tracks_array, min_track_distance):  # Check if several tracks are less than min_track_distance apart. Then exclude these tracks (set n_tracks = -1)
+def _find_merged_tracks(tracks_array, min_track_distance):  # Check if several tracks are less than min_track_distance apart. Then exclude these tracks (set quality_flag to 0)
     i = 0
     for _ in range(0, tracks_array.shape[0]):
         track_index = i
