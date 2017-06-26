@@ -183,7 +183,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
             x_fit = np.arange(measurements_plot[0, :, -1][0], measurements_plot[0, :, -1][-1], 1.) / 1000.
 
             # plot tracks in x-direction
-            plt.title('Tracks in x-direction for DUT_%d' % plot_dut)
+            plt.title('Tracks in x-direction for DUT%d' % plot_dut)
             plt.xlabel('z / mm')
             plt.ylabel('x / $\mathrm{\mu}$m')
             plt.grid()
@@ -206,7 +206,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
             plt.close()
 
             # plot tracks in y-direction
-            plt.title('Tracks in y-direction for DUT_%d' % plot_dut)
+            plt.title('Tracks in y-direction for DUT%d' % plot_dut)
             plt.xlabel('z / mm')
             plt.ylabel('y / $\mathrm{\mu}$m')
             plt.grid()
