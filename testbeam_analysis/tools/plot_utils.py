@@ -891,75 +891,53 @@ def plot_events(input_tracks_file, event_range=(0, 100), dut=None, n_tracks=None
             except tb.NoSuchNodeError:  # data has fitted tracks
                 fitted_tracks = True
 
-            for node in in_file_h5.root:
+            n_duts = sum(['charge' in col for col in table.dtype.names])
+            array = table[:]
+            tracks = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_range[0], event_range[-1])
+            if tracks.shape[0] == 0:
+                logging.warning('No tracks in event selection, cannot plot events!')
+                return
+            if max_chi2:
+                tracks = tracks[tracks['track_chi2'] <= max_chi2]
+            mpl.rcParams['legend.fontsize'] = 10
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.gca(projection='3d')
+            for track in tracks:
+                x, y, z = [], [], []
+                for dut_index in range(0, n_duts):
+                    if track['x_dut_%d' % dut_index] != 0:  # No hit has x = 0
+                        x.append(track['x_dut_%d' % dut_index] * 1.e-3)  # in mm
+                        y.append(track['y_dut_%d' % dut_index] * 1.e-3)  # in mm
+                        z.append(track['z_dut_%d' % dut_index] * 1.e-3)  # in mm
 
-                # If a DUT is given skip others
-                if dut and fitted_tracks:
-                    if node.name != 'Tracks_DUT_%d' % dut:
-                        continue
+                if fitted_tracks:
+                    offset = np.array((track['offset_0'], track['offset_1'], track['offset_2']))
+                    slope = np.array((track['slope_0'], track['slope_1'], track['slope_2']))
+                    linepts = offset * 1.e-3 + slope * 1.e-3 * np.mgrid[-150000:150000:2000j][:, np.newaxis]
 
-                table = node[:]
+                n_hits = np.binary_repr(track['hit_flag']).count('1')
+                n_very_good_hits = np.binary_repr(track['quality_flag']).count('1')
 
-                n_duts = sum(['charge' in col for col in table.dtype.names])
-                array = table[:]
-                if n_tracks is not None:
-                    index_stop = 0
-                    event_start = array['event_number'][0]
-                    while index_stop <= n_tracks:
-                        try:
-                            event_stop = array['event_number'][index_stop]
-                            index_stop += 1
-                        except IndexError:
-                            if index_stop:
-                                index_stop -= 1
-                            break
-                    tracks = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_start, event_stop)
-                else:
-                    tracks = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_range[0], event_range[-1])
-                if tracks.shape[0] == 0:
-                    logging.warning('No tracks in event selection, cannot plot events!')
-                    return
-                if max_chi2:
-                    tracks = tracks[tracks['track_chi2'] <= max_chi2]
-                mpl.rcParams['legend.fontsize'] = 10
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.gca(projection='3d')
-                for track in tracks:
-                    x, y, z = [], [], []
-                    for dut_index in range(0, n_duts):
-                        if track['x_dut_%d' % dut_index] != 0:  # No hit has x = 0
-                            x.append(track['x_dut_%d' % dut_index] * 1.e-3)  # in mm
-                            y.append(track['y_dut_%d' % dut_index] * 1.e-3)  # in mm
-                            z.append(track['z_dut_%d' % dut_index] * 1.e-3)  # in mm
-
+                if n_hits > 2:  # only plot tracks with more than 2 hits
                     if fitted_tracks:
-                        offset = np.array((track['offset_0'], track['offset_1'], track['offset_2']))
-                        slope = np.array((track['slope_0'], track['slope_1'], track['slope_2']))
-                        linepts = offset * 1.e-3 + slope * 1.e-3 * np.mgrid[-150000:150000:2000j][:, np.newaxis]
+                        ax.plot(x, y, z, '.' if n_hits == n_very_good_hits else 'o')
+                        ax.plot3D(*linepts.T)
+                    else:
+                        ax.plot(x, y, z, '.-' if n_hits == n_very_good_hits else '.--')
 
-                    n_hits = bin(track['track_quality'] & 0xFF).count('1')
-                    n_very_good_hits = bin(track['track_quality'] & 0xFF0000).count('1')
+            ax.set_zlim(np.amin(np.array(z)), np.amax(np.array(z)))
+            ax.set_xlabel('x [mm]')
+            ax.set_ylabel('y [mm]')
+            ax.set_zlabel('z [mm]')
+            title_prefix = '%d tracks of %d events' if fitted_tracks else '%d track candidates of %d events'
+            title_prefix += ' of DUT %d' % dut if dut else ''
+            ax.set_title(title_prefix % (tracks.shape[0], np.unique(tracks['event_number']).shape[0]))
 
-                    if n_hits > 2:  # only plot tracks with more than 2 hits
-                        if fitted_tracks:
-                            ax.plot(x, y, z, '.' if n_hits == n_very_good_hits else 'o')
-                            ax.plot3D(*linepts.T)
-                        else:
-                            ax.plot(x, y, z, '.-' if n_hits == n_very_good_hits else '.--')
-
-                ax.set_zlim(np.amin(np.array(z)), np.amax(np.array(z)))
-                ax.set_xlabel('x [mm]')
-                ax.set_ylabel('y [mm]')
-                ax.set_zlabel('z [mm]')
-                title_prefix = '%d tracks of %d events' if fitted_tracks else '%d track candidates of %d events'
-                title_prefix += ' of DUT %d' % dut if dut else ''
-                ax.set_title(title_prefix % (tracks.shape[0], np.unique(tracks['event_number']).shape[0]))
-
-                if gui:
-                    figs.append(fig)
-                else:
-                    output_pdf.savefig(fig)
+            if gui:
+                figs.append(fig)
+            else:
+                output_pdf.savefig(fig)
 
     if gui:
         return figs

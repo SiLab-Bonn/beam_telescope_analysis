@@ -135,7 +135,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
         event_number = tracklets_data_chunk['event_number']
         hit_flag = np.zeros_like(tracklets_data_chunk['hit_flag'])
         quality_flag = np.zeros_like(tracklets_data_chunk['quality_flag'])
-        track_quality = np.zeros_like(tracklets_data_chunk['track_quality'])
         n_tracks = tracklets_data_chunk['n_tracks']
 
         # Perform the track finding with jitted loop
@@ -156,8 +155,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
                           n_hits=n_hits,
                           n_cluster=n_cluster,
                           hit_flag=hit_flag,
-                          quality_flag=quality_flag,
-                          track_quality=track_quality,
                           n_tracks=n_tracks,
                           column_sigma=column_sigma,
                           row_sigma=row_sigma,
@@ -168,7 +165,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
 #             geometry_utils.apply_alignment_to_hits(hits=combined, dut_index=dut_index, use_prealignment=use_prealignment, alignment=alignment, inverse=True, no_z=False)
 
         # Merge result data from arrays into one recarray
-        combined = np.column_stack((event_number, x_local, y_local, z_local, charge, n_hits, n_cluster, hit_flag, quality_flag, track_quality, n_tracks, x_err_local, y_err_local, z_err_local))
+        combined = np.column_stack((event_number, x_local, y_local, z_local, charge, n_hits, n_cluster, hit_flag, quality_flag, n_tracks, x_err_local, y_err_local, z_err_local))
         return np.core.records.fromarrays(combined.transpose(), dtype=tracklets_data_chunk.dtype)
 
     smc.SMC(table_file_in=input_tracklets_file,
@@ -443,7 +440,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                 description.append(('slope_y_dut_%d' % index, np.double))
             for index in range(n_duts):
                 description.append(('slope_z_dut_%d' % index, np.double))
-        description.extend([('track_chi2', np.float), ('hit_flag', np.uint16), ('quality_flag', np.uint16), ('track_quality', np.uint32), ('n_tracks', np.uint32)])
+        description.extend([('track_chi2', np.float), ('hit_flag', np.uint16), ('quality_flag', np.uint16), ('n_tracks', np.uint32)])
         for index in range(n_duts):
             description.append(('xerr_dut_%d' % index, np.float))
         for index in range(n_duts):
@@ -460,8 +457,6 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         tracks_array['hit_flag'] = track_candidates_chunk['hit_flag']
         tracks_array['quality_flag'] = track_candidates_chunk['quality_flag']
         tracks_array['event_number'] = track_candidates_chunk['event_number']
-        # TODO: temporary change unti removed
-        tracks_array['track_quality'] = track_candidates_chunk['hit_flag'] | (track_candidates_chunk['quality_flag'] << 8)
         tracks_array['n_tracks'] = track_candidates_chunk['n_tracks']
         for index in range(n_duts):
             tracks_array['x_dut_%d' % index] = track_candidates_chunk['x_dut_%d' % index]
@@ -994,37 +989,19 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
 # Helper functions that are not meant to be called directly during analysis
 @njit
-def _set_dut_track_quality(dut_x, dut_y, curr_x, curr_y, hit_flag, quality_flag, track_quality, track_index, dut_index, dut_column_sigma, dut_row_sigma):
-    # Set track quality of actual DUT from actual DUT hit
+def _set_dut_hit_flag(dut_x, dut_y, curr_x, curr_y, hit_flag, track_index, dut_index, dut_column_sigma, dut_row_sigma):
+    # Set hit flag of actual DUT from actual DUT hit
     if not np.isnan(curr_x):  # curr_x = nan is no hit
         hit_flag[track_index] |= (1 << dut_index)
-#         track_quality[track_index] |= (1 << dut_index)  # Set track with hit
-#         x_distance, y_distance = abs(curr_x - dut_x), abs(curr_y - dut_y)
-#         if x_distance < 3 * dut_column_sigma and y_distance < 3 * dut_row_sigma:  # High quality track hits
-#             quality_flag[track_index] |= (1 << dut_index)
-#             track_quality[track_index] |= (65793 << dut_index)
-#         elif x_distance < 5 * dut_column_sigma and y_distance < 5 * dut_row_sigma:  # Low quality track hits
-#             track_quality[track_index] |= (257 << dut_index)
     else:
         hit_flag[track_index] &= ~(1 << dut_index)
-#         quality_flag[track_index] &= ~(1 << dut_index)
-#         track_quality[track_index] &= ~(65793 << dut_index)  # Unset track quality
 
 
 @njit
-def _reset_dut_track_quality(dut_x, dut_y, first_dut_x, first_dut_y, hit_flag, quality_flag, track_quality, hit_index, dut_index, dut_column_sigma, dut_row_sigma):
+def _reset_dut_hit_flag(dut_x, dut_y, first_dut_x, first_dut_y, hit_flag, hit_index, dut_index, dut_column_sigma, dut_row_sigma):
     hit_flag[hit_index] &= ~(1 << dut_index)
-#     quality_flag[hit_index] &= ~(1 << dut_index)
-#     track_quality[hit_index] &= ~(65793 << dut_index)  # Reset track quality to zero
     if not np.isnan(dut_x):  # x = nan is no hit
         hit_flag[hit_index] |= (1 << dut_index)
-#         track_quality[hit_index] |= (1 << dut_index)  # Set track with hit
-#         x_distance, y_distance = abs(dut_x - first_dut_x), abs(dut_y - first_dut_y)
-#         if x_distance < 3 * dut_column_sigma and y_distance < 3 * dut_row_sigma:  # High quality track hits
-#             quality_flag[hit_index] |= (1 << dut_index)
-#             track_quality[hit_index] |= (65793 << dut_index)
-#         elif x_distance < 5 * dut_column_sigma and y_distance < 5 * dut_row_sigma:  # Low quality track hits
-#             track_quality[hit_index] |= (257 << dut_index)
 
 
 @njit
@@ -1083,7 +1060,7 @@ def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, min_
 
 
 @njit
-def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, quality_flag, track_quality, n_tracks, column_sigma, row_sigma, min_cluster_distance):
+def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks, column_sigma, row_sigma, min_cluster_distance):
     ''' Complex loop to resort the tracklets array inplace to form track candidates. Each track candidate
     is given a quality identifier. Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -1122,8 +1099,6 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                 actual_x, actual_y = x[track_index][dut_index], y[track_index][dut_index]
                 reference_hit_set = True
                 hit_flag[track_index] |= (1 << dut_index)
-#                 quality_flag[track_index] |= (1 << dut_index)
-#                 track_quality[track_index] |= (65793 << dut_index)  # First track hit has best quality by definition
                 n_track_hits += 1
             elif reference_hit_set:  # First hit found, now find best (closest) DUT hit
                 # Calculate the hit distance of the actual assigned DUT hit towards the actual reference hit
@@ -1178,13 +1153,11 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                                     dut_x, dut_y = x[hit_index][dut_index], y[hit_index][dut_index]
                                     first_dut_index = _get_first_dut_index(x, hit_index)  # Get reference DUT index of other track
                                     first_dut_x, first_dut_y = x[hit_index][first_dut_index], y[hit_index][first_dut_index]
-                                    _reset_dut_track_quality(dut_x=dut_x,
+                                    _reset_dut_hit_flag(dut_x=dut_x,
                                                              dut_y=dut_y,
                                                              first_dut_x=first_dut_x,
                                                              first_dut_y=first_dut_y,
                                                              hit_flag=hit_flag,
-                                                             quality_flag=quality_flag,
-                                                             track_quality=track_quality,
                                                              hit_index=hit_index,
                                                              dut_index=dut_index,
                                                              dut_column_sigma=actual_column_sigma,
@@ -1192,13 +1165,11 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                             shortest_hit_distance = hit_distance
                             n_track_hits += 1
                 curr_x, curr_y = x[track_index][dut_index], y[track_index][dut_index]
-                _set_dut_track_quality(dut_x=actual_x,
+                _set_dut_hit_flag(dut_x=actual_x,
                                        dut_y=actual_y,
                                        curr_x=curr_x,
                                        curr_y=curr_y,
                                        hit_flag=hit_flag,
-                                       quality_flag=quality_flag,
-                                       track_quality=track_quality,
                                        track_index=track_index,
                                        dut_index=dut_index,
                                        dut_column_sigma=actual_column_sigma,

@@ -152,7 +152,7 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
         description.append(('n_hits_dut_%d' % index, np.uint32))
     for index, _ in enumerate(input_cluster_files):
         description.append(('n_cluster_dut_%d' % index, np.uint32))
-    description.extend([('hit_flag', np.uint16), ('quality_flag', np.uint16), ('track_quality', np.uint32), ('n_tracks', np.uint32)])
+    description.extend([('hit_flag', np.uint16), ('quality_flag', np.uint16), ('n_tracks', np.uint32)])
     for index, _ in enumerate(input_cluster_files):
         description.append(('xerr_dut_%d' % index, np.float))
     for index, _ in enumerate(input_cluster_files):
