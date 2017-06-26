@@ -23,7 +23,7 @@ from testbeam_analysis.tools import kalman
 
 
 # TODO: implement n_tracks/n_events
-def find_tracks(input_merged_file, input_alignment_file, output_track_candidates_file, use_prealignment, max_events=None, correct_beam_alignment=True, min_cluster_distance=None, chunk_size=1000000):
+def find_tracks(input_merged_file, input_alignment_file, output_track_candidates_file, use_prealignment, max_events=None, correct_beam_alignment=True, chunk_size=1000000):
     '''Takes first DUT track hit and tries to find matching hits in subsequent DUTs.
     The output is the same array with resorted hits into tracks. A track quality is set to
     be able to cut on good (less scattered) tracks.
@@ -40,13 +40,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
         File containing the alignment information
     output_track_candidates_file : string
         Output file name for track candidate array
-    min_cluster_distance : iterable # TODO: fix docstring
-        A minimum distance all track cluster have to be apart, otherwise the complete event is flagged to have merged tracks (n_tracks = -1).
-        This is needed to get a correct efficiency number, since assigning the same cluster to several tracks is not implemented and error prone.
-        If it is true the std setting of 200 um is used. Otherwise a distance in um for each DUT has to be given.
-        e.g.: For two devices: min_cluster_distance = (50, 250)
-        If false the cluster distance is not considered.
-        The events where any plane does have hits < min_cluster_distance is flagged with n_tracks = -1
     chunk_size : uint
         Chunk size of the data when reading from file.
     '''
@@ -84,15 +77,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             row_sigma = np.zeros(shape=n_duts, dtype=np.double)
             print "column_sigma", column_sigma
             print "row_sigma", row_sigma
-
-        if min_cluster_distance is None:
-            min_cluster_distance = np.zeros(n_duts, dtype=np.double)
-        elif not isinstance(min_cluster_distance, Iterable):
-            min_cluster_distance = [min_cluster_distance] * n_duts
-        if len(min_cluster_distance) == n_duts:
-            min_cluster_distance = np.array(min_cluster_distance, dtype=np.double)
-        else:
-            raise ValueError("min_cluster_distance has not length %d" % n_duts)
 
     def work(tracklets_data_chunk):
         ''' Track finding per cpu core '''
@@ -157,8 +141,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
                           hit_flag=hit_flag,
                           n_tracks=n_tracks,
                           column_sigma=column_sigma,
-                          row_sigma=row_sigma,
-                          min_cluster_distance=min_cluster_distance)
+                          row_sigma=row_sigma)
 
 # TODO: also use local coordinates in find_tracks_loop to avoid transformation to local coordinate system
 #         for dut_index in range(0, n_duts):
@@ -570,7 +553,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                             track_estimates_chunk_full=None)
 
         # Remove tracks that are too close when extrapolated to the actual DUT
-        # All merged track are signaled by n_tracks = -1
+        # All merged tracks have quality_flag = 0
         actual_min_track_distance = min_track_distance[fit_dut_index]
         if actual_min_track_distance is not None and actual_min_track_distance > 0:
             _find_merged_tracks(tracks_array=tracks_array,
@@ -592,6 +575,8 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #         plot_utils.plot_track_chi2(chi2s=chi2s, fit_dut=fit_dut, output_pdf=output_pdf)
 
     def store_track_data_kalman(fit_dut, min_track_distance):  # Set the offset to the track intersection with the tilted plane and store the data
+        # reset quality flag
+        track_candidates_chunk["quality_flag"] = 0
         if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
             dut_position = np.array([0.0, 0.0, prealignment['z'][fit_dut]])
             dut_plane_normal = np.array([0.0, 0.0, 1.0])
@@ -682,13 +667,14 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             tracklets_table = out_file_h5.create_table(out_file_h5.root, name='Kalman_Tracks_DUT_%d' % fit_dut, description=np.zeros((1,), dtype=tracks_array.dtype).dtype, title='Tracks fitted for DUT_%d_with_Kalman_Filter' % fit_dut, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
         # Remove tracks that are too close when extrapolated to the actual DUT
-        # All merged track are signaled by n_tracks = -1
+        # All merged tracks have quality_flag = 0
         actual_min_track_distance = min_track_distance[fit_dut]
         if actual_min_track_distance is not None and actual_min_track_distance > 0:
-            _find_merged_tracks(tracks_array, actual_min_track_distance)
-            selection = tracks_array['n_tracks'] > 0
-            logging.info('Removed %d merged tracks (%1.1f%%)', np.count_nonzero(~selection), float(np.count_nonzero(~selection)) / selection.shape[0] * 100.0)
-            tracks_array = tracks_array[selection]
+            _find_merged_tracks(tracks_array=tracks_array,
+                                min_tracks_distancce=actual_min_track_distance)
+#             selection = tracks_array['n_tracks'] > 0
+#             logging.info('Removed %d merged tracks (%1.1f%%)', np.count_nonzero(~selection), float(np.count_nonzero(~selection)) / selection.shape[0] * 100.0)
+#             tracks_array = tracks_array[selection]
 
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
@@ -1036,22 +1022,9 @@ def _swap_hits(x_local, y_local, z_local, x_err_local, y_err_local, z_err_local,
 
 
 @njit
-def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, min_cluster_distance, n_duts):
+def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, n_duts):
     if start_index < 0:
         start_index = 0
-
-    if n_actual_tracks > 1:  # Only if the event has more than one track check the min_cluster_distance
-        for dut_index in range(n_duts):
-            if min_cluster_distance[dut_index] != 0:  # Check if minimum track distance evaluation is set, 0 is no mimimum track distance cut
-                for i in range(start_index, stop_index):  # Loop over all event hits
-                    actual_column, actual_row = x[i][dut_index], y[i][dut_index]
-                    if np.isnan(actual_column):  # Omit virtual hit
-                        continue
-                    for j in range(i + 1, stop_index):  # Loop over other event hits
-                        if sqrt((actual_column - x[j][dut_index])**2 + (actual_row - y[j][dut_index])**2) < min_cluster_distance[dut_index]:
-                            for i in range(start_index, stop_index):  # Set number of tracks of this event to -1 to signal merged hits, thus merged tracks
-                                n_tracks[i] = -1
-                            return
 
     # Called if no merged track is found
     for i in range(start_index, stop_index):  # Set number of tracks of previous event
@@ -1059,7 +1032,7 @@ def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, min_
 
 
 @njit
-def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks, column_sigma, row_sigma, min_cluster_distance):
+def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks, column_sigma, row_sigma):
     ''' Complex loop to resort the tracklets array inplace to form track candidates. Each track candidate
     is given a quality identifier. Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -1082,7 +1055,6 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                           stop_index=track_index,
                           n_tracks=n_tracks,
                           n_actual_tracks=n_actual_tracks,
-                          min_cluster_distance=min_cluster_distance,
                           n_duts=n_duts)
             n_actual_tracks = 0
             actual_hit_track_index = track_index
@@ -1181,7 +1153,6 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                       stop_index=track_index + 1,
                       n_tracks=n_tracks,
                       n_actual_tracks=n_actual_tracks,
-                      min_cluster_distance=min_cluster_distance,
                       n_duts=n_duts)
 
 

@@ -138,10 +138,7 @@ def run_analysis(n_events):
             output_folder, 'Tracklets_prealigned.h5'),
         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
         output_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealigned.h5'),
-        # If there is already an alignment info in the alignment file this has
-        # to be set)
-        min_cluster_distance=False)
+            output_folder, 'TrackCandidates_prealigned.h5'))
 
     # Fit the track candidates and create new track table
     track_analysis.fit_tracks(
