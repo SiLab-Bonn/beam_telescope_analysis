@@ -498,7 +498,9 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                 dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
                 dut_plane_normal = np.array([0.0, 0.0, 1.0])
             else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
-                dut_position = np.array([alignment[dut_index]['translation_x'], alignment[dut_index]['translation_y'], alignment[dut_index]['translation_z']])
+                dut_position = np.array([alignment[dut_index]['translation_x'],
+                                         alignment[dut_index]['translation_y'],
+                                         alignment[dut_index]['translation_z']])
                 rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[dut_index]['alpha'],
                                                                  beta=alignment[dut_index]['beta'],
                                                                  gamma=alignment[dut_index]['gamma'])
@@ -565,7 +567,13 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         try:  # Check if table exists already, than append data
             tracklets_table = out_file_h5.get_node('/Tracks_DUT_%d' % fit_dut)
         except tb.NoSuchNodeError:  # Table does not exist, thus create new
-            tracklets_table = out_file_h5.create_table(out_file_h5.root, name='Tracks_DUT_%d' % fit_dut, description=tracks_array.dtype, title='Tracks fitted for DUT_%d' % fit_dut, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+            tracklets_table = out_file_h5.create_table(out_file_h5.root,
+                                                       name='Tracks_DUT_%d' % fit_dut,
+                                                       description=tracks_array.dtype,
+                                                       title='Tracks fitted for DUT%d' % fit_dut,
+                                                       filters=tb.Filters(complib='blosc',
+                                                                          complevel=5,
+                                                                          fletcher32=False))
 
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
@@ -581,90 +589,114 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             dut_position = np.array([0.0, 0.0, prealignment['z'][fit_dut]])
             dut_plane_normal = np.array([0.0, 0.0, 1.0])
         else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
-            dut_position = np.array([alignment[fit_dut]['translation_x'], alignment[fit_dut]['translation_y'], alignment[fit_dut]['translation_z']])
+            dut_position = np.array([alignment[fit_dut]['translation_x'],
+                                     alignment[fit_dut]['translation_y'],
+                                     alignment[fit_dut]['translation_z']])
             rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[fit_dut]['alpha'],
                                                              beta=alignment[fit_dut]['beta'],
                                                              gamma=alignment[fit_dut]['gamma'])
-            basis_global = rotation_matrix.T.dot(np.eye(3))  # TODO: why transposed?
+            basis_global = rotation_matrix.T.dot(np.eye(3))
             dut_plane_normal = basis_global[2]
+            if dut_plane_normal[2] < 0:
+                dut_plane_normal = -dut_plane_normal
 
         # FIXME: calculate real slope in z direction
-        slopes = np.column_stack((track_estimates_chunk[:, fit_dut, 2],
+        slopes = np.column_stack([track_estimates_chunk[:, fit_dut, 2],
                                   track_estimates_chunk[:, fit_dut, 3],
-                                  np.ones((track_estimates_chunk.shape[0],)).reshape(track_estimates_chunk.shape[0], 1)))
+                                  np.ones(track_estimates_chunk.shape[0]).reshape(track_estimates_chunk.shape[0], 1)])
 
         # z position of each track estimate
-        z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack((track_estimates_chunk[:, fit_dut, 0],
+        z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack([track_estimates_chunk[:, fit_dut, 0],
                                                                                                     track_estimates_chunk[:, fit_dut, 1],
-                                                                                                    np.ones(track_estimates_chunk[:, fit_dut, 0].shape))),
-                                                                      line_directions=np.column_stack((np.zeros((track_estimates_chunk[:, fit_dut, 0].shape)),
+                                                                                                    np.ones(track_estimates_chunk[:, fit_dut, 0].shape)]),
+                                                                      line_directions=np.column_stack([np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
                                                                                                        np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
-                                                                                                       np.ones(track_estimates_chunk[:, fit_dut, 0].shape))),
+                                                                                                       np.ones(track_estimates_chunk[:, fit_dut, 0].shape)]),
                                                                       position_plane=dut_position,
                                                                       normal_plane=dut_plane_normal)[:, -1]
 
-        offsets = np.column_stack((track_estimates_chunk[:, fit_dut, 0],
+        offsets = np.column_stack([track_estimates_chunk[:, fit_dut, 0],
                                    track_estimates_chunk[:, fit_dut, 1],
-                                   z_position))
+                                   z_position])
         # do not need to calculate intersection with plane, since track parameters are estimated at the respective plane in kalman filter.
         # This is different than for straight line fit, where intersection calculation is needed.
         actual_offsets = offsets
 
         if full_track_info is True and method == "Kalman":
             # array to store x,y,z position and respective slopes of other DUTs
-            track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan)
+            track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.double)
             for dut_index in range(n_duts):
                 if dut_index == fit_dut:  # do not need to transform data of actual fit dut, this is already done,
                     continue
                 if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
-                    dut_position = np.array([0., 0., prealignment['z'][dut_index]])
-                    dut_plane_normal = np.array([0., 0., 1.])
+                    dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
+                    dut_plane_normal = np.array([0.0, 0.0, 1.0])
                 else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
-                    dut_position = np.array([alignment[dut_index]['translation_x'], alignment[dut_index]['translation_y'], alignment[dut_index]['translation_z']])
+                    dut_position = np.array([alignment[dut_index]['translation_x'],
+                                             alignment[dut_index]['translation_y'],
+                                             alignment[dut_index]['translation_z']])
                     rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[dut_index]['alpha'],
                                                                      beta=alignment[dut_index]['beta'],
                                                                      gamma=alignment[dut_index]['gamma'])
-                    basis_global = rotation_matrix.T.dot(np.eye(3))  # TODO: why transposed?
+                    basis_global = rotation_matrix.T.dot(np.eye(3))
                     dut_plane_normal = basis_global[2]
 
                 # FIXME: calculate real slope in z direction
-                slopes_full = np.column_stack((track_estimates_chunk[:, dut_index, 2],
+                slopes_full = np.column_stack([track_estimates_chunk[:, dut_index, 2],
                                                track_estimates_chunk[:, dut_index, 3],
-                                               np.ones((track_estimates_chunk.shape[0],)).reshape(track_estimates_chunk.shape[0], 1)))
+                                               np.ones(track_estimates_chunk.shape[0]).reshape(track_estimates_chunk.shape[0], 1)])
 
                 # z position of each track estimate
-                z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack((track_estimates_chunk[:, dut_index, 0],
+                z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack([track_estimates_chunk[:, dut_index, 0],
                                                                                                             track_estimates_chunk[:, dut_index, 1],
-                                                                                                            np.ones(track_estimates_chunk[:, dut_index, 0].shape))),
-                                                                              line_directions=np.column_stack((np.zeros((track_estimates_chunk[:, dut_index, 0].shape)),
+                                                                                                            np.ones(track_estimates_chunk[:, dut_index, 0].shape)]),
+                                                                              line_directions=np.column_stack([np.zeros(track_estimates_chunk[:, dut_index, 0].shape),
                                                                                                                np.zeros(track_estimates_chunk[:, dut_index, 0].shape),
-                                                                                                               np.ones(track_estimates_chunk[:, dut_index, 0].shape))),
+                                                                                                               np.ones(track_estimates_chunk[:, dut_index, 0].shape)]),
                                                                               position_plane=dut_position,
                                                                               normal_plane=dut_plane_normal)[:, -1]
 
-                offsets_full = np.column_stack((track_estimates_chunk[:, dut_index, 0],
+                offsets_full = np.column_stack([track_estimates_chunk[:, dut_index, 0],
                                                 track_estimates_chunk[:, dut_index, 1],
-                                                z_position))
+                                                z_position])
 
                 # do not need to calculate intersection with plane, since track parameters are estimated at the respective plane in kalman filter.
                 # This is different than for straight line fit, where intersection calculation is needed.
                 actual_offsets_full = offsets_full
 
-                track_estimates_chunk_full[:, dut_index] = np.column_stack((actual_offsets_full[:, 0],
-                                                                           actual_offsets_full[:, 1],
-                                                                           actual_offsets_full[:, 2],
-                                                                           slopes_full[:, 0],
-                                                                           slopes_full[:, 1],
-                                                                           slopes_full[:, 2]))
+                track_estimates_chunk_full[:, dut_index] = np.column_stack([actual_offsets_full[:, 0],
+                                                                            actual_offsets_full[:, 1],
+                                                                            actual_offsets_full[:, 2],
+                                                                            slopes_full[:, 0],
+                                                                            slopes_full[:, 1],
+                                                                            slopes_full[:, 2]])
 
-            tracks_array = create_results_array(slopes, actual_offsets, chi2s, n_duts, good_track_selection, track_candidates_chunk, track_estimates_chunk_full)
+            tracks_array = create_results_array(slopes=slopes,
+                                                offsets=dut_offsets,
+                                                chi2s=chi2s,
+                                                n_duts=n_duts,
+                                                good_track_selection=good_track_selection,
+                                                track_candidates_chunk=track_candidates_chunk,
+                                                track_estimates_chunk_full=track_estimates_chunk_full)
         else:
-            tracks_array = create_results_array(slopes, actual_offsets, chi2s, n_duts, good_track_selection, track_candidates_chunk)
+            tracks_array = create_results_array(slopes=slopes,
+                                                offsets=dut_offsets,
+                                                chi2s=chi2s,
+                                                n_duts=n_duts,
+                                                good_track_selection=good_track_selection,
+                                                track_candidates_chunk=track_candidates_chunk,
+                                                track_estimates_chunk_full=None)
 
         try:  # Check if table exists already, than append data
-            tracklets_table = out_file_h5.get_node('/Kalman_Tracks_DUT_%d' % fit_dut)
+            tracklets_table = out_file_h5.get_node('/Tracks_DUT_%d' % fit_dut)
         except tb.NoSuchNodeError:  # Table does not exist, thus create new
-            tracklets_table = out_file_h5.create_table(out_file_h5.root, name='Kalman_Tracks_DUT_%d' % fit_dut, description=np.zeros((1,), dtype=tracks_array.dtype).dtype, title='Tracks fitted for DUT_%d_with_Kalman_Filter' % fit_dut, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+            tracklets_table = out_file_h5.create_table(out_file_h5.root,
+                                                       name='Tracks_DUT_%d' % fit_dut,
+                                                       description=tracks_array.dtype,
+                                                       title='Tracks fitted for DUT%d with Kalman Filter' % fit_dut,
+                                                       filters=tb.Filters(complib='blosc',
+                                                                          complevel=5,
+                                                                          fletcher32=False))
 
         # Remove tracks that are too close when extrapolated to the actual DUT
         # All merged tracks have quality_flag = 0
