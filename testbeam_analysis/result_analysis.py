@@ -151,7 +151,7 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
 
                     intersection_local = np.column_stack([intersection_x_local, intersection_y_local])
 
-                    if not np.allclose(hit_z_local, 0.0) or not np.allclose(intersection_z_local, 0.0):
+                    if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                         raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
                     difference = np.column_stack((hit_x, hit_y)) - np.column_stack((intersection_x, intersection_y))
@@ -1403,7 +1403,7 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, sens
                     intersections_local = np.column_stack((intersection_x_local, intersection_y_local, intersection_z_local))
                     hits_local = np.column_stack((hit_x_local, hit_y_local, hit_z_local))
 
-                    if not np.allclose(hits_local[np.isfinite(hits_local[:, 2]), 2], 0.0) or not np.allclose(intersection_z_local, 0.0):
+                    if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                         raise RuntimeError('The transformation to the local coordinate system did not give all z = 0. Wrong alignment used?')
 
                     # Usefull for debugging, print some inefficient events that can be cross checked
@@ -1626,7 +1626,7 @@ def calculate_purity(input_tracks_file, input_alignment_file, bin_size, sensor_s
                                                                                                                           alignment=alignment,
                                                                                                                           inverse=True)
 
-                    if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local, 0.0):
+                    if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                         raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
                     # Quickfix that center of sensor is local system is in the center and not at the edge
