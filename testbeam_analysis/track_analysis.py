@@ -600,20 +600,15 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             if dut_plane_normal[2] < 0:
                 dut_plane_normal = -dut_plane_normal
 
-        # FIXME: calculate real slope in z direction
         slopes = np.column_stack([track_estimates_chunk[:, fit_dut, 2],
                                   track_estimates_chunk[:, fit_dut, 3],
                                   np.sqrt(1.0 - track_estimates_chunk[:, fit_dut, 2]**2 - track_estimates_chunk[:, fit_dut, 3]**2)])
 
         # z position of each track estimate
-        z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack([track_estimates_chunk[:, fit_dut, 0],
-                                                                                                    track_estimates_chunk[:, fit_dut, 1],
-                                                                                                    np.zeros(track_estimates_chunk[:, fit_dut, 0].shape)]),
-                                                                      line_directions=np.column_stack([np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
-                                                                                                       np.zeros(track_estimates_chunk[:, fit_dut, 0].shape),
-                                                                                                       slopes[2]]),
-                                                                      position_plane=dut_position,
-                                                                      normal_plane=dut_plane_normal)[:, -1]
+        z_position = geometry_utils.get_z_point_on_plane(point=[track_estimates_chunk[:, fit_dut, 0],
+                                                                track_estimates_chunk[:, fit_dut, 1]],
+                                                         position_plane=dut_position,
+                                                         normal_plane=dut_plane_normal)
 
         offsets = np.column_stack([track_estimates_chunk[:, fit_dut, 0],
                                    track_estimates_chunk[:, fit_dut, 1],
@@ -641,20 +636,15 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                     basis_global = rotation_matrix.T.dot(np.eye(3))
                     dut_plane_normal = basis_global[2]
 
-                # FIXME: calculate real slope in z direction
                 slopes_full = np.column_stack([track_estimates_chunk[:, dut_index, 2],
                                                track_estimates_chunk[:, dut_index, 3],
-                                               np.ones(track_estimates_chunk.shape[0]).reshape(track_estimates_chunk.shape[0], 1)])
+                                               np.sqrt(1.0 - track_estimates_chunk[:, dut_index, 2]**2 - track_estimates_chunk[:, dut_index, 3]**2)])
 
                 # z position of each track estimate
-                z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack([track_estimates_chunk[:, dut_index, 0],
-                                                                                                            track_estimates_chunk[:, dut_index, 1],
-                                                                                                            np.ones(track_estimates_chunk[:, dut_index, 0].shape)]),
-                                                                              line_directions=np.column_stack([np.zeros(track_estimates_chunk[:, dut_index, 0].shape),
-                                                                                                               np.zeros(track_estimates_chunk[:, dut_index, 0].shape),
-                                                                                                               np.ones(track_estimates_chunk[:, dut_index, 0].shape)]),
-                                                                              position_plane=dut_position,
-                                                                              normal_plane=dut_plane_normal)[:, -1]
+                z_position = geometry_utils.get_z_point_on_plane(point=[track_estimates_chunk[:, dut_index, 0],
+                                                                        track_estimates_chunk[:, dut_index, 1]],
+                                                                 position_plane=dut_position,
+                                                                 normal_plane=dut_plane_normal)
 
                 offsets_full = np.column_stack([track_estimates_chunk[:, dut_index, 0],
                                                 track_estimates_chunk[:, dut_index, 1],

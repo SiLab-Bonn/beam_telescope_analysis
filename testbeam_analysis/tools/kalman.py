@@ -189,34 +189,26 @@ def _filter(alignment, transition_matrices, observation_matrices, transition_cov
                     dut_plane_normal_actual = -dut_plane_normal_actual
 
                 # slopes (directional vectors))o f the filtered estimates
-                slopes = np.column_stack((filtered_states[:, t - 1, 2],
-                                          filtered_states[:, t - 1, 3],
-                                          np.sqrt(1.0 - filtered_states[:, t - 1, 2]**2 - filtered_states[:, t - 1, 3]**2)))
+                slopes_filtered_state = np.column_stack((filtered_states[:, t - 1, 2],
+                                                         filtered_states[:, t - 1, 3],
+                                                         np.sqrt(1.0 - filtered_states[:, t - 1, 2]**2 - filtered_states[:, t - 1, 3]**2)))
 
                 # z position of the filtered states
-                z_position = geometry_utils.get_line_intersections_with_plane(line_origins=np.column_stack((filtered_states[:, t - 1, 0],
-                                                                                                            filtered_states[:, t - 1, 1],
-                                                                                                            np.zeros(filtered_states[:, t - 1, 1].shape))),
-                                                                              line_directions=np.column_stack((np.zeros((filtered_states[:, t - 1, 1].shape)),
-                                                                                                               np.zeros(filtered_states[:, t - 1, 1].shape),
-                                                                                                               slopes[:, 2])),
-                                                                              position_plane=dut_position_before,
-                                                                              normal_plane=dut_plane_normal_before)[:, -1]
+                z_position_filtered_state = geometry_utils.get_z_point_on_plane(point=[filtered_states[:, t - 1, 0],
+                                                                                       filtered_states[:, t - 1, 1]],
+                                                                                position_plane=dut_position_before,
+                                                                                normal_plane=dut_plane_normal_before)
 
-                # offsets (supoort vectors) of the filtered states
-                offsets = np.column_stack((filtered_states[:, t - 1, 0], filtered_states[:, t - 1, 1], z_position))
+                # offsets (support vectors) of the filtered states
+                offsets_filtered_state = np.column_stack((filtered_states[:, t - 1, 0], filtered_states[:, t - 1, 1], z_position_filtered_state))
 
-                # calculate intersection of state which should be predicted (filtered state of plane before) with plane t - 1 and t
-                offsets_rotated_before = geometry_utils.get_line_intersections_with_plane(line_origins=offsets,
-                                                                                          line_directions=slopes,
-                                                                                          position_plane=dut_position_before,
-                                                                                          normal_plane=dut_plane_normal_before)
-                offsets_rotated_actual = geometry_utils.get_line_intersections_with_plane(line_origins=offsets,
-                                                                                          line_directions=slopes,
-                                                                                          position_plane=dut_position_actual,
-                                                                                          normal_plane=dut_plane_normal_actual)
+                # offsets of filtered state with actual plane (plane on which the filtered estimate should be predicted)
+                offsets_filtered_state_actual_plane = geometry_utils.get_line_intersections_with_plane(line_origins=offsets_filtered_state,
+                                                                                                       line_directions=slopes_filtered_state,
+                                                                                                       position_plane=dut_position_actual,
+                                                                                                       normal_plane=dut_plane_normal_actual)
 
-                z_diff = offsets_rotated_actual[:, 2] - offsets_rotated_before[:, 2]
+                z_diff = offsets_filtered_state_actual_plane[:, 2] - offsets_filtered_state[:, 2]
 
                 # update transition matrix, only need to change these value in case for rotated planes
                 transition_matrices[:, t - 1, 0, 2] = z_diff

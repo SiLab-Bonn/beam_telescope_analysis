@@ -102,6 +102,35 @@ def get_line_intersections_with_plane(line_origins, line_directions,
     return intersections
 
 
+def get_z_point_on_plane(point, position_plane, normal_plane):
+    ''' Calculates the (missing) z coordinate of a point (x,y) which lies in the plane.
+
+    Parameters
+    ----------
+    point : array
+        A point (x, y) which lies in the plane.
+    position_plane : array
+        A array (x, y and z) to the plane.
+    normal_plane : array
+        The normal vector (x, y and z) of the plane.
+
+    Returns
+    -------
+    Array with z coordiate of point in the plane.
+    '''
+    A1 = normal_plane[0] * (point[0] - position_plane[0])
+    A2 = normal_plane[1] * (point[1] - position_plane[1])
+
+    z_coord = (normal_plane[2] * position_plane[2] - A1 - A2) / normal_plane[2]
+    A3 = normal_plane[2]*(z_coord - position_plane[2])
+
+    if np.any(A1 + A2 + A3) != 0.0:
+        logging.warning('Some points do not lie in specified plane!')
+
+    return z_coord
+
+
+
 def cartesian_to_spherical(x, y, z):
     ''' Does a transformation from cartesian to spherical coordinates.
 
