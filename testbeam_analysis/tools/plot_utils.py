@@ -1426,7 +1426,7 @@ def purity_plots(pure_hit_hist, hit_hist, purity, actual_dut, minimum_hit_densit
         logging.warning('Cannot create purity plots, since all pixels are masked')
 
 def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=None):
-    ''' Plot track slopes.
+    ''' Plotting track slopes.
 
     Parameters
     ----------
@@ -1476,3 +1476,62 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
                 ax.set_xlim(min(edges), max(edges))
                 output_pdf.savefig(fig)
 
+
+def plot_residual_correlation(input_residual_correlation_file, select_duts, output_pdf_file=None, dut_names=None, chunk_size=1000000):
+    '''Plotting residual correlation.
+
+    Parameters
+    ----------
+    input_residual_correlation_file : string
+        Filename of the residual correlation file.
+    select_duts : iterable
+        Selecting DUTs that will be processed.
+    output_pdf_file: string
+        Filename of the output PDF file.
+        If None, deduce filename from input track angle file.
+    dut_names : iterable of strings
+        Names of the DUTs. If None, the DUT index will be used.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    logging.info('Plotting residual correlation')
+    if output_pdf_file is None:
+        output_pdf_file = os.path.splitext(input_residual_correlation_file)[0] + '.pdf'
+
+    with PdfPages(output_pdf_file) as output_pdf:
+        with tb.open_file(input_residual_correlation_file, mode='r') as in_file_h5:
+            for actual_dut in select_duts:
+                dut_name = dut_names[actual_dut] if dut_names else ("DUT" + str(actual_dut))
+                for direction in ["column", "row"]:
+                    correlation = []
+                    ref_res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_reference_DUT_%d' % (direction.title(), actual_dut))
+                    res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_DUT_%d' % (direction.title(), actual_dut))
+                    edges = res_node.attrs.edges
+                    bin_center = (edges[1:] +  edges[:-1]) / 2.0
+                    # iterating over bins
+                    for index, _ in enumerate(bin_center):
+                        res = None
+                        ref_res = None
+                        for index_read in np.arange(0, ref_res_node.nrows, step=chunk_size):
+                            res_chunk = res_node.read(start=index_read, stop=index_read + chunk_size)[:, index]
+                            select = np.isfinite(res_chunk)
+                            res_chunk = res_chunk[select]
+                            if res is None:
+                                res = res_chunk
+                            else:
+                                res = np.append(res, res_chunk)
+                            ref_res_chunk = ref_res_node.read(start=index_read, stop=index_read + chunk_size)[select]
+                            if ref_res is None:
+                                ref_res = ref_res_chunk
+                            else:
+                                ref_res = np.append(ref_res, ref_res_chunk)
+                        correlation.append(np.corrcoef(ref_res, res)[0, 1])
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.plot(bin_center, correlation)
+                    ax.set_title("%s residual correlation of %s" % (direction.title(), dut_name))
+                    ax.set_ylabel("Correlation of %s residuals" % (direction,))
+                    ax.set_xlabel("Track distance [um]")
+                    output_pdf.savefig(fig)

@@ -4,11 +4,11 @@ from __future__ import division
 import logging
 from multiprocessing import Pool, cpu_count
 from math import sqrt
-import progressbar
 import os
 from collections import Iterable
 import functools
 
+import progressbar
 import tables as tb
 import numpy as np
 from numba import njit
@@ -989,28 +989,6 @@ def _get_first_dut_index(x, index):
         if not np.isnan(x[index][dut_index]):
             break
     return dut_index
-
-
-@njit
-def _swap_hits(x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, charge, n_hits, x_err, y_err, z_err, track_index, dut_index, hit_index, swap_x_local, swap_y_local, swap_z_local, swap_x_err_local, swap_y_err_local, swap_z_err_local, swap_x, swap_y, swap_z, swap_charge, swap_n_hits, swap_x_err, swap_y_err, swap_z_err):
-    #     print 'Swap hits', x[track_index][dut_index], x[hit_index][dut_index]
-    tmp_x_local, tmp_y_local, tmp_z_local = x_local[track_index][dut_index], y_local[track_index][dut_index], z_local[track_index][dut_index]
-    tmp_x_err_local, tmp_y_err_local, tmp_z_err_local = x_err_local[track_index][dut_index], y_err_local[track_index][dut_index], z_err_local[track_index][dut_index]
-    tmp_charge, tmp_n_hits = charge[track_index][dut_index], n_hits[track_index][dut_index]
-    tmp_x, tmp_y, tmp_z = x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index]
-    tmp_x_err, tmp_y_err, tmp_z_err = x_err[track_index][dut_index], y_err[track_index][dut_index], z_err[track_index][dut_index]
-
-    x_local[track_index][dut_index], y_local[track_index][dut_index], z_local[track_index][dut_index] = swap_x_local, swap_y_local, swap_z_local
-    x_err_local[track_index][dut_index], y_err_local[track_index][dut_index], z_err_local[track_index][dut_index] = swap_x_err_local, swap_y_err_local, swap_z_err_local
-    charge[track_index][dut_index], n_hits[track_index][dut_index] = swap_charge, swap_n_hits
-    x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index] = swap_x, swap_y, swap_z
-    x_err[track_index][dut_index], y_err[track_index][dut_index], z_err[track_index][dut_index] = swap_x_err, swap_y_err, swap_z_err
-
-    x_local[hit_index][dut_index], y_local[hit_index][dut_index], z_local[hit_index][dut_index] = tmp_x_local, tmp_y_local, tmp_z_local
-    x_err_local[hit_index][dut_index], y_err_local[hit_index][dut_index], z_err_local[hit_index][dut_index] = tmp_x_err_local, tmp_y_err_local, tmp_z_err_local
-    charge[hit_index][dut_index], n_hits[hit_index][dut_index] = tmp_charge, tmp_n_hits
-    x[hit_index][dut_index], y[hit_index][dut_index], z[hit_index][dut_index] = tmp_x, tmp_y, tmp_z
-    x_err[hit_index][dut_index], y_err[hit_index][dut_index], z_err[hit_index][dut_index] = tmp_x_err, tmp_y_err, tmp_z_err
 
 
 @njit
