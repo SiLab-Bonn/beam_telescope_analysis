@@ -151,7 +151,7 @@ def run_analysis(data_files):
     track_analysis.fit_tracks(input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_alignment.h5'),
                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                               output_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
-                              fit_duts=[0, 1, 2, 3, 4, 5],
+                              select_duts=[0, 1, 2, 3, 4, 5],
                               selection_hit_duts=[0, 1, 2, 3, 4, 5],
                               selection_fit_duts=[0, 1, 2, 3, 4, 5],
                               quality_sigma=5.0,

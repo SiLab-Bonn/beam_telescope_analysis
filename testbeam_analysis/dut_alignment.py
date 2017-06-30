@@ -27,7 +27,7 @@ from testbeam_analysis.result_analysis import calculate_residuals, histogram_tra
 warnings.simplefilter("ignore", OptimizeWarning)  # Fit errors are handled internally, turn of warnings
 
 
-def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, pixel_size=None, dut_names=None, plot=True, chunk_size=4999999):
+def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, ref_dut=0, pixel_size=None, dut_names=None, plot=True, chunk_size=4999999):
     '''"Calculates the correlation histograms from the cluster arrays.
     The 2D correlation array of pairs of two different devices are created on event basis.
     All permutations are considered (all clusters of the first device are correlated with all clusters of the second device).
@@ -36,11 +36,14 @@ def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, pi
     ----------
     input_cluster_files : iterable
         Iterable of filenames of the cluster files.
+        The DUT index of each input file is equivalent to its position in the list.
     output_correlation_file : string
         Filename of the output correlation file with the correlation histograms.
     n_pixels : iterable of tuples
         One tuple per DUT describing the total number of pixels (column/row),
         e.g. for two FE-I4 DUTs [(80, 336), (80, 336)].
+    ref_dut : uint
+        Selecting the reference DUT. Default is DUT 0.
     pixel_size : iterable of tuples
         One tuple per DUT describing the pixel dimension (column/row),
         e.g. for two FE-I4 DUTs [(250, 50), (250, 50)].
@@ -54,60 +57,110 @@ def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, pi
     '''
     logging.info('=== Correlating the index of %d DUTs ===', len(input_cluster_files))
 
-    with tb.open_file(output_correlation_file, mode="w") as out_file_h5:
-        n_duts = len(input_cluster_files)
+    ref_index = ref_dut
 
+    n_duts = len(input_cluster_files)
+
+    # remove reference DUT from list of DUTs
+    select_duts = list(set(range(n_duts)) - set([ref_index]))
+
+    with tb.open_file(output_correlation_file, mode="w") as out_file_h5:
         # Result arrays to be filled
         column_correlations = []
         row_correlations = []
-        for dut_index in range(1, n_duts):
-            shape_column = (n_pixels[dut_index][0], n_pixels[0][0])
-            shape_row = (n_pixels[dut_index][1], n_pixels[0][1])
+        start_indices = []
+        for dut_index in select_duts:
+            shape_column = (n_pixels[dut_index][0], n_pixels[ref_index][0])
+            shape_row = (n_pixels[dut_index][1], n_pixels[ref_index][1])
             column_correlations.append(np.zeros(shape_column, dtype=np.int32))
             row_correlations.append(np.zeros(shape_row, dtype=np.int32))
+            start_indices.append(None)  # Store the loop indices for speed up
 
-        start_indices = [None] * n_duts  # Store the loop indices for speed up
-
-        with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
-            progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Cluster.shape[0], term_width=80)
+        with tb.open_file(input_cluster_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 cluster file
+            widgets = ['', progressbar.Percentage(), ' ',
+                       progressbar.Bar(marker='*', left='|', right='|'),
+                       ' ', progressbar.AdaptiveETA()]
+            progress_bar = progressbar.ProgressBar(widgets=widgets,
+                                                   maxval=in_file_h5.root.Cluster.shape[0],
+                                                   term_width=80)
             progress_bar.start()
 
-            pool = Pool()  # Provide worker pool
-            for cluster_dut_0, start_indices[0] in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, start_index=start_indices[0], chunk_size=chunk_size):  # Loop over the cluster of DUT0 in chunks
-                actual_event_numbers = cluster_dut_0[:]['event_number']
+            pool = Pool()
+            # Loop over the clusters of reference DUT
+            for clusters_ref_dut, ref_read_index in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, chunk_size=chunk_size):
+                actual_event_numbers = clusters_ref_dut[:]['event_number']
 
                 # Create correlation histograms to the reference device for all other devices
                 # Do this in parallel to safe time
 
                 dut_results = []
-                for dut_index, cluster_file in enumerate(input_cluster_files[1:], start=1):  # Loop over the other cluster files
-                    dut_results.append(pool.apply_async(_correlate_cluster, kwds={'cluster_dut_0': cluster_dut_0,
-                                                                                  'cluster_file': cluster_file,
-                                                                                  'start_index': start_indices[dut_index],
+                # Loop over other DUTs
+                for index, dut_index in enumerate(select_duts):
+                    dut_results.append(pool.apply_async(_correlate_cluster, kwds={'clusters_ref_dut': clusters_ref_dut,
+                                                                                  'cluster_file': input_cluster_files[dut_index],
+                                                                                  'start_index': start_indices[index],
                                                                                   'start_event_number': actual_event_numbers[0],
                                                                                   'stop_event_number': actual_event_numbers[-1] + 1,
-                                                                                  'column_correlation': column_correlations[dut_index - 1],
-                                                                                  'row_correlation': row_correlations[dut_index - 1],
-                                                                                  'chunk_size': chunk_size
-                                                                                  }
-                                                        ))
+                                                                                  'column_correlation': column_correlations[index],
+                                                                                  'row_correlation': row_correlations[index],
+                                                                                  'chunk_size': chunk_size}))
                 # Collect results when available
-                for dut_index, dut_result in enumerate(dut_results, start=1):
-                    (start_indices[dut_index], column_correlations[dut_index - 1], row_correlations[dut_index - 1]) = dut_result.get()
+                for index, dut_result in enumerate(dut_results):
+                    (start_indices[index], column_correlations[index], row_correlations[index]) = dut_result.get()
 
-                progress_bar.update(start_indices[0])
+                progress_bar.update(ref_read_index)
 
             pool.close()
             pool.join()
 
         # Store the correlation histograms
-        for dut_index in range(n_duts - 1):
-            out_col = out_file_h5.create_carray(out_file_h5.root, name='CorrelationColumn_%d_0' % (dut_index + 1), title='Column Correlation between DUT%d and DUT%d' % (dut_index + 1, 0), atom=tb.Atom.from_dtype(column_correlations[dut_index].dtype), shape=column_correlations[dut_index].shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-            out_row = out_file_h5.create_carray(out_file_h5.root, name='CorrelationRow_%d_0' % (dut_index + 1), title='Row Correlation between DUT%d and DUT%d' % (dut_index + 1, 0), atom=tb.Atom.from_dtype(row_correlations[dut_index].dtype), shape=row_correlations[dut_index].shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-            out_col.attrs.filenames = [str(input_cluster_files[0]), str(input_cluster_files[dut_index])]
-            out_row.attrs.filenames = [str(input_cluster_files[0]), str(input_cluster_files[dut_index])]
-            out_col[:] = column_correlations[dut_index]
-            out_row[:] = row_correlations[dut_index]
+        for index, dut_index in enumerate(select_duts):
+            out_col = out_file_h5.create_carray(where=out_file_h5.root,
+                                                name='Correlation_column_%d_%d' % (ref_index, dut_index),
+                                                title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                atom=tb.Atom.from_dtype(column_correlations[index].dtype),
+                                                shape=column_correlations[index].shape,
+                                                filters=tb.Filters(complib='blosc',
+                                                                   complevel=5,
+                                                                   fletcher32=False))
+            out_row = out_file_h5.create_carray(where=out_file_h5.root,
+                                                name='Correlation_row_%d_%d' % (ref_index, dut_index),
+                                                title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                atom=tb.Atom.from_dtype(row_correlations[index].dtype),
+                                                shape=row_correlations[index].shape,
+                                                filters=tb.Filters(complib='blosc',
+                                                                   complevel=5,
+                                                                   fletcher32=False))
+            out_col_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                        name='Reduced_background_correlation_column_%d_%d' % (ref_index, dut_index),
+                                                        title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                        atom=tb.Atom.from_dtype(column_correlations[index].dtype),
+                                                        shape=column_correlations[index].shape,
+                                                        filters=tb.Filters(complib='blosc',
+                                                                           complevel=5,
+                                                                           fletcher32=False))
+            out_row_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                        name='Reduced_background_correlation_row_%d_%d' % (ref_index, dut_index),
+                                                        title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                        atom=tb.Atom.from_dtype(row_correlations[index].dtype),
+                                                        shape=row_correlations[index].shape,
+                                                        filters=tb.Filters(complib='blosc',
+                                                                           complevel=5,
+                                                                           fletcher32=False))
+            out_col.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+            out_row.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+            out_col_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+            out_row_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+            out_col[:] = column_correlations[index]
+            out_row[:] = row_correlations[index]
+            for correlation in [column_correlations[index], row_correlations[index]]:
+                uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
+                background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
+                background = np.array(background, dtype=np.int32)  # make Numpy array
+                correlation -= background  # remove background
+                correlation -= correlation.min()  # only positive values
+            out_col_reduced[:] = column_correlations[index]
+            out_row_reduced[:] = row_correlations[index]
         progress_bar.finish()
 
     if plot:
@@ -245,7 +298,7 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
             progress_bar.finish()
 
 
-def prealignment(input_correlation_file, output_alignment_file, z_positions, pixel_size, s_n=0.1, fit_background=False, reduce_background=False, dut_names=None, no_fit=False, non_interactive=True, iterations=3, plot=True, gui=False, queue=False):
+def prealignment(input_correlation_file, output_alignment_file, z_positions, pixel_size, s_n=0.1, fit_background=False, reduce_background=True, dut_names=None, no_fit=False, non_interactive=True, iterations=3, plot=True, gui=False, queue=False):
     '''Deduce a pre-alignment from the correlations, by fitting the correlations with a straight line (gives offset, slope, but no tild angles).
        The user can define cuts on the fit error and straight line offset in an interactive way.
 
@@ -305,256 +358,280 @@ def prealignment(input_correlation_file, output_alignment_file, z_positions, pix
     figs = [] if gui else None
 
     with tb.open_file(input_correlation_file, mode="r") as in_file_h5:
-        n_duts = len(in_file_h5.list_nodes("/")) // 2 + 1  # no correlation for reference DUT0
-        result = np.zeros(shape=(n_duts,), dtype=[('DUT', np.uint8), ('column_c0', np.float), ('column_c0_error', np.float), ('column_c1', np.float), ('column_c1_error', np.float), ('column_sigma', np.float), ('column_sigma_error', np.float), ('row_c0', np.float), ('row_c0_error', np.float), ('row_c1', np.float), ('row_c1_error', np.float), ('row_sigma', np.float), ('row_sigma_error', np.float), ('z', np.float)])
-        # Set std. settings for reference DUT0
-        result[0]['column_c0'], result[0]['column_c0_error'] = 0.0, 0.0
-        result[0]['column_c1'], result[0]['column_c1_error'] = 1.0, 0.0
-        result[0]['row_c0'], result[0]['row_c0_error'] = 0.0, 0.0
-        result[0]['row_c1'], result[0]['row_c1_error'] = 1.0, 0.0
+        max_dut_index = None
+        ref_index = None
+        for node in in_file_h5.root:
+            if "correlation" in node.name:
+                indices = re.findall(r'\d+', node.name)
+                if len(indices) == 2:
+                    max_dut_index = max(int(indices[0]), max_dut_index)
+                    max_dut_index = max(int(indices[1]), max_dut_index)
+                    if ref_index is None:
+                        ref_index = int(indices[0])
+                    elif ref_index != int(indices[0]):
+                        raise ValueError('Referece DUT cannot be determined in file %s.' % input_correlation_file)
+        if max_dut_index is None:
+            raise ValueError('Can\'t find correlation data in file %s.' % input_correlation_file)
+
+        n_duts = max_dut_index + 1
+        prealignment = np.full(shape=(n_duts,),
+                               dtype=[('DUT', np.uint8),
+                                      ('column_c0', np.float),
+                                      ('column_c0_error', np.float),
+                                      ('column_c1', np.float),
+                                      ('column_c1_error', np.float),
+                                      ('column_sigma', np.float),
+                                      ('column_sigma_error', np.float),
+                                      ('row_c0', np.float),
+                                      ('row_c0_error', np.float),
+                                      ('row_c1', np.float),
+                                      ('row_c1_error', np.float),
+                                      ('row_sigma', np.float),
+                                      ('row_sigma_error', np.float),
+                                      ('z', np.float)],
+                               fill_value=np.nan)
+        prealignment['DUT'] = range(n_duts)
+        prealignment['z'] = z_positions
+        # Set standard settings for reference DUT
+        prealignment[ref_index]['column_c0'], prealignment[ref_index]['column_c0_error'] = 0.0, 0.0
+        prealignment[ref_index]['column_c1'], prealignment[ref_index]['column_c1_error'] = 1.0, 0.0
+        prealignment[ref_index]['row_c0'], prealignment[ref_index]['row_c0_error'] = 0.0, 0.0
+        prealignment[ref_index]['row_c1'], prealignment[ref_index]['row_c1_error'] = 1.0, 0.0
+        prealignment[ref_index]['column_sigma'], prealignment[ref_index]['column_sigma_error'] = np.nan, np.nan
+        prealignment[ref_index]['row_sigma'], prealignment[ref_index]['row_sigma_error'] = np.nan, np.nan
 
         fit_limits = np.full((n_duts, 2, 2), fill_value=np.nan, dtype=np.float)  # col left, right, row left, right
 
-        result[0]['z'] = z_positions[0]
-        for node in in_file_h5.root:
-            table_prefix = 'column' if 'column' in node.name.lower() else 'row'
-            indices = re.findall(r'\d+', node.name)
-            dut_idx = int(indices[0])
-            ref_idx = int(indices[1])
-            result[dut_idx]['DUT'] = dut_idx
-            dut_name = dut_names[dut_idx] if dut_names else ("DUT" + str(dut_idx))
-            ref_name = dut_names[ref_idx] if dut_names else ("DUT" + str(ref_idx))
-            logging.info('Aligning data from %s', node.name)
+        # remove reference DUT from list of DUTs
+        select_duts = list(set(range(n_duts)) - set([ref_index]))
 
-            if "column" in node.name.lower():
-                pixel_size_dut, pixel_size_ref = pixel_size[dut_idx][0], pixel_size[ref_idx][0]
-            else:
-                pixel_size_dut, pixel_size_ref = pixel_size[dut_idx][1], pixel_size[ref_idx][1]
-
-            data = node[:]
-
-            n_pixel_dut, n_pixel_ref = data.shape[0], data.shape[1]
-
-            # Initialize arrays with np.nan (invalid), adding 0.5 to change from index to position
-            # matrix index 0 is cluster index 1 ranging from 0.5 to 1.4999, which becomes position 0.0 to 0.999 with center at 0.5, etc.
-            x_ref = (np.linspace(0.0, n_pixel_ref, num=n_pixel_ref, endpoint=False, dtype=np.float) + 0.5)
-            x_dut = (np.linspace(0.0, n_pixel_dut, num=n_pixel_dut, endpoint=False, dtype=np.float) + 0.5)
-            coeff_fitted = [None] * n_pixel_dut
-            mean_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Peak of the Gauss fit
-            mean_fitted.fill(np.nan)
-            mean_error_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Error of the fit of the peak
-            mean_error_fitted.fill(np.nan)
-            sigma_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Sigma of the Gauss fit
-            sigma_fitted.fill(np.nan)
-            chi2 = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Chi2 of the fit
-            chi2.fill(np.nan)
-            n_cluster = np.sum(data, axis=1)  # Number of hits per bin
-
-            if reduce_background:
-                uu, dd, vv = np.linalg.svd(data)  # sigular value decomposition
-                background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
-                background = np.array(background, dtype=np.int32)  # make Numpy array
-                data = (data - background).astype(np.int32)  # remove background
-                data -= data.min()  # only positive values
-
-            # calculate half hight
-            median = np.median(data)
-            median_max = np.median(np.max(data, axis=1))
-            half_median_data = (data > ((median + median_max) / 2))
-            # calculate maximum per column
-            max_select = np.argmax(data, axis=1)
-            hough_data = np.zeros_like(data)
-            hough_data[np.arange(data.shape[0]), max_select] = 1
-            # select maximums if larger than half hight
-            hough_data = hough_data & half_median_data
-            # transpose for correct angle
-            hough_data = hough_data.T
-            accumulator, theta, rho, theta_edges, rho_edges = analysis_utils.hough_transform(hough_data, theta_res=0.1, rho_res=1.0, return_edges=True)
-            rho_idx, th_idx = np.unravel_index(accumulator.argmax(), accumulator.shape)
-            rho_val, theta_val = rho[rho_idx], theta[th_idx]
-            slope_idx, offset_idx = -np.cos(theta_val) / np.sin(theta_val), rho_val / np.sin(theta_val)
-            slope = slope_idx * (pixel_size_ref / pixel_size_dut)
-            offset = offset_idx * pixel_size_ref
-            # offset in the center of the pixel matrix
-            offset_center = offset + slope * pixel_size_dut * n_pixel_dut * 0.5 - pixel_size_ref * n_pixel_ref * 0.5
-            offset_center += 0.5 * pixel_size_ref - slope * 0.5 * pixel_size_dut  # correct for half bin
-
-            if no_fit:
-                # TODO: that needs to be addressed when correlation plot is hogh, proabably not needed anymore
-                result[dut_idx][table_prefix + '_c0'], result[dut_idx][table_prefix + '_c0_error'] = offset_center, 0.0
-                result[dut_idx][table_prefix + '_c1'], result[dut_idx][table_prefix + '_c1_error'] = slope, 0.0
-                result[dut_idx][table_prefix + '_sigma'], result[dut_idx][table_prefix + '_sigma_error'] = 0.0, 0.0
-                result[dut_idx]['z'] = z_positions[dut_idx]
-
-                plot_utils.plot_hough(x=x_dut,
-                                      data=hough_data,
-                                      accumulator=accumulator,
-                                      offset=offset_idx,
-                                      slope=slope_idx,
-                                      theta_edges=theta_edges,
-                                      rho_edges=rho_edges,
-                                      n_pixel_ref=n_pixel_ref,
-                                      n_pixel_dut=n_pixel_dut,
-                                      pixel_size_ref=pixel_size_ref,
-                                      pixel_size_dut=pixel_size_dut,
-                                      ref_name=ref_name,
-                                      dut_name=dut_name,
-                                      prefix=table_prefix,
-                                      output_pdf=output_pdf,
-                                      gui=gui,
-                                      figs=figs)
-
-            else:
-                # fill the arrays from above with values
-                _fit_data(x=x_ref, data=data, s_n=s_n, coeff_fitted=coeff_fitted, mean_fitted=mean_fitted, mean_error_fitted=mean_error_fitted, sigma_fitted=sigma_fitted, chi2=chi2, fit_background=fit_background, reduce_background=reduce_background)
-
-                # Convert fit results to metric units for alignment fit
-                # Origin is center of pixel matrix
-                x_dut_scaled = (x_dut - 0.5 * n_pixel_dut) * pixel_size_dut
-                mean_fitted_scaled = (mean_fitted - 0.5 * n_pixel_ref) * pixel_size_ref
-                mean_error_fitted_scaled = mean_error_fitted * pixel_size_ref
-
-                # Selected data arrays
-                x_selected = x_dut.copy()
-                x_dut_scaled_selected = x_dut_scaled.copy()
-                mean_fitted_scaled_selected = mean_fitted_scaled.copy()
-                mean_error_fitted_scaled_selected = mean_error_fitted_scaled.copy()
-                sigma_fitted_selected = sigma_fitted.copy()
-                chi2_selected = chi2.copy()
-                n_cluster_selected = n_cluster.copy()
-
-                # Show the straigt line correlation fit including fit errors and offsets from the fit
-                # Let the user change the cuts (error limit, offset limit) and refit until result looks good
-                refit = True
-                selected_data = np.ones_like(x_dut, dtype=np.bool)
-                actual_iteration = 0  # Refit counter for non interactive mode
-                while refit:
-                    if gui and not non_interactive:
-                        # Put data in queue to be processed interactively on GUI thread
-                        queue['in'].put([x_dut_scaled_selected, mean_fitted_scaled_selected,
-                                         mean_error_fitted_scaled_selected, n_cluster_selected,
-                                         ref_name, dut_name, table_prefix])
-                        # Blocking statement to wait for processed data from GUI thread
-                        selected_data, fit, refit = queue['out'].get()
-                    else:
-                        selected_data, fit, refit = plot_utils.plot_prealignments(x=x_dut_scaled_selected,
-                                                                                  mean_fitted=mean_fitted_scaled_selected,
-                                                                                  mean_error_fitted=mean_error_fitted_scaled_selected,
-                                                                                  n_cluster=n_cluster_selected,
-                                                                                  ref_name=ref_name,
-                                                                                  dut_name=dut_name,
-                                                                                  prefix=table_prefix,
-                                                                                  non_interactive=non_interactive,
-                                                                                  pre_fit=[offset_center, slope] if actual_iteration == 0 else None)
-                    x_selected = x_selected[selected_data]
-                    x_dut_scaled_selected = x_dut_scaled_selected[selected_data]
-                    mean_fitted_scaled_selected = mean_fitted_scaled_selected[selected_data]
-                    mean_error_fitted_scaled_selected = mean_error_fitted_scaled_selected[selected_data]
-                    sigma_fitted_selected = sigma_fitted_selected[selected_data]
-                    chi2_selected = chi2_selected[selected_data]
-                    n_cluster_selected = n_cluster_selected[selected_data]
-                    # Stop in non interactive mode if the number of refits (iterations) is reached
-                    if non_interactive:
-                        actual_iteration += 1
-                        if actual_iteration >= iterations:
-                            break
-
-                # Linear fit, usually describes correlation very well, slope is close to 1.
-                # With low energy beam and / or beam with diverse agular distribution, the correlation will not be perfectly straight
-                # Use results from straight line fit as start values for this final fit
-                re_fit, re_fit_pcov = curve_fit(analysis_utils.linear, x_dut_scaled_selected, mean_fitted_scaled_selected, sigma=mean_error_fitted_scaled_selected, absolute_sigma=True, p0=[fit[0], fit[1]])
-
-                # Write fit results to array
-                result[dut_idx][table_prefix + '_c0'], result[dut_idx][table_prefix + '_c0_error'] = re_fit[0], np.absolute(re_fit_pcov[0][0]) ** 0.5
-                result[dut_idx][table_prefix + '_c1'], result[dut_idx][table_prefix + '_c1_error'] = re_fit[1], np.absolute(re_fit_pcov[1][1]) ** 0.5
-                result[dut_idx]['z'] = z_positions[dut_idx]
-
-                fit_limits[dut_idx][0 if table_prefix == "column" else 1] = [x_dut_scaled_selected.min() if x_dut_scaled.min() < x_dut_scaled_selected.min() else np.nan,
-                                                                             x_dut_scaled_selected.max() if x_dut_scaled.max() > x_dut_scaled_selected.max() else np.nan]
-
-                # Calculate mean sigma (is a residual when assuming straight tracks) and its error and store the actual data in result array
-                # This error is needed for track finding and track quality determination
-                mean_sigma = pixel_size_ref * np.mean(np.array(sigma_fitted_selected))
-                mean_sigma_error = pixel_size_ref * np.std(np.array(sigma_fitted_selected)) / np.sqrt(np.array(sigma_fitted_selected).shape[0])
-
-                result[dut_idx][table_prefix + '_sigma'], result[dut_idx][table_prefix + '_sigma_error'] = mean_sigma, mean_sigma_error
-
-                # Calculate the index of the beam center based on valid indices
-                plot_index = np.average(x_selected - 1, weights=np.sum(data, axis=1)[np.array(x_selected - 1, dtype=np.int32)])
-                # Find nearest valid index to the calculated index
-                idx = (np.abs(x_selected - 1 - plot_index)).argmin()
-                plot_index = np.array(x_selected - 1, dtype=np.int32)[idx]
-
-                x_fit = np.linspace(start=x_ref.min(), stop=x_ref.max(), num=500, endpoint=True)
-                indices_lower = np.arange(plot_index)
-                indices_higher = np.arange(plot_index, n_pixel_dut)
-                alternating_indices = np.vstack((np.hstack([indices_higher, indices_lower[::-1]]), np.hstack([indices_lower[::-1], indices_higher]))).reshape((-1,), order='F')
-                unique_indices = np.unique(alternating_indices, return_index=True)[1]
-                alternating_indices = alternating_indices[np.sort(unique_indices)]
-                for plot_index in alternating_indices:
-                    plot_correlation_fit = False
-                    if coeff_fitted[plot_index] is not None:
-                        plot_correlation_fit = True
-                        break
-                if plot_correlation_fit:
-                    if np.all(np.isnan(coeff_fitted[plot_index][3:6])):
-                        y_fit = analysis_utils.gauss_offset(x_fit, *coeff_fitted[plot_index][[0, 1, 2, 6]])
-                        fit_label = "Gauss-Offset"
-                    else:
-                        y_fit = analysis_utils.double_gauss_offset(x_fit, *coeff_fitted[plot_index])
-                        fit_label = "Gauss-Gauss-Offset"
-
-                    plot_utils.plot_correlation_fit(x=x_ref,
-                                                    y=data[plot_index, :],
-                                                    x_fit=x_fit,
-                                                    y_fit=y_fit,
-                                                    xlabel='%s %s' % ("Column" if "column" in node.name.lower() else "Row", ref_name),
-                                                    fit_label=fit_label,
-                                                    title="Correlation of %s: %s vs. %s at %s %d" % (table_prefix + "s", ref_name, dut_name, table_prefix, plot_index),
-                                                    output_pdf=output_pdf,
-                                                    gui=gui,
-                                                    figs=figs)
+        for dut_index in select_duts:
+            for direction in ["column", "row"]:
+                if reduce_background:
+                    node = in_file_h5.get_node(in_file_h5.root, 'Reduced_background_correlation_%s_%d_%d' % (direction, ref_index, dut_index))
                 else:
-                    logging.warning("Cannot plot correlation fit, no fit data available")
+                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % (direction, ref_index, dut_index))
+                dut_name = dut_names[dut_index] if dut_names else ("DUT" + str(dut_index))
+                ref_name = dut_names[ref_index] if dut_names else ("DUT" + str(ref_index))
+                logging.info('Pre-aligning data from %s', node.name)
 
-                # Plot selected data with fit
-                fit_fn = np.poly1d(re_fit[::-1])
-                selected_indices = np.searchsorted(x_dut_scaled, x_dut_scaled_selected)
-                mask = np.zeros_like(x_dut_scaled, dtype=np.bool)
-                mask[selected_indices] = True
+                if direction == "column":
+                    pixel_size_dut, pixel_size_ref = pixel_size[dut_index][0], pixel_size[ref_index][0]
+                else:
+                    pixel_size_dut, pixel_size_ref = pixel_size[dut_index][1], pixel_size[ref_index][1]
 
-                plot_utils.plot_prealignment_fit(x=x_dut_scaled,
-                                                 mean_fitted=mean_fitted_scaled,
-                                                 mask=mask,
-                                                 fit_fn=fit_fn,
-                                                 fit=re_fit,
-                                                 fit_limit=fit_limits[dut_idx][0 if table_prefix == "column" else 1],
-                                                 pcov=re_fit_pcov,
-                                                 chi2=chi2,
-                                                 mean_error_fitted=mean_error_fitted_scaled,
-                                                 n_cluster=n_cluster,
-                                                 n_pixel_ref=n_pixel_ref,
-                                                 n_pixel_dut=n_pixel_dut,
-                                                 pixel_size_ref=pixel_size_ref,
-                                                 pixel_size_dut=pixel_size_dut,
-                                                 ref_name=ref_name,
-                                                 dut_name=dut_name,
-                                                 prefix=table_prefix,
-                                                 output_pdf=output_pdf,
-                                                 gui=gui,
-                                                 figs=figs)
+                # retrieve data
+                data = node[:]
 
-        if gui and not non_interactive:
-            queue['in'].put([None])  # Put random element in queue to signal GUI thread end of interactive prealignment
+                n_pixel_dut, n_pixel_ref = data.shape[0], data.shape[1]
 
-        logging.info('Store pre-alignment data in %s', output_alignment_file)
+                # Initialize arrays with np.nan (invalid), adding 0.5 to change from index to position
+                # matrix index 0 is cluster index 1 ranging from 0.5 to 1.4999, which becomes position 0.0 to 0.999 with center at 0.5, etc.
+                x_ref = (np.linspace(0.0, n_pixel_ref, num=n_pixel_ref, endpoint=False, dtype=np.float) + 0.5)
+                x_dut = (np.linspace(0.0, n_pixel_dut, num=n_pixel_dut, endpoint=False, dtype=np.float) + 0.5)
+                coeff_fitted = [None] * n_pixel_dut
+                mean_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Peak of the Gauss fit
+                mean_fitted.fill(np.nan)
+                mean_error_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Error of the fit of the peak
+                mean_error_fitted.fill(np.nan)
+                sigma_fitted = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Sigma of the Gauss fit
+                sigma_fitted.fill(np.nan)
+                chi2 = np.empty(shape=(n_pixel_dut,), dtype=np.float)  # Chi2 of the fit
+                chi2.fill(np.nan)
+                n_cluster = np.sum(data, axis=1)  # Number of hits per bin
+
+                # calculate half hight
+                median = np.median(data)
+                median_max = np.median(np.max(data, axis=1))
+                half_median_data = (data > ((median + median_max) / 2))
+                # calculate maximum per column
+                max_select = np.argmax(data, axis=1)
+                hough_data = np.zeros_like(data)
+                hough_data[np.arange(data.shape[0]), max_select] = 1
+                # select maximums if larger than half hight
+                hough_data = hough_data & half_median_data
+                # transpose for correct angle
+                hough_data = hough_data.T
+                accumulator, theta, rho, theta_edges, rho_edges = analysis_utils.hough_transform(hough_data, theta_res=0.1, rho_res=1.0, return_edges=True)
+                rho_idx, th_idx = np.unravel_index(accumulator.argmax(), accumulator.shape)
+                rho_val, theta_val = rho[rho_idx], theta[th_idx]
+                slope_idx, offset_idx = -np.cos(theta_val) / np.sin(theta_val), rho_val / np.sin(theta_val)
+                slope = slope_idx * (pixel_size_ref / pixel_size_dut)
+                offset = offset_idx * pixel_size_ref
+                # offset in the center of the pixel matrix
+                offset_center = offset + slope * pixel_size_dut * n_pixel_dut * 0.5 - pixel_size_ref * n_pixel_ref * 0.5
+                offset_center += 0.5 * pixel_size_ref - slope * 0.5 * pixel_size_dut  # correct for half bin
+
+                if no_fit:
+                    # TODO: that needs to be addressed when correlation plot is hogh, proabably not needed anymore
+                    prealignment[dut_index][direction + '_c0'], prealignment[dut_index][direction + '_c0_error'] = offset_center, np.nan
+                    prealignment[dut_index][direction + '_c1'], prealignment[dut_index][direction + '_c1_error'] = slope, np.nan
+                    prealignment[dut_index][direction + '_sigma'], prealignment[dut_index][direction + '_sigma_error'] = np.nan, np.nan
+
+                    plot_utils.plot_hough(x=x_dut,
+                                          data=hough_data,
+                                          accumulator=accumulator,
+                                          offset=offset_idx,
+                                          slope=slope_idx,
+                                          theta_edges=theta_edges,
+                                          rho_edges=rho_edges,
+                                          n_pixel_ref=n_pixel_ref,
+                                          n_pixel_dut=n_pixel_dut,
+                                          pixel_size_ref=pixel_size_ref,
+                                          pixel_size_dut=pixel_size_dut,
+                                          ref_name=ref_name,
+                                          dut_name=dut_name,
+                                          prefix=direction,
+                                          output_pdf=output_pdf,
+                                          gui=gui,
+                                          figs=figs)
+                else:
+                    # fill the arrays from above with values
+                    _fit_data(x=x_ref, data=data, s_n=s_n, coeff_fitted=coeff_fitted, mean_fitted=mean_fitted, mean_error_fitted=mean_error_fitted, sigma_fitted=sigma_fitted, chi2=chi2, fit_background=fit_background, reduce_background=reduce_background)
+
+                    # Convert fit results to metric units for alignment fit
+                    # Origin is center of pixel matrix
+                    x_dut_scaled = (x_dut - 0.5 * n_pixel_dut) * pixel_size_dut
+                    mean_fitted_scaled = (mean_fitted - 0.5 * n_pixel_ref) * pixel_size_ref
+                    mean_error_fitted_scaled = mean_error_fitted * pixel_size_ref
+
+                    # Selected data arrays
+                    x_selected = x_dut.copy()
+                    x_dut_scaled_selected = x_dut_scaled.copy()
+                    mean_fitted_scaled_selected = mean_fitted_scaled.copy()
+                    mean_error_fitted_scaled_selected = mean_error_fitted_scaled.copy()
+                    sigma_fitted_selected = sigma_fitted.copy()
+                    chi2_selected = chi2.copy()
+                    n_cluster_selected = n_cluster.copy()
+
+                    # Show the straigt line correlation fit including fit errors and offsets from the fit
+                    # Let the user change the cuts (error limit, offset limit) and refit until result looks good
+                    refit = True
+                    selected_data = np.ones_like(x_dut, dtype=np.bool)
+                    actual_iteration = 0  # Refit counter for non interactive mode
+                    while refit:
+                        if gui and not non_interactive:
+                            # Put data in queue to be processed interactively on GUI thread
+                            queue['in'].put([x_dut_scaled_selected, mean_fitted_scaled_selected,
+                                             mean_error_fitted_scaled_selected, n_cluster_selected,
+                                             ref_name, dut_name, table_prefix])
+                            # Blocking statement to wait for processed data from GUI thread
+                            selected_data, fit, refit = queue['out'].get()
+                        else:
+                            selected_data, fit, refit = plot_utils.plot_prealignments(x=x_dut_scaled_selected,
+                                                                                      mean_fitted=mean_fitted_scaled_selected,
+                                                                                      mean_error_fitted=mean_error_fitted_scaled_selected,
+                                                                                      n_cluster=n_cluster_selected,
+                                                                                      ref_name=ref_name,
+                                                                                      dut_name=dut_name,
+                                                                                      prefix=direction,
+                                                                                      non_interactive=non_interactive,
+                                                                                      pre_fit=[offset_center, slope] if actual_iteration == 0 else None)
+                        x_selected = x_selected[selected_data]
+                        x_dut_scaled_selected = x_dut_scaled_selected[selected_data]
+                        mean_fitted_scaled_selected = mean_fitted_scaled_selected[selected_data]
+                        mean_error_fitted_scaled_selected = mean_error_fitted_scaled_selected[selected_data]
+                        sigma_fitted_selected = sigma_fitted_selected[selected_data]
+                        chi2_selected = chi2_selected[selected_data]
+                        n_cluster_selected = n_cluster_selected[selected_data]
+                        # Stop in non interactive mode if the number of refits (iterations) is reached
+                        if non_interactive:
+                            actual_iteration += 1
+                            if actual_iteration >= iterations:
+                                break
+
+                    # Linear fit, usually describes correlation very well, slope is close to 1.
+                    # With low energy beam and / or beam with diverse agular distribution, the correlation will not be perfectly straight
+                    # Use results from straight line fit as start values for this final fit
+                    re_fit, re_fit_pcov = curve_fit(analysis_utils.linear, x_dut_scaled_selected, mean_fitted_scaled_selected, sigma=mean_error_fitted_scaled_selected, absolute_sigma=True, p0=[fit[0], fit[1]])
+
+                    # Write fit results to array
+                    prealignment[dut_index][direction + '_c0'], prealignment[dut_index][direction + '_c0_error'] = re_fit[0], np.absolute(re_fit_pcov[0][0]) ** 0.5
+                    prealignment[dut_index][direction + '_c1'], prealignment[dut_index][direction + '_c1_error'] = re_fit[1], np.absolute(re_fit_pcov[1][1]) ** 0.5
+
+                    fit_limits[dut_index][0 if direction == "column" else 1] = [x_dut_scaled_selected.min() if x_dut_scaled.min() < x_dut_scaled_selected.min() else np.nan,
+                                                                                x_dut_scaled_selected.max() if x_dut_scaled.max() > x_dut_scaled_selected.max() else np.nan]
+
+                    # Calculate mean sigma (is a residual when assuming straight tracks) and its error and store the actual data in result array
+                    # This error is needed for track finding and track quality determination
+                    mean_sigma = pixel_size_ref * np.mean(np.array(sigma_fitted_selected))
+                    mean_sigma_error = pixel_size_ref * np.std(np.array(sigma_fitted_selected)) / np.sqrt(np.array(sigma_fitted_selected).shape[0])
+
+                    prealignment[dut_index][direction + '_sigma'], prealignment[dut_index][direction + '_sigma_error'] = mean_sigma, mean_sigma_error
+
+                    # Calculate the index of the beam center based on valid indices
+                    plot_index = np.average(x_selected - 1, weights=np.sum(data, axis=1)[np.array(x_selected - 1, dtype=np.int32)])
+                    # Find nearest valid index to the calculated index
+                    idx = (np.abs(x_selected - 1 - plot_index)).argmin()
+                    plot_index = np.array(x_selected - 1, dtype=np.int32)[idx]
+
+                    x_fit = np.linspace(start=x_ref.min(), stop=x_ref.max(), num=500, endpoint=True)
+                    indices_lower = np.arange(plot_index)
+                    indices_higher = np.arange(plot_index, n_pixel_dut)
+                    alternating_indices = np.vstack((np.hstack([indices_higher, indices_lower[::-1]]), np.hstack([indices_lower[::-1], indices_higher]))).reshape((-1,), order='F')
+                    unique_indices = np.unique(alternating_indices, return_index=True)[1]
+                    alternating_indices = alternating_indices[np.sort(unique_indices)]
+                    for plot_index in alternating_indices:
+                        plot_correlation_fit = False
+                        if coeff_fitted[plot_index] is not None:
+                            plot_correlation_fit = True
+                            break
+                    if plot_correlation_fit:
+                        if np.all(np.isnan(coeff_fitted[plot_index][3:6])):
+                            y_fit = analysis_utils.gauss_offset(x_fit, *coeff_fitted[plot_index][[0, 1, 2, 6]])
+                            fit_label = "Gauss-Offset"
+                        else:
+                            y_fit = analysis_utils.double_gauss_offset(x_fit, *coeff_fitted[plot_index])
+                            fit_label = "Gauss-Gauss-Offset"
+
+                        plot_utils.plot_correlation_fit(x=x_ref,
+                                                        y=data[plot_index, :],
+                                                        x_fit=x_fit,
+                                                        y_fit=y_fit,
+                                                        xlabel='%s %s' % ("Column" if "column" in node.name.lower() else "Row", ref_name),
+                                                        fit_label=fit_label,
+                                                        title="Correlation of %s: %s vs. %s at %s %d" % (direction + "s", ref_name, dut_name, direction, plot_index),
+                                                        output_pdf=output_pdf,
+                                                        gui=gui,
+                                                        figs=figs)
+                    else:
+                        logging.warning("Cannot plot correlation fit, no fit data available")
+
+                    # Plot selected data with fit
+                    fit_fn = np.poly1d(re_fit[::-1])
+                    selected_indices = np.searchsorted(x_dut_scaled, x_dut_scaled_selected)
+                    mask = np.zeros_like(x_dut_scaled, dtype=np.bool)
+                    mask[selected_indices] = True
+
+                    plot_utils.plot_prealignment_fit(x=x_dut_scaled,
+                                                     mean_fitted=mean_fitted_scaled,
+                                                     mask=mask,
+                                                     fit_fn=fit_fn,
+                                                     fit=re_fit,
+                                                     fit_limit=fit_limits[dut_index][0 if direction == "column" else 1],
+                                                     pcov=re_fit_pcov,
+                                                     chi2=chi2,
+                                                     mean_error_fitted=mean_error_fitted_scaled,
+                                                     n_cluster=n_cluster,
+                                                     n_pixel_ref=n_pixel_ref,
+                                                     n_pixel_dut=n_pixel_dut,
+                                                     pixel_size_ref=pixel_size_ref,
+                                                     pixel_size_dut=pixel_size_dut,
+                                                     ref_name=ref_name,
+                                                     dut_name=dut_name,
+                                                     prefix=direction,
+                                                     output_pdf=output_pdf,
+                                                     gui=gui,
+                                                     figs=figs)
+
+        logging.info('Store pre-alignment in %s', output_alignment_file)
         with tb.open_file(output_alignment_file, mode="w") as out_file_h5:
-            try:
-                result_table = out_file_h5.create_table(out_file_h5.root, name='PreAlignment', description=result.dtype, title='Prealignment alignment from correlation', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                result_table.append(result)
-                result_table.attrs.fit_limits = fit_limits
-            except tb.exceptions.NodeError:
-                logging.warning('Coarse alignment table exists already. Do not create new.')
+            result_table = out_file_h5.create_table(where=out_file_h5.root,
+                                                    name='PreAlignment',
+                                                    description=prealignment.dtype,
+                                                    title='Pre-alignment')
+            result_table.append(prealignment)
+            result_table.attrs.fit_limits = fit_limits
 
     if output_pdf is not None:
         output_pdf.close()
@@ -1118,8 +1195,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                        input_alignment_file=alignment_file,
                        output_tracks_file=output_tracks_file,
 #                        max_events=max_events,
-                       fit_duts=align_duts,
-                       selection_fit_duts=selection_fit_duts,   # Only use selected DUTs for track fit
+                       select_duts=align_duts,
+                       selection_fit_duts=selection_fit_duts,  # Only use selected DUTs for track fit
                        selection_hit_duts=selection_hit_duts,  # Only use selected duts
                        exclude_dut_hit=False,  # For constrained residuals
                        use_prealignment=False,
@@ -1142,7 +1219,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                       input_alignment_file=alignment_file,
                                       select_duts=align_duts,
                                       dut_names=dut_names,
-                                      n_bins=200, # TODO: fix n_bins
+                                      n_bins=200,  # TODO: fix n_bins
                                       plot=plot)
                 with tb.open_file(track_angles_file, mode="r") as in_file_h5:
                     beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
@@ -1209,11 +1286,11 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                     correct_beam_alignment=True,
                     max_events=max_events)
 
-        fit_tracks(input_track_candidates_file=final_track_candidates_file,#track_candidates_reduced,
+        fit_tracks(input_track_candidates_file=final_track_candidates_file,
                    input_alignment_file=alignment_file,
                    output_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
 #                    max_events=max_events,
-                   fit_duts=align_duts,  # Only create residuals of selected DUTs
+                   select_duts=align_duts,  # Only create residuals of selected DUTs
                    selection_fit_duts=selection_fit_duts,  # Only use selected duts
                    selection_hit_duts=selection_hit_duts,
                    exclude_dut_hit=False,  # For unconstrained residuals
@@ -1235,7 +1312,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                   input_alignment_file=alignment_file,
                                   select_duts=align_duts,
                                   dut_names=dut_names,
-                                  n_bins=200, # TODO: fix n_bins
+                                  n_bins=200,  # TODO: fix n_bins
                                   plot=True)
             with tb.open_file(track_angles_file, mode="r") as in_file_h5:
                 beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
@@ -1449,7 +1526,7 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
 #                     u, s, v = svds(tot_matr, k=5)
                     print "...finished calculating SVD"
 
-                    diag = np.diag(s**-1)
+                    diag = np.diag(s ** -1)
                     tot_matr_inv = np.dot(v.T, np.dot(diag, u.T))
                     omega_b_dot = np.dot(tot_matr_inv, -lin_alpha * tot_b)
 
@@ -1542,12 +1619,12 @@ def _create_beam_alignment_array():
 
 
 # Helper functions to be called from multiple processes
-def _correlate_cluster(cluster_dut_0, cluster_file, start_index, start_event_number, stop_event_number, column_correlation, row_correlation, chunk_size):
+def _correlate_cluster(clusters_ref_dut, cluster_file, start_index, start_event_number, stop_event_number, column_correlation, row_correlation, chunk_size):
     with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
-        for actual_dut_cluster, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+        for cluster_dut, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
 
-            analysis_utils.correlate_cluster_on_event_number(data_1=cluster_dut_0,
-                                                             data_2=actual_dut_cluster,
+            analysis_utils.correlate_cluster_on_event_number(data_1=clusters_ref_dut,
+                                                             data_2=cluster_dut,
                                                              column_corr_hist=column_correlation,
                                                              row_corr_hist=row_correlation)
 

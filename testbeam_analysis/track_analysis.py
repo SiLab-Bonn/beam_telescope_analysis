@@ -162,10 +162,10 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             chunk_size=chunk_size)
 
 
-def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_file, max_events=None, fit_duts=None, selection_hit_duts=None, selection_fit_duts=None, exclude_dut_hit=True, quality_sigma=5.0, selection_track_quality=None, pixel_size=None, n_pixels=None, beam_energy=None, material_budget=None, add_scattering_plane=False, max_tracks_per_event=None, use_prealignment=False, use_correlated=False, min_track_distance=None, keep_data=False, method='Fit', full_track_info=False, mode='w', chunk_size=1000000):
+def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_file, max_events=None, select_duts=None, selection_hit_duts=None, selection_fit_duts=None, exclude_dut_hit=True, quality_sigma=5.0, selection_track_quality=None, pixel_size=None, n_pixels=None, beam_energy=None, material_budget=None, add_scattering_plane=False, max_tracks_per_event=None, use_prealignment=False, use_correlated=False, min_track_distance=None, keep_data=False, method='Fit', full_track_info=False, mode='w', chunk_size=1000000):
     '''Fits either a line through selected DUT hits for selected DUTs (method=Fit) or uses a Kalman Filter to build tracks (method=Kalman).
     The selection criterion for the track candidates to fit is the track quality and the maximum number of hits per event.
-    The fit is done for specified DUTs only (fit_duts). This DUT is then not included in the fit (include_duts).
+    The fit is done for specified DUTs only (select_duts). This DUT is then not included in the fit (include_duts).
     Bad DUTs can be always ignored in the fit (ignore_duts).
 
     Parameters
@@ -178,7 +178,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         Filename of the output tracks file.
     max_events : uint
         Radomly select max_events. If None, fit and store all events.
-    fit_duts : iterable
+    select_duts : iterable
         Specify DUTs for which tracks will be fitted. A track table will be generated for each fit DUT.
         If None, all existing DUTs are used.
     selection_hit_duts : iterable, or iterable of iterable
@@ -260,9 +260,10 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         raise ValueError('Full track information option only possible for Kalman Filter method.')
 
     with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
+        # load pre-alignment for quality flag
+        prealignment = in_file_h5.root.PreAlignment[:]
         if use_prealignment:
             logging.info('Use pre-alignment data')
-            prealignment = in_file_h5.root.PreAlignment[:]
             n_duts = prealignment.shape[0]
             z_positions = prealignment['z']
         else:
@@ -271,16 +272,16 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             n_duts = alignment.shape[0]
             z_positions = alignment['translation_z']
 
-    if fit_duts is None:
-        fit_duts = range(n_duts)  # standard setting: fit tracks for all DUTs
-    elif not isinstance(fit_duts, Iterable):
-        fit_duts = [fit_duts]
+    if select_duts is None:
+        select_duts = range(n_duts)  # standard setting: fit tracks for all DUTs
+    elif not isinstance(select_duts, Iterable):
+        select_duts = [select_duts]
     # Check for duplicates
-    if len(fit_duts) != len(set(fit_duts)):
-        raise ValueError("found douplicate in fit_duts")
+    if len(select_duts) != len(set(select_duts)):
+        raise ValueError("found douplicate in select_duts")
     # Check if any iterable in iterable
-    if any(map(lambda val: isinstance(val, Iterable), fit_duts)):
-        raise ValueError("item in fit_duts is iterable")
+    if any(map(lambda val: isinstance(val, Iterable), select_duts)):
+        raise ValueError("item in select_duts is iterable")
 
     # Create track, hit selection
     if selection_fit_duts is None:  # If None: use all DUTs
@@ -295,12 +296,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         raise ValueError("selection_fit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), selection_fit_duts)):
-        selection_fit_duts = [selection_fit_duts[:] for _ in fit_duts]
+        selection_fit_duts = [selection_fit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), selection_fit_duts)):
         raise ValueError("not all items in selection_fit_duts are iterable")
     # Finally check length of all arrays
-    if len(selection_fit_duts) != len(fit_duts):  # empty iterable
+    if len(selection_fit_duts) != len(select_duts):  # empty iterable
         raise ValueError("selection_fit_duts has the wrong length")
     for index, fit_dut in enumerate(selection_fit_duts):
         if len(fit_dut) < 2:  # check the length of the items
@@ -319,12 +320,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #         raise ValueError("selection_hit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), selection_hit_duts)):
-        selection_hit_duts = [selection_hit_duts[:] for _ in fit_duts]
+        selection_hit_duts = [selection_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), selection_hit_duts)):
         raise ValueError("not all items in selection_hit_duts are iterable")
     # Finally check length of all arrays
-    if len(selection_hit_duts) != len(fit_duts):  # empty iterable
+    if len(selection_hit_duts) != len(select_duts):  # empty iterable
         raise ValueError("selection_hit_duts has the wrong length")
 #     for hit_dut in selection_hit_duts:
 #         if len(hit_dut) < 2:  # check the length of the items
@@ -342,12 +343,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 # #         raise ValueError("selection_track_quality has no items")
 #     # Check if only non-iterable in iterable
 #     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-#         selection_track_quality = [selection_track_quality[:] for _ in fit_duts]
+#         selection_track_quality = [selection_track_quality[:] for _ in select_duts]
 #     # Check if only iterable in iterable
 #     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
 #         raise ValueError("not all items in selection_track_quality are iterable")
 #     # Finally check length of all arrays
-#     if len(selection_track_quality) != len(fit_duts):  # empty iterable
+#     if len(selection_track_quality) != len(select_duts):  # empty iterable
 #         raise ValueError("selection_track_quality has the wrong length")
 
 
@@ -361,12 +362,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #         raise ValueError("selection_track_quality has no items")
 #     # Check if only non-iterable in iterable
 #     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-#         selection_track_quality = [selection_track_quality for _ in fit_duts]
+#         selection_track_quality = [selection_track_quality for _ in select_duts]
 #     # Check if only iterable in iterable
 #     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
 #         raise ValueError("not all items in selection_track_quality are iterable")
 #     # Finally check length of all arrays
-#     if len(selection_track_quality) != len(fit_duts):  # empty iterable
+#     if len(selection_track_quality) != len(select_duts):  # empty iterable
 #         raise ValueError("selection_track_quality has the wrong length")
 #     for index, track_quality in enumerate(selection_track_quality):
 #         if len(track_quality) != len(selection_hit_duts[index]):  # check the length of each items
@@ -374,14 +375,14 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
     # Create min hit distance
     if not isinstance(min_track_distance, Iterable):
-        min_track_distance = [min_track_distance] * len(fit_duts)
+        min_track_distance = [min_track_distance] * len(select_duts)
     # Check iterable and length
     if not isinstance(min_track_distance, Iterable):
         raise ValueError("min_track_distance is no iterable")
     elif not min_track_distance:  # empty iterable
         raise ValueError("min_track_distance has no items")
     # Finally check length of all arrays
-    if len(min_track_distance) != len(fit_duts):  # empty iterable
+    if len(min_track_distance) != len(select_duts):  # empty iterable
         raise ValueError("min_track_distance has the wrong length")
 
     # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
@@ -531,8 +532,19 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                                                                                                   inverse=True)
             if not np.allclose(intersection_z_local, 0.0):
                 raise RuntimeError("Transformation into local coordinate system gives z != 0")
-            dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * track_candidates_chunk['xerr_dut_%s' % dut_index][good_track_selection])
-                                    & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * track_candidates_chunk['yerr_dut_%s' % dut_index][good_track_selection]))
+
+            # calculate sigma for quality flag
+            if np.isfinite(prealignment[dut_index]['column_sigma']):
+                column_sigma = prealignment[dut_index]['column_sigma']
+            else:
+                column_sigma = track_candidates_chunk['xerr_dut_%s' % dut_index][good_track_selection]
+            if np.isfinite(prealignment[dut_index]['row_sigma']):
+                row_sigma = prealignment[dut_index]['row_sigma']
+            else:
+                row_sigma = track_candidates_chunk['yerr_dut_%s' % dut_index][good_track_selection]
+            # select quality tracks
+            dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * column_sigma)
+                                    & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * row_sigma))
             dut_quality_flag = track_candidates_chunk["quality_flag"][good_track_selection]
             dut_quality_flag[dut_quality_flag_sel] |= (1 << dut_index)
             track_candidates_chunk["quality_flag"][good_track_selection] = dut_quality_flag
@@ -714,7 +726,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         info_str_quality = []  # For info output
 
         for selected_hit_dut in selection_hit_duts[dut_index]:
-            if exclude_dut_hit and selected_hit_dut == fit_duts[dut_index]:
+            if exclude_dut_hit and selected_hit_dut == select_duts[dut_index]:
                 continue
             dut_hit_selection |= (1 << selected_hit_dut)
             info_str_hit.append('DUT%d' % selected_hit_dut)
@@ -722,7 +734,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         logging.info('Require hits in %d DUTs for track selection: %s', n_slection_duts, ', '.join(info_str_hit))
 
         for selected_fit_dut in selection_fit_duts[dut_index]:
-            if exclude_dut_hit and selected_fit_dut == fit_duts[dut_index]:
+            if exclude_dut_hit and selected_fit_dut == select_duts[dut_index]:
                 continue
             dut_fit_selection |= ((1 << selected_fit_dut))
             info_str_fit.append('DUT%d' % selected_fit_dut)
@@ -733,7 +745,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #         quality_index = 0
 #         info_quality = ['no hit'] * n_slection_duts
 #         for index, dut in enumerate(selection_hit_duts[dut_index]):
-#             if exclude_dut_hit and dut == fit_duts[dut_index]:
+#             if exclude_dut_hit and dut == select_duts[dut_index]:
 #                 continue
 #             for quality in range(3):
 #                 if quality <= selection_track_quality[dut_index][index]:
@@ -763,7 +775,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #         except OSError:
 #             pass
         with tb.open_file(output_tracks_file, mode=mode) as out_file_h5:
-            for fit_dut_index, actual_fit_dut in enumerate(fit_duts):  # Loop over the DUTs where tracks shall be fitted for
+            for fit_dut_index, actual_fit_dut in enumerate(select_duts):  # Loop over the DUTs where tracks shall be fitted for
                 logging.info('Fit tracks for DUT%d', actual_fit_dut)
 
                 try:  # Check if table exists already, than append data
@@ -932,7 +944,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                              fit_dut_index=fit_dut_index,
                                              min_track_distance=min_track_distance)
                         else:
-                            for index, dut_index in enumerate(fit_duts):
+                            for index, dut_index in enumerate(select_duts):
                                 store_track_data(fit_dut=dut_index,
                                                  fit_dut_index=index,
                                                  min_track_distance=min_track_distance)
@@ -945,7 +957,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                         if not same_tracks_for_all_duts:  # Check if all DUTs were fitted at once
                             store_track_data_kalman(actual_fit_dut, min_track_distance)
                         else:
-                            for dut_index in fit_duts:
+                            for dut_index in select_duts:
                                 store_track_data_kalman(dut_index, min_track_distance)
 #                     total_n_tracks += n_good_tracks
 
