@@ -1068,10 +1068,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
     if alignment_order is None:
         alignment_order = [["alpha", "beta", "gamma", "translation_x", "translation_y", "translation_z"]]
 
-    duts_selection = [[dut] for dut in align_duts]
-    for item in duts_selection:
-        item.extend(selection_hit_duts)
-    print "duts_selection", duts_selection
+    duts_selection = [list(set([dut]) | set(selection_hit_duts)) for dut in align_duts]
+    print "************* duts_selection ****************", duts_selection
 
 #     output_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_aligned_duts_%s_tmp.h5' % (alignment_duts)
 #     logging.info('= Alignment step 0: Finding tracks for DUTs %s =', alignment_duts_str)
