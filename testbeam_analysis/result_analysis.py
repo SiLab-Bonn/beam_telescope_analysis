@@ -1874,7 +1874,7 @@ def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=N
 
 
 def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, nbins_per_pixel=None, npixels_per_bin=None, use_prealignment=False, use_fit_limits=False, plot=True, chunk_size=1000000):
-    logging.info('=== Calculating grain size ===')
+    logging.info('=== Calculating residual correlation ===')
 
     with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
         if use_prealignment:
@@ -1895,12 +1895,12 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
         with tb.open_file(output_residual_correlation_file, mode='w') as out_file_h5:
             for dut_index, actual_dut in enumerate(select_duts):
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT_%d' % actual_dut)
-                logging.info('Calculating grain size for DUT%d', actual_dut)
+                logging.info('Calculating residual correlation for DUT%d', actual_dut)
 
                 stop = [plot_n_pixels[dut_index][0] * pixel_size[actual_dut][0], plot_n_pixels[dut_index][1] * pixel_size[actual_dut][1]]
                 x_edges = np.linspace(start=0, stop=stop[0], num=plot_n_bins[dut_index][0] + 1, endpoint=True)
                 y_edges = np.linspace(start=0, stop=stop[1], num=plot_n_bins[dut_index][1] + 1, endpoint=True)
-                print x_edges, y_edges
+
                 ref_x_residuals_earray = out_file_h5.create_earray(out_file_h5.root,
                                                                    name='Column_residuals_reference_DUT_%d' % actual_dut,
                                                                    atom=tb.Float32Atom(),
@@ -1938,21 +1938,96 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
                            progressbar.Bar(marker='*', left='|', right='|'),
                            ' ', progressbar.AdaptiveETA()]
                 progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=correlate_n_tracks,
+                                                       maxval=1.0,
                                                        term_width=80)
                 progress_bar.start()
 
                 correlate_n_tracks_total = 0
 
                 initialize = True  # initialize the histograms
-                for ref_index in range(correlate_n_tracks):
-                    ref = node.read(start=ref_index, stop=ref_index + 1)
-                    for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, start_index=ref_index + 1, chunk_size=chunk_size):
-                        # select good hits and tracks
-                        tracks_chunk = np.hstack([ref, tracks_chunk])
+                ref_index_last = 0
+                correlate_start_index = 0
+                correlate_index_last = 0
+                for ref_chunk, curr_ref_index in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
+                    selection = np.logical_and(~np.isnan(ref_chunk['x_dut_%d' % actual_dut]), ~np.isnan(ref_chunk['track_chi2']))
+                    ref_chunk = ref_chunk[selection]  # Take only tracks where actual dut has a hit, otherwise residual wrong
+
+                    # Coordinates in global coordinate system (x, y, z)
+                    ref_hit_x_local, ref_hit_y_local, ref_hit_z_local = ref_chunk['x_dut_%d' % actual_dut], ref_chunk['y_dut_%d' % actual_dut], ref_chunk['z_dut_%d' % actual_dut]
+#                         ref_hit_local = np.column_stack([ref_hit_x_local, ref_hit_y_local])
+                    ref_intersection_x, ref_intersection_y, ref_intersection_z = ref_chunk['offset_0'], ref_chunk['offset_1'], ref_chunk['offset_2']
+#                         ref_offsets = np.column_stack([ref_chunk['offset_0'], ref_chunk['offset_1'], ref_chunk['offset_2']])
+#                         ref_slopes = np.column_stack([ref_chunk['slope_0'], ref_chunk['slope_1'], ref_chunk['slope_2']])
+                    ref_event_numbers = ref_chunk['event_number']
+
+                    if use_prealignment:
+                        ref_hit_x, ref_hit_y, ref_hit_z = geometry_utils.apply_alignment(ref_hit_x_local, ref_hit_y_local, ref_hit_z_local,
+                                                                                         dut_index=actual_dut,
+                                                                                         prealignment=prealignment,
+                                                                                         inverse=False)
+
+                        ref_intersection_x_local, ref_intersection_y_local, ref_intersection_z_local = geometry_utils.apply_alignment(ref_intersection_x, ref_intersection_y, ref_intersection_z,
+                                                                                                                                      dut_index=actual_dut,
+                                                                                                                                      prealignment=prealignment,
+                                                                                                                                      inverse=True)
+                    else:
+                        ref_hit_x, ref_hit_y, ref_hit_z = geometry_utils.apply_alignment(ref_hit_x_local, ref_hit_y_local, ref_hit_z_local,
+                                                                                         dut_index=actual_dut,
+                                                                                         alignment=alignment,
+                                                                                         inverse=False)
+
+#                             dut_position = np.array([alignment[actual_dut]['translation_x'], alignment[actual_dut]['translation_y'], alignment[actual_dut]['translation_z']])
+#                             rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[actual_dut]['alpha'],
+#                                                                              beta=alignment[actual_dut]['beta'],
+#                                                                              gamma=alignment[actual_dut]['gamma'])
+#                             basis_global = rotation_matrix.T.dot(np.eye(3))
+#                             dut_plane_normal = basis_global[2]
+#                             if dut_plane_normal[2] < 0:
+#                                 dut_plane_normal = -dut_plane_normal
+#
+#                             # Set the offset to the track intersection with the tilted plane
+#                             ref_dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=ref_offsets,
+#                                                                                                 line_directions=ref_slopes,
+#                                                                                                 position_plane=dut_position,
+#                                                                                                 normal_plane=dut_plane_normal)
+#                             ref_intersection_x, ref_intersection_y, ref_intersection_z = ref_dut_intersection[:, 0], ref_dut_intersection[:, 1], ref_dut_intersection[:, 2]
+
+                        ref_intersection_x_local, ref_intersection_y_local, ref_intersection_z_local = geometry_utils.apply_alignment(ref_intersection_x, ref_intersection_y, ref_intersection_z,
+                                                                                                                                      dut_index=actual_dut,
+                                                                                                                                      alignment=alignment,
+                                                                                                                                      inverse=True)
+
+                    ref_intersection_local = np.column_stack([ref_intersection_x_local, ref_intersection_y_local])
+
+                    if not np.allclose(ref_hit_z_local[np.isfinite(ref_hit_z_local)], 0.0) or not np.allclose(ref_intersection_z_local[np.isfinite(ref_intersection_z_local)], 0.0):
+                        raise RuntimeError("Transformation into local coordinate system gives z != 0")
+
+                    ref_limit_x_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
+                        ref_limit_x_local_sel &= ref_hit_x_local >= fit_limit_x_local[0]
+                    if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
+                        ref_limit_x_local_sel &= ref_hit_x_local <= fit_limit_x_local[1]
+
+                    ref_limit_y_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
+                        ref_limit_y_local_sel &= ref_hit_y_local >= fit_limit_y_local[0]
+                    if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
+                        ref_limit_y_local_sel &= ref_hit_y_local <= fit_limit_y_local[1]
+
+                    ref_limit_xy_local_sel = np.logical_and(ref_limit_x_local_sel, ref_limit_y_local_sel)
+
+                    ref_hit_x_local_limit_xy = ref_hit_x_local[ref_limit_xy_local_sel]
+                    ref_hit_y_local_limit_xy = ref_hit_y_local[ref_limit_xy_local_sel]
+                    ref_intersection_x_local_limit_xy = ref_intersection_x_local[ref_limit_xy_local_sel]
+                    ref_intersection_y_local_limit_xy = ref_intersection_y_local[ref_limit_xy_local_sel]
+                    ref_event_numbers = ref_event_numbers[ref_limit_xy_local_sel]
+
+                    ref_difference_x_local_limit_xy = ref_hit_x_local_limit_xy - ref_intersection_x_local_limit_xy
+                    ref_difference_y_local_limit_xy = ref_hit_y_local_limit_xy - ref_intersection_y_local_limit_xy
+#                         distance = np.sqrt(np.einsum('ij,ij->i', intersection_local - hit_local, intersection_local - hit_local))
+
+                    for tracks_chunk, curr_correlate_index in analysis_utils.data_aligned_at_events(node, start_index=correlate_start_index, chunk_size=chunk_size):
                         selection = np.logical_and(~np.isnan(tracks_chunk['x_dut_%d' % actual_dut]), ~np.isnan(tracks_chunk['track_chi2']))
-                        if selection[0] is False:
-                            break
                         tracks_chunk = tracks_chunk[selection]  # Take only tracks where actual dut has a hit, otherwise residual wrong
 
                         # Coordinates in global coordinate system (x, y, z)
@@ -1961,6 +2036,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
                         intersection_x, intersection_y, intersection_z = tracks_chunk['offset_0'], tracks_chunk['offset_1'], tracks_chunk['offset_2']
 #                         offsets = np.column_stack([tracks_chunk['offset_0'], tracks_chunk['offset_1'], tracks_chunk['offset_2']])
 #                         slopes = np.column_stack([tracks_chunk['slope_0'], tracks_chunk['slope_1'], tracks_chunk['slope_2']])
+                        event_numbers = tracks_chunk['event_number']
 
                         if use_prealignment:
                             hit_x, hit_y, hit_z = geometry_utils.apply_alignment(hit_x_local, hit_y_local, hit_z_local,
@@ -2017,52 +2093,76 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
                             limit_y_local_sel &= hit_y_local <= fit_limit_y_local[1]
 
                         limit_xy_local_sel = np.logical_and(limit_x_local_sel, limit_y_local_sel)
-                        if limit_xy_local_sel[0] is False:
-                            break
 
                         hit_x_local_limit_xy = hit_x_local[limit_xy_local_sel]
                         hit_y_local_limit_xy = hit_y_local[limit_xy_local_sel]
                         intersection_x_local_limit_xy = intersection_x_local[limit_xy_local_sel]
                         intersection_y_local_limit_xy = intersection_y_local[limit_xy_local_sel]
+                        event_numbers = event_numbers[limit_xy_local_sel]
 
                         difference_x_local_limit_xy = hit_x_local_limit_xy - intersection_x_local_limit_xy
                         difference_y_local_limit_xy = hit_y_local_limit_xy - intersection_y_local_limit_xy
 #                         distance = np.sqrt(np.einsum('ij,ij->i', intersection_local - hit_local, intersection_local - hit_local))
 
-                        # Histogram residuals in different ways
-                        x_res = [None] * plot_n_bins[dut_index][0]
-                        y_res = [None] * plot_n_bins[dut_index][1]
-                        diff_x = intersection_x_local_limit_xy[0] - intersection_x_local_limit_xy[1:]
-                        diff_y = intersection_y_local_limit_xy[0] - intersection_y_local_limit_xy[1:]
-                        # in x direction
-                        for index, actual_range in enumerate(np.column_stack([x_edges[:-1], x_edges[1:]])):
-                            sel_from = actual_range[0]
-                            sel_to = actual_range[1]
-                            intersection_select = ((np.absolute(diff_x) < sel_to) & (np.absolute(diff_x) >= sel_from) & (np.absolute(diff_y) < 5.0))
-                            x_res[index] = np.array(difference_x_local_limit_xy[1:][intersection_select])
-                        x_res_arr = np.full((np.max([arr.shape[0] for arr in x_res]), len(x_res)), fill_value=np.nan)
-                        for index, arr in enumerate(x_res):
-                            x_res_arr[:arr.shape[0], index] = arr
-                        x_residuals_earray.append(x_res_arr)
-                        x_residuals_earray.flush()
-                        ref_x_res_arr = np.full(x_res_arr.shape[0], fill_value=difference_x_local_limit_xy[0])
-                        ref_x_residuals_earray.append(ref_x_res_arr)
-                        ref_x_residuals_earray.flush()
-                        # in y direction
-                        for index, actual_range in enumerate(np.column_stack([y_edges[:-1], y_edges[1:]])):
-                            sel_from = actual_range[0]
-                            sel_to = actual_range[1]
-                            intersection_select = ((np.absolute(diff_y) < sel_to) & (np.absolute(diff_y) >= sel_from) & (np.absolute(diff_x) < 5.0))
-                            y_res[index] = difference_y_local_limit_xy[1:][intersection_select]
-                        y_res_arr = np.full((np.max([arr.shape[0] for arr in y_res]), len(y_res)), fill_value=np.nan)
-                        for index, arr in enumerate(y_res):
-                            y_res_arr[:arr.shape[0], index] = arr
-                        y_residuals_earray.append(y_res_arr)
-                        y_residuals_earray.flush()
-                        ref_y_res_arr = np.full(y_res_arr.shape[0], fill_value=difference_y_local_limit_xy[0])
-                        ref_y_residuals_earray.append(ref_y_res_arr)
-                        ref_y_residuals_earray.flush()
-                    progress_bar.update(ref_index)
+                        iterate_n_ref_tracks = min(ref_intersection_x_local_limit_xy.shape[0], correlate_n_tracks - correlate_n_tracks_total)
+                        for ref_index in range(iterate_n_ref_tracks):
+                            # Histogram residuals in different ways
+                            x_res = [None] * plot_n_bins[dut_index][0]
+                            y_res = [None] * plot_n_bins[dut_index][1]
+                            diff_x = ref_intersection_x_local_limit_xy[ref_index] - intersection_x_local_limit_xy
+                            diff_y = ref_intersection_y_local_limit_xy[ref_index] - intersection_y_local_limit_xy
+                            ref_event_number = ref_event_numbers[ref_index]
+                            # in x direction
+#                             for index, actual_range in enumerate(np.column_stack([x_edges[:-1], x_edges[1:]])):
+#                                 sel_from = actual_range[0]
+#                                 sel_to = actual_range[1]
+#                                 intersection_select = ((np.absolute(diff_x) < sel_to) & (np.absolute(diff_x) >= sel_from) & (np.absolute(diff_y) < 5.0))
+#                                 x_res[index] = np.array(difference_x_local_limit_xy[intersection_select])
+                            def func(x):
+                                return x
+                            select_valid = (np.absolute(diff_x) <= stop[0]) & (np.absolute(diff_y) < 5.0)
+                            # do not correlate events with event numbers smaller or equal than current event number
+                            next_event_index = np.searchsorted(event_numbers, ref_event_number + 1, side="left")
+                            select_valid[:next_event_index] = 0
+                            # fast binned statistic
+                            x_res = analysis_utils.binned_statistic(np.absolute(diff_x[select_valid]), difference_x_local_limit_xy[select_valid], func=func, nbins=plot_n_bins[dut_index][0], range=(0, stop[0]))
+                            x_res_arr = np.full((np.max([arr.shape[0] for arr in x_res]), len(x_res)), fill_value=np.nan)
+                            for index, arr in enumerate(x_res):
+#                                 assert np.array_equal(x_res[index], x_res_alternative[index])
+                                x_res_arr[:arr.shape[0], index] = arr
+                            x_residuals_earray.append(x_res_arr)
+                            x_residuals_earray.flush()
+                            ref_x_res_arr = np.full(x_res_arr.shape[0], fill_value=ref_difference_x_local_limit_xy[ref_index])
+                            ref_x_residuals_earray.append(ref_x_res_arr)
+                            ref_x_residuals_earray.flush()
+                            # in y direction
+#                             for index, actual_range in enumerate(np.column_stack([y_edges[:-1], y_edges[1:]])):
+#                                 sel_from = actual_range[0]
+#                                 sel_to = actual_range[1]
+#                                 intersection_select = ((np.absolute(diff_y) < sel_to) & (np.absolute(diff_y) >= sel_from) & (np.absolute(diff_x) < 5.0))
+#                                 y_res[index] = difference_y_local_limit_xy[intersection_select]
+                            select_valid = (np.absolute(diff_y) <= stop[1]) & (np.absolute(diff_x) < 5.0)
+                            # do not correlate events with event numbers smaller or equal than current event number
+                            select_valid[:next_event_index] = 0
+                            # fast binned statistic
+                            y_res = analysis_utils.binned_statistic(np.absolute(diff_y[select_valid]), difference_y_local_limit_xy[select_valid], func=func, nbins=plot_n_bins[dut_index][1], range=(0, stop[1]))
+                            y_res_arr = np.full((np.max([arr.shape[0] for arr in y_res]), len(y_res)), fill_value=np.nan)
+                            for index, arr in enumerate(y_res):
+                                y_res_arr[:arr.shape[0], index] = arr
+                            y_residuals_earray.append(y_res_arr)
+                            y_residuals_earray.flush()
+                            ref_y_res_arr = np.full(y_res_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
+                            ref_y_residuals_earray.append(ref_y_res_arr)
+                            ref_y_residuals_earray.flush()
+                            progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)))
+                        correlate_index_last = curr_correlate_index
+                    correlate_n_tracks_total += iterate_n_ref_tracks
+
+                    if correlate_n_tracks_total >= correlate_n_tracks:
+                        break
+                    correlate_start_index = curr_ref_index
+                    ref_index_last = curr_ref_index
+
                 progress_bar.finish()
 
     if plot:

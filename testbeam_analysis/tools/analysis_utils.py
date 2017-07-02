@@ -16,6 +16,7 @@ from scipy import stats
 from scipy import optimize
 from scipy.optimize import curve_fit
 from scipy.integrate import quad
+from scipy.sparse import csr_matrix
 
 from testbeam_analysis import analysis_functions
 import testbeam_analysis.tools.plot_utils
@@ -881,6 +882,20 @@ def hough_transform(img, theta_res=1.0, rho_res=1.0, return_edges=False):
         return accumulator, thetas, rhos, theta_edges, rho_edges  # return histogram, bin centers, edges
     else:
         return accumulator, thetas, rhos  # return histogram and bin centers
+
+
+def binned_statistic(x, values, func, nbins, range):
+    '''The usage is approximately the same as the scipy one.
+
+    See: https://stackoverflow.com/questions/26783719/efficiently-get-indices-of-histogram-bins-in-python
+    '''
+    N = len(values)
+    r0, r1 = range
+
+    digitized = (float(nbins) / (r1-r0) * (x-r0)).astype(int)
+    S = csr_matrix((values, [digitized, np.arange(N)]), shape=(nbins, N))
+
+    return [func(group) for group in np.split(S.data, S.indptr[1:-1])]
 
 
 def get_data(path, output=None, fail_on_overwrite=False):
