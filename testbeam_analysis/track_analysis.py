@@ -52,15 +52,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             alignment = in_file_h5.root.PreAlignment[:]
             beam_alignment = None
             n_duts = alignment.shape[0]
-            # TODO: remove that
-            column_sigma = np.zeros(shape=n_duts, dtype=np.double)
-            row_sigma = np.zeros(shape=n_duts, dtype=np.double)
-            column_sigma[0], row_sigma[0] = 0.0, 0.0  # DUT0 has no correlation error
-            for index in range(1, n_duts):
-                column_sigma[index] = alignment[index]['column_sigma']
-                row_sigma[index] = alignment[index]['row_sigma']
-            print "column_sigma", column_sigma
-            print "row_sigma", row_sigma
         else:
             # TODO: use track slopes to correct telescope alignment
 #             raise
@@ -72,11 +63,6 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             else:
                 beam_alignment = None
             n_duts = alignment.shape[0]
-            # TODO: remove that
-            column_sigma = np.zeros(shape=n_duts, dtype=np.double)
-            row_sigma = np.zeros(shape=n_duts, dtype=np.double)
-            print "column_sigma", column_sigma
-            print "row_sigma", row_sigma
 
     def work(tracklets_data_chunk):
         ''' Track finding per cpu core '''
@@ -139,9 +125,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
                           n_hits=n_hits,
                           n_cluster=n_cluster,
                           hit_flag=hit_flag,
-                          n_tracks=n_tracks,
-                          column_sigma=column_sigma,
-                          row_sigma=row_sigma)
+                          n_tracks=n_tracks)
 
 # TODO: also use local coordinates in find_tracks_loop to avoid transformation to local coordinate system
 #         for dut_index in range(0, n_duts):
@@ -978,7 +962,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
 # Helper functions that are not meant to be called directly during analysis
 @njit
-def _set_dut_hit_flag(dut_x, dut_y, curr_x, curr_y, hit_flag, track_index, dut_index, dut_column_sigma, dut_row_sigma):
+def _set_dut_hit_flag(dut_x, dut_y, curr_x, curr_y, hit_flag, track_index, dut_index):
     # Set hit flag of actual DUT from actual DUT hit
     if not np.isnan(curr_x):  # curr_x = nan is no hit
         hit_flag[track_index] |= (1 << dut_index)
@@ -987,7 +971,7 @@ def _set_dut_hit_flag(dut_x, dut_y, curr_x, curr_y, hit_flag, track_index, dut_i
 
 
 @njit
-def _reset_dut_hit_flag(dut_x, dut_y, first_dut_x, first_dut_y, hit_flag, hit_index, dut_index, dut_column_sigma, dut_row_sigma):
+def _reset_dut_hit_flag(dut_x, dut_y, first_dut_x, first_dut_y, hit_flag, hit_index, dut_index):
     hit_flag[hit_index] &= ~(1 << dut_index)
     if not np.isnan(dut_x):  # x = nan is no hit
         hit_flag[hit_index] |= (1 << dut_index)
@@ -1014,7 +998,7 @@ def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, n_du
 
 
 @njit
-def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks, column_sigma, row_sigma):
+def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks):
     ''' Complex loop to resort the tracklets array inplace to form track candidates. Each track candidate
     is given a quality identifier. Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -1046,8 +1030,6 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
         n_track_hits = 0
 
         for dut_index in range(n_duts):  # loop over all DUTs in the actual track
-            actual_column_sigma, actual_row_sigma = column_sigma[dut_index], row_sigma[dut_index]
-
             if not reference_hit_set and not np.isnan(x[track_index][dut_index]):  # Search for first DUT that registered a hit
                 actual_x, actual_y = x[track_index][dut_index], y[track_index][dut_index]
                 reference_hit_set = True
@@ -1107,26 +1089,22 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                                     first_dut_index = _get_first_dut_index(x, hit_index)  # Get reference DUT index of other track
                                     first_dut_x, first_dut_y = x[hit_index][first_dut_index], y[hit_index][first_dut_index]
                                     _reset_dut_hit_flag(dut_x=dut_x,
-                                                             dut_y=dut_y,
-                                                             first_dut_x=first_dut_x,
-                                                             first_dut_y=first_dut_y,
-                                                             hit_flag=hit_flag,
-                                                             hit_index=hit_index,
-                                                             dut_index=dut_index,
-                                                             dut_column_sigma=actual_column_sigma,
-                                                             dut_row_sigma=actual_row_sigma)
+                                                        dut_y=dut_y,
+                                                        first_dut_x=first_dut_x,
+                                                        first_dut_y=first_dut_y,
+                                                        hit_flag=hit_flag,
+                                                        hit_index=hit_index,
+                                                        dut_index=dut_index)
                             shortest_hit_distance = hit_distance
                             n_track_hits += 1
                 curr_x, curr_y = x[track_index][dut_index], y[track_index][dut_index]
                 _set_dut_hit_flag(dut_x=actual_x,
-                                       dut_y=actual_y,
-                                       curr_x=curr_x,
-                                       curr_y=curr_y,
-                                       hit_flag=hit_flag,
-                                       track_index=track_index,
-                                       dut_index=dut_index,
-                                       dut_column_sigma=actual_column_sigma,
-                                       dut_row_sigma=actual_row_sigma)
+                                  dut_y=actual_y,
+                                  curr_x=curr_x,
+                                  curr_y=curr_y,
+                                  hit_flag=hit_flag,
+                                  track_index=track_index,
+                                  dut_index=dut_index)
 
         # Set number of tracks of last event
         _set_n_tracks(x=x,
