@@ -194,11 +194,11 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
     # Create result array description, depends on the number of DUTs
     description = [('event_number', np.int64)]
     for index, _ in enumerate(input_cluster_files):
-        description.append(('x_dut_%d' % index, np.double))
+        description.append(('x_dut_%d' % index, np.float))
     for index, _ in enumerate(input_cluster_files):
-        description.append(('y_dut_%d' % index, np.double))
+        description.append(('y_dut_%d' % index, np.float))
     for index, _ in enumerate(input_cluster_files):
-        description.append(('z_dut_%d' % index, np.double))
+        description.append(('z_dut_%d' % index, np.float))
     for index, _ in enumerate(input_cluster_files):
         description.append(('charge_dut_%d' % index, np.float))
     for index, _ in enumerate(input_cluster_files):

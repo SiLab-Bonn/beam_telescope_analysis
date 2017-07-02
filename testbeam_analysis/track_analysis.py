@@ -396,11 +396,11 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         # Define description
         description = [('event_number', np.int64)]
         for index in range(n_duts):
-            description.append(('x_dut_%d' % index, np.double))
+            description.append(('x_dut_%d' % index, np.float))
         for index in range(n_duts):
-            description.append(('y_dut_%d' % index, np.double))
+            description.append(('y_dut_%d' % index, np.float))
         for index in range(n_duts):
-            description.append(('z_dut_%d' % index, np.double))
+            description.append(('z_dut_%d' % index, np.float))
         for index in range(n_duts):
             description.append(('charge_dut_%d' % index, np.float))
         for index in range(n_duts):
@@ -408,22 +408,22 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         for index in range(n_duts):
             description.append(('n_cluster_dut_%d' % index, np.uint32))
         for dimension in range(3):
-            description.append(('offset_%d' % dimension, np.double))
+            description.append(('offset_%d' % dimension, np.float))
         for dimension in range(3):
-            description.append(('slope_%d' % dimension, np.double))
+            description.append(('slope_%d' % dimension, np.float))
         if full_track_info is True and method == "Kalman":
             for index in range(n_duts):
-                description.append(('predicted_x_dut_%d' % index, np.double))
+                description.append(('predicted_x_dut_%d' % index, np.float))
             for index in range(n_duts):
-                description.append(('predicted_y_dut_%d' % index, np.double))
+                description.append(('predicted_y_dut_%d' % index, np.float))
             for index in range(n_duts):
-                description.append(('predicted_z_dut_%d' % index, np.double))
+                description.append(('predicted_z_dut_%d' % index, np.float))
             for index in range(n_duts):
-                description.append(('slope_x_dut_%d' % index, np.double))
+                description.append(('slope_x_dut_%d' % index, np.float))
             for index in range(n_duts):
-                description.append(('slope_y_dut_%d' % index, np.double))
+                description.append(('slope_y_dut_%d' % index, np.float))
             for index in range(n_duts):
-                description.append(('slope_z_dut_%d' % index, np.double))
+                description.append(('slope_z_dut_%d' % index, np.float))
         description.extend([('track_chi2', np.float), ('hit_flag', np.uint16), ('quality_flag', np.uint16), ('n_tracks', np.uint32)])
         for index in range(n_duts):
             description.append(('xerr_dut_%d' % index, np.float))
@@ -631,7 +631,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
         if full_track_info is True and method == "Kalman":
             # array to store x,y,z position and respective slopes of other DUTs
-            track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.double)
+            track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.float)
             for dut_index in range(n_duts):
                 if dut_index == fit_dut:  # do not need to transform data of actual fit dut, this is already done,
                     continue
@@ -882,9 +882,9 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                     # Prepare track hits array to be fitted
                     n_good_tracks = np.count_nonzero(good_track_selection)  # Index of tmp track hits array
                     if method == "Fit":
-                        track_hits = np.full((n_good_tracks, n_fit_duts, 3), np.nan, dtype=np.double)
+                        track_hits = np.full((n_good_tracks, n_fit_duts, 3), fill_value=np.nan, dtype=np.float)
                     elif method == "Kalman":
-                        track_hits = np.full((n_good_tracks, n_duts, 5), np.inf)
+                        track_hits = np.full((n_good_tracks, n_duts, 5), fill_value=np.nan, dtype=np.float)
 
                     print "hit flags", np.unique(track_candidates_chunk['hit_flag'][good_track_selection])#, np.min(track_candidates_chunk['hit_flag'][good_track_selection])
                     print "quality flags", np.unique(track_candidates_chunk['quality_flag'][good_track_selection])#, np.min(track_candidates_chunk['quality_flag'][good_track_selection])

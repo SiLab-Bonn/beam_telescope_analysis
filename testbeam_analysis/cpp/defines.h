@@ -41,8 +41,8 @@ typedef struct ClusterInfo{
   float charge; //sum charge of all cluster hits
   unsigned short int seed_column; //seed pixel column value (unsigned short int: 0 to 65,535)
   unsigned short int seed_row; //seed pixel row value (unsigned short int: 0 to 65,535)
-  double mean_column; //column mean value
-  double mean_row; //row mean value
+  float mean_column; //column mean value
+  float mean_row; //row mean value
   float err_column; //column position error
   float err_row; //row position error
   unsigned int n_cluster; //number of all clusters in the event

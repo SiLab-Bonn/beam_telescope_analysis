@@ -481,9 +481,9 @@ class TestCorrelationFixing(unittest.TestCase):
     def test_tough_test_case(self):  # test crazy uncorrelated data
         #         raise SkipTest
         event_numbers = np.array([0, 0, 2, 2, 3, 3, 3, 4, 4, 4, 6, 6, 7, 7, 8, 8, 9, 10], dtype=np.int64)
-        ref_column = np.array([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20], dtype=np.double)
+        ref_column = np.array([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20], dtype=np.float)
         ref_row = ref_column
-        column = np.array([11, 11, 0, 2, 5, 5, 5, 3, 0, 4, 9, 10, 12, 12, 13, 14, 15, 17], dtype=np.double)
+        column = np.array([11, 11, 0, 2, 5, 5, 5, 3, 0, 4, 9, 10, 12, 12, 13, 14, 15, 17], dtype=np.float)
         row = column
         ref_charge = np.zeros_like(ref_row, dtype=np.uint16)
         charge = np.zeros_like(ref_charge)
@@ -503,9 +503,9 @@ class TestCorrelationFixing(unittest.TestCase):
 
         # Small but important change of test case, event 4 is copied to 2 and their are too many hits in 4 -> correlation has to be 0
         event_numbers = np.array([0, 0, 2, 2, 3, 3, 3, 4, 4, 4, 6, 6, 7, 7, 8, 8, 9, 10], dtype=np.int64)
-        ref_column = np.array([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20], dtype=np.double)
+        ref_column = np.array([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20], dtype=np.float)
         ref_row = ref_column
-        column = np.array([11, 11, 0, 2, 5, 5, 5, 3, 3, 4, 9, 10, 12, 12, 13, 14, 15, 17], dtype=np.double)
+        column = np.array([11, 11, 0, 2, 5, 5, 5, 3, 3, 4, 9, 10, 12, 12, 13, 14, 15, 17], dtype=np.float)
         row = column
         ref_charge = np.zeros_like(ref_row, dtype=np.uint16)
         charge = np.zeros_like(ref_charge)

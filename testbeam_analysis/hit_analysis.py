@@ -283,8 +283,8 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                               ('charge', '<f4'),
                               ('seed_column', '<u2'),
                               ('seed_row', '<u2'),
-                              ('mean_column', '<f8'),
-                              ('mean_row', '<f8')])
+                              ('mean_column', '<f4'),
+                              ('mean_row', '<f4')])
 
     clz = HitClusterizer(column_cluster_distance=column_cluster_distance,
                                  row_cluster_distance=row_cluster_distance,
