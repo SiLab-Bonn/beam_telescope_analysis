@@ -1170,12 +1170,13 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
             output_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
             output_selected_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
 
-            # find tracks in the beginning and each time for telescope/track fit DUTs
+            # find tracks in the beginning and each time for telescope/fit DUTs
+            # find tracks only once for non-fit/non-telescope DUTs
             if iteration == 0 or (set(align_duts) & set(selection_fit_duts)):
                 if iteration != 0:
                     os.remove(output_track_candidates_file)
                 output_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
-                # TODO: adding find_tracks() to the loop to improve alignment quality
+                # use pre-alignment for fit/telescope DUT and first iteration step to find proper track candidates
                 if iteration != 0 or not (set(align_duts) & set(selection_fit_duts)):
                     use_prealignment = False
                 else:

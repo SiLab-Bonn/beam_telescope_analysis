@@ -774,8 +774,8 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=N
             for node in in_file_h5.root:
                 try:
                     indices = re.findall(r'\d+', node.name)
-                    ref_idx = int(indices[0])
-                    dut_idx = int(indices[1])
+                    ref_index = int(indices[0])
+                    dut_index = int(indices[1])
                     if "column" in node.name:
                         column = True
                     else:
@@ -799,12 +799,12 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=N
                 cmap.set_bad('w')
                 norm = colors.LogNorm()
                 if pixel_size:
-                    aspect = pixel_size[ref_idx][0 if column else 1] / (pixel_size[dut_idx][0 if column else 1])
+                    aspect = pixel_size[ref_index][0 if column else 1] / (pixel_size[dut_index][0 if column else 1])
                 else:
                     aspect = "auto"
                 im = ax.imshow(data.T, origin="lower", cmap=cmap, norm=norm, aspect=aspect, interpolation='none')
-                dut_name = dut_names[dut_idx] if dut_names else ("DUT " + str(dut_idx))
-                ref_name = dut_names[ref_idx] if dut_names else ("DUT " + str(ref_idx))
+                dut_name = dut_names[dut_index] if dut_names else ("DUT " + str(dut_index))
+                ref_name = dut_names[ref_index] if dut_names else ("DUT " + str(ref_index))
                 ax.set_title("Correlation of %s:\n%s vs. %s%s" % ("columns" if "column" in node.title.lower() else "rows", ref_name, dut_name, " (reduced background)" if reduced_background else ""))
                 ax.set_xlabel('%s %s' % ("Column" if "column" in node.title.lower() else "Row", dut_name))
                 ax.set_ylabel('%s %s' % ("Column" if "column" in node.title.lower() else "Row", ref_name))
