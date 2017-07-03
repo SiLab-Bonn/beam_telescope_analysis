@@ -146,7 +146,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             chunk_size=chunk_size)
 
 
-def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_file, max_events=None, select_duts=None, selection_hit_duts=None, selection_fit_duts=None, exclude_dut_hit=True, quality_sigma=5.0, selection_track_quality=None, pixel_size=None, n_pixels=None, beam_energy=None, material_budget=None, add_scattering_plane=False, max_tracks_per_event=None, use_prealignment=False, use_correlated=False, min_track_distance=None, keep_data=False, method='Fit', full_track_info=False, mode='w', chunk_size=1000000):
+def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_file, pixel_size, n_pixels=None, dut_names=None, max_events=None, select_duts=None, selection_hit_duts=None, selection_fit_duts=None, exclude_dut_hit=True, quality_sigma=5.0, selection_track_quality=None, beam_energy=None, material_budget=None, add_scattering_plane=False, max_tracks_per_event=None, use_prealignment=False, use_correlated=False, min_track_distance=None, keep_data=False, method='Fit', full_track_info=False, mode='w', plot=True, chunk_size=1000000):
     '''Fits either a line through selected DUT hits for selected DUTs (method=Fit) or uses a Kalman Filter to build tracks (method=Kalman).
     The selection criterion for the track candidates to fit is the track quality and the maximum number of hits per event.
     The fit is done for specified DUTs only (select_duts). This DUT is then not included in the fit (include_duts).
@@ -237,9 +237,9 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
     logging.info('=== Fitting tracks (Method: %s) ===' % method)
 
     if method != "Fit" and method != "Kalman":
-        raise ValueError('Method "%s" not recognized!' % method)
-    if method == "Kalman" and not pixel_size:
-        raise ValueError('Kalman filter requires pixel size for covariance matrix!')
+        raise ValueError('Unknown method "%s"!' % method)
+    if method == "Kalman" and not n_pixels:
+        raise ValueError('Kalman filter requires n_pixels for covariance matrix!')
     if method != "Kalman" and full_track_info is True:
         raise ValueError('Full track information option only possible for Kalman Filter method.')
 
@@ -372,7 +372,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
     # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
     if not exclude_dut_hit and all(set(x) == set(selection_hit_duts[0]) for x in selection_hit_duts) and all(set(x) == set(selection_fit_duts[0]) for x in selection_fit_duts):# and all(list(x) == list(selection_track_quality[0]) for x in selection_track_quality):
         same_tracks_for_all_duts = True
-        logging.info('All fit DUTs uses the same parameters, generate single output table')
+        logging.info('All fit DUTs use the same parameters, calculated tracks will be identical for all DUTs')
     else:
         same_tracks_for_all_duts = False
 
@@ -574,10 +574,6 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
 
-        # Plot chi2 distribution
-        # TODO: make this external function
-#         plot_utils.plot_track_chi2(chi2s=chi2s, fit_dut=fit_dut, output_pdf=output_pdf)
-
     def store_track_data_kalman(fit_dut, min_track_distance):  # Set the offset to the track intersection with the tilted plane and store the data
         # reset quality flag
         track_candidates_chunk["quality_flag"] = 0
@@ -696,9 +692,6 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
-
-        # Plot chi2 distribution
-#         plot_utils.plot_track_chi2(chi2s=chi2s, fit_dut=fit_dut, output_pdf=output_pdf)
 
     def select_data(dut_index):  # Select track by and DUT hits to use
 
@@ -956,8 +949,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                 print "total_n_events_stored", total_n_events_stored
                 if same_tracks_for_all_duts:  # Stop fit Dut loop since all DUTs were fitted at once
                     break
+
     pool.close()
     pool.join()
+
+    if plot:
+        plot_utils.plot_track_chi2(input_tracks_file=output_tracks_file, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)
 
 
 # Helper functions that are not meant to be called directly during analysis

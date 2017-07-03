@@ -1196,12 +1196,16 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                        output_tracks_file=output_tracks_file,
 #                        max_events=max_events,
                        select_duts=align_duts,
+                       dut_names=dut_names,
+                       n_pixels=n_pixels,
+                       pixel_size=pixel_size,
                        selection_fit_duts=selection_fit_duts,  # Only use selected DUTs for track fit
                        selection_hit_duts=selection_hit_duts,  # Only use selected duts
+                       quality_sigma=quality_sigma,
                        exclude_dut_hit=False,  # For constrained residuals
                        use_prealignment=False,
-                       chunk_size=chunk_size,
-                       quality_sigma=quality_sigma)
+                       plot=plot,
+                       chunk_size=chunk_size)
 
             logging.info('= Alignment step 2 / iteration %d: Selecting tracks for DUTs %s =', iteration_step, alignment_duts_str)
             data_selection.select_tracks(input_tracks_file=output_tracks_file,
@@ -1291,12 +1295,16 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                    output_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
 #                    max_events=max_events,
                    select_duts=align_duts,  # Only create residuals of selected DUTs
+                   dut_names=dut_names,
+                   n_pixels=n_pixels,
+                   pixel_size=pixel_size,
                    selection_fit_duts=selection_fit_duts,  # Only use selected duts
                    selection_hit_duts=selection_hit_duts,
+                   quality_sigma=quality_sigma,
                    exclude_dut_hit=False,  # For unconstrained residuals
                    use_prealignment=False,
-                   chunk_size=chunk_size,
-                   quality_sigma=quality_sigma)
+                   plot=plot,
+                   chunk_size=chunk_size)
 
         data_selection.select_tracks(input_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
                                      output_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_selected_tracks_tmp_duts_%s.h5' % alignment_duts,

@@ -947,29 +947,69 @@ def plot_events(input_tracks_file, event_range=(0, 100), dut=None, n_tracks=None
         return figs
 
 
-def plot_track_chi2(chi2s, fit_dut, output_pdf=None):
-    if not output_pdf:
-        return
-    # Plot track chi2 and angular distribution
-    chi2s = chi2s[np.isfinite(chi2s)]
-    try:
-        # Plot up to 3 sigma of the chi2 range
-        x_limits = [np.ceil(np.percentile(chi2s, q=99.73))]
-    except IndexError:  # array empty
-        x_limits = [1]
-    x_limits.append(2500)  # plot fixed narrow range
-    for x_limit in x_limits:
-        fig = Figure()
-        _ = FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-        ax.hist(chi2s, bins=100, range=(0, x_limit))
-        ax.set_xlim(0, x_limit)
-        ax.grid()
-        ax.set_xlabel('Track Chi2 [um*um]')
-        ax.set_ylabel('#')
-        ax.set_yscale('log')
-        ax.set_title('Track Chi2 for DUT%d tracks' % fit_dut)
-        output_pdf.savefig(fig)
+def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chunk_size=1000000):
+    if not output_pdf_file:
+        output_pdf_file = os.path.splitext(input_tracks_file)[0] + '_chi2.pdf'
+
+    with PdfPages(output_pdf_file) as output_pdf:
+        with tb.open_file(input_tracks_file, "r") as in_file_h5:
+            for node in in_file_h5.root:
+                try:
+                    actual_dut = int(re.findall(r'\d+', node.name)[-1])
+                    if dut_names is not None:
+                        dut_name = dut_names[actual_dut]
+                    else:
+                        dut_name = "DUT%d" % actual_dut
+                except AttributeError:
+                    continue
+
+                initialize = True  # initialize the histograms
+                for tracks_chunk, _ in testbeam_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
+                    chi2s = tracks_chunk["track_chi2"]
+                    # Plot track chi2 and angular distribution
+                    chi2s = chi2s[np.isfinite(chi2s)]
+                    if initialize:
+                        initialize = False
+                        try:
+                            # Plot up to 3 sigma of the chi2 range
+                            range_full = [0.0, np.ceil(np.percentile(chi2s, q=99.73))]
+                        except IndexError:  # array empty
+                            range_full = [0.0, 1.0]
+                        hist_full, edges_full = np.histogram(chi2s, range=range_full, bins=200)
+                        hist_narrow, edges_narrow = np.histogram(chi2s, range=(0, 2500), bins=200)
+                    else:
+                        hist_full += np.histogram(chi2s, bins=edges_full)[0]
+                        hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]
+
+                plot_log = np.any(chi2s)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                x = (edges_full[1:] + edges_full[:-1]) / 2.0
+                width = (edges_full[1:] - edges_full[:-1])
+                ax.bar(x, hist_full, width=width, log=plot_log, align='center')
+                ax.grid()
+                ax.set_xlim([edges_full[0], edges_full[-1]])
+                ax.set_xlabel('Track Chi2 [um*um]')
+                ax.set_ylabel('#')
+                ax.set_yscale('log')
+                ax.set_title('Track Chi2 for %s' % dut_name)
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                x = (edges_narrow[1:] + edges_narrow[:-1]) / 2.0
+                width = (edges_narrow[1:] - edges_narrow[:-1])
+                ax.bar(x, hist_narrow, width=width, log=plot_log, align='center')
+                ax.grid()
+                ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
+                ax.set_xlabel('Track Chi2 [um*um]')
+                ax.set_ylabel('#')
+                ax.set_yscale('log')
+                ax.set_title('Track Chi2 for %s' % dut_name)
+                output_pdf.savefig(fig)
 
 
 def plot_residuals(histogram, edges, fit, cov, xlabel, title, output_pdf=None, gui=False, figs=None):
