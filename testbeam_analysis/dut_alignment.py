@@ -1581,19 +1581,21 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
                 alpha, beta, gamma = geometry_utils.euler_angles_minimizer(R=rotation_dut, alpha_start=alpha, beta_start=beta, gamma_start=gamma, limit=0.1)
                 euler_angles_dut = np.array([alpha, beta, gamma], dtype=np.double)
                 print "alpha, beta, gamma AFTER minimizer", alpha, beta, gamma
+                fitted_rotation_dut = geometry_utils.rotation_matrix(alpha=alpha, beta=beta, gamma=gamma)
+                if not np.allclose(rotation_dut, fitted_rotation_dut):
+                    raise RuntimeError("Fit of alpha/beta/gamma returned no proper values.")
 #                         alpha, beta, gamma = geometry_utils.euler_angles(R=rotation_dut)
 #                         print "alpha, beta, gamma AFTER calc", alpha, beta, gamma
 
-
                 print "euler_angles before average", euler_angles_dut, euler_angles[actual_dut]
                 print "translation before average", translation_dut, translation[actual_dut]
-                print "after n tracks", total_n_tracks[actual_dut]
+                print "tracks in chunk", n_tracks
                 euler_angles[actual_dut] = np.average([euler_angles_dut, euler_angles[actual_dut]], weights=[n_tracks, total_n_tracks[actual_dut]], axis=0)
                 translation[actual_dut] = np.average([translation_dut, translation[actual_dut]], weights=[n_tracks, total_n_tracks[actual_dut]], axis=0)
                 total_n_tracks[actual_dut] += n_tracks
                 print "euler_angles average", euler_angles[actual_dut]
                 print "translation average", translation[actual_dut]
-                print "after n tracks", total_n_tracks[actual_dut]
+                print "after total n tracks", total_n_tracks[actual_dut]
 
             new_alignment[actual_dut]['translation_x'] = translation[actual_dut][0]
             new_alignment[actual_dut]['translation_y'] = translation[actual_dut][1]
