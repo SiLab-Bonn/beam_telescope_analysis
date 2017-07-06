@@ -1954,10 +1954,10 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
 
                     # Coordinates in global coordinate system (x, y, z)
                     ref_hit_x_local, ref_hit_y_local, ref_hit_z_local = ref_chunk['x_dut_%d' % actual_dut], ref_chunk['y_dut_%d' % actual_dut], ref_chunk['z_dut_%d' % actual_dut]
-#                         ref_hit_local = np.column_stack([ref_hit_x_local, ref_hit_y_local])
+#                     ref_hit_local = np.column_stack([ref_hit_x_local, ref_hit_y_local])
                     ref_intersection_x, ref_intersection_y, ref_intersection_z = ref_chunk['offset_0'], ref_chunk['offset_1'], ref_chunk['offset_2']
-#                         ref_offsets = np.column_stack([ref_chunk['offset_0'], ref_chunk['offset_1'], ref_chunk['offset_2']])
-#                         ref_slopes = np.column_stack([ref_chunk['slope_0'], ref_chunk['slope_1'], ref_chunk['slope_2']])
+#                     ref_offsets = np.column_stack([ref_chunk['offset_0'], ref_chunk['offset_1'], ref_chunk['offset_2']])
+#                     ref_slopes = np.column_stack([ref_chunk['slope_0'], ref_chunk['slope_1'], ref_chunk['slope_2']])
                     ref_event_numbers = ref_chunk['event_number']
 
                     if use_prealignment:
@@ -1976,21 +1976,21 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
                                                                                          alignment=alignment,
                                                                                          inverse=False)
 
-#                             dut_position = np.array([alignment[actual_dut]['translation_x'], alignment[actual_dut]['translation_y'], alignment[actual_dut]['translation_z']])
-#                             rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[actual_dut]['alpha'],
-#                                                                              beta=alignment[actual_dut]['beta'],
-#                                                                              gamma=alignment[actual_dut]['gamma'])
-#                             basis_global = rotation_matrix.T.dot(np.eye(3))
-#                             dut_plane_normal = basis_global[2]
-#                             if dut_plane_normal[2] < 0:
-#                                 dut_plane_normal = -dut_plane_normal
-#
-#                             # Set the offset to the track intersection with the tilted plane
-#                             ref_dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=ref_offsets,
+#                         dut_position = np.array([alignment[actual_dut]['translation_x'], alignment[actual_dut]['translation_y'], alignment[actual_dut]['translation_z']])
+#                         rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[actual_dut]['alpha'],
+#                                                                          beta=alignment[actual_dut]['beta'],
+#                                                                          gamma=alignment[actual_dut]['gamma'])
+#                         basis_global = rotation_matrix.T.dot(np.eye(3))
+#                         dut_plane_normal = basis_global[2]
+#                         if dut_plane_normal[2] < 0:
+#                             dut_plane_normal = -dut_plane_normal
+# 
+#                         # Set the offset to the track intersection with the tilted plane
+#                         ref_dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=ref_offsets,
 #                                                                                                 line_directions=ref_slopes,
 #                                                                                                 position_plane=dut_position,
 #                                                                                                 normal_plane=dut_plane_normal)
-#                             ref_intersection_x, ref_intersection_y, ref_intersection_z = ref_dut_intersection[:, 0], ref_dut_intersection[:, 1], ref_dut_intersection[:, 2]
+#                         ref_intersection_x, ref_intersection_y, ref_intersection_z = ref_dut_intersection[:, 0], ref_dut_intersection[:, 1], ref_dut_intersection[:, 2]
 
                         ref_intersection_x_local, ref_intersection_y_local, ref_intersection_z_local = geometry_utils.apply_alignment(ref_intersection_x, ref_intersection_y, ref_intersection_z,
                                                                                                                                       dut_index=actual_dut,
@@ -2062,7 +2062,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
 #                             dut_plane_normal = basis_global[2]
 #                             if dut_plane_normal[2] < 0:
 #                                 dut_plane_normal = -dut_plane_normal
-#
+# 
 #                             # Set the offset to the track intersection with the tilted plane
 #                             dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=offsets,
 #                                                                                                 line_directions=slopes,
@@ -2166,5 +2166,5 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
                 progress_bar.finish()
 
     if plot:
-        plot_utils.plot_residual_correlation(input_residual_correlation_file=output_residual_correlation_file, select_duts=select_duts, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)
+        plot_utils.plot_residual_correlation(input_residual_correlation_file=output_residual_correlation_file, select_duts=select_duts, pixel_size=pixel_size, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)
 

@@ -1521,7 +1521,7 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
                 output_pdf.savefig(fig)
 
 
-def plot_residual_correlation(input_residual_correlation_file, select_duts, output_pdf_file=None, dut_names=None, chunk_size=1000000):
+def plot_residual_correlation(input_residual_correlation_file, select_duts, pixel_size, output_pdf_file=None, dut_names=None, chunk_size=1000000):
     '''Plotting residual correlation.
 
     Parameters
@@ -1544,16 +1544,29 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, outp
 
     with PdfPages(output_pdf_file) as output_pdf:
         with tb.open_file(input_residual_correlation_file, mode='r') as in_file_h5:
+            fig_col = Figure()
+            _ = FigureCanvas(fig_col)
+            ax_col = fig_col.add_subplot(111)
+            ax_col.set_title("Column residual correlation")
+            ax_col.set_ylabel("Correlation of column residuals")
+            ax_col.set_xlabel("Track distance [um]")
+            fig_row = Figure()
+            _ = FigureCanvas(fig_row)
+            ax_row = fig_row.add_subplot(111)
+            ax_row.set_title("Row residual correlation")
+            ax_row.set_ylabel("Correlation of row residuals")
+            ax_row.set_xlabel("Track distance [um]")
             for actual_dut in select_duts:
                 dut_name = dut_names[actual_dut] if dut_names else ("DUT" + str(actual_dut))
                 for direction in ["column", "row"]:
-                    correlation = []
+                    correlations = []
                     ref_res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_reference_DUT_%d' % (direction.title(), actual_dut))
                     res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_DUT_%d' % (direction.title(), actual_dut))
                     edges = res_node.attrs.edges
-                    bin_center = (edges[1:] +  edges[:-1]) / 2.0
+                    bin_centers = (edges[1:] +  edges[:-1]) / 2.0
+                    res_count = []
                     # iterating over bins
-                    for index, _ in enumerate(bin_center):
+                    for index, _ in enumerate(bin_centers):
                         res = None
                         ref_res = None
                         for index_read in np.arange(0, ref_res_node.nrows, step=chunk_size):
@@ -1569,13 +1582,46 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, outp
                                 ref_res = ref_res_chunk
                             else:
                                 ref_res = np.append(ref_res, ref_res_chunk)
-                        correlation.append(np.corrcoef(ref_res, res)[0, 1])
+                        res_count.append(ref_res.shape[0])
+                        correlations.append(np.corrcoef(ref_res, res)[0, 1])
+
+                    # fit: see https://doi.org/10.1016/j.nima.2004.08.069
+                    def corr_f(x, a, b, c, x_0, p):
+                        return a * np.exp(-x / x_0) + b * np.sin(x * 2.0 * np.pi / p + c)
+                    fit, pcov = curve_fit(f=corr_f, xdata=bin_centers, ydata=correlations, p0=[0.1, 0.5, np.pi / 2.0, 1.0, pixel_size[actual_dut][0 if direction == "column" else 1]], bounds=[[0.0, 0.0, 0.0, -np.inf, 0.0], [1.0, 1.0, 2 * np.pi, np.inf, bin_centers[-1]]], sigma=np.sqrt(np.array(res_count)), absolute_sigma=False)
+                    x = np.linspace(start=bin_centers[0], stop=bin_centers[-1], num=1000, endpoint=True)
+                    fitted_correlations = corr_f(x, *fit)
 
                     fig = Figure()
                     _ = FigureCanvas(fig)
                     ax = fig.add_subplot(111)
-                    ax.plot(bin_center, correlation)
+                    fit_label = 'Fit: $a*\exp(x/x_0)+b*\sin(2*\pi*x/p+c)$\n$a=%.3f \pm %.3f$\n$b=%.3f \pm %.3f$\n$c=%.1f \pm %.1f$\n$x_0=%.1f \pm %.1f$\n$p=%.1f \pm %.1f$' % (fit[0],
+                                                                                                                                                                               np.absolute(pcov[0][0]) ** 0.5,
+                                                                                                                                                                               fit[1],
+                                                                                                                                                                               np.absolute(pcov[1][1]) ** 0.5,
+                                                                                                                                                                               fit[2],
+                                                                                                                                                                               np.absolute(pcov[2][2]) ** 0.5,
+                                                                                                                                                                               fit[3],
+                                                                                                                                                                               np.absolute(pcov[3][3]) ** 0.5,
+                                                                                                                                                                               fit[4],
+                                                                                                                                                                               np.absolute(pcov[4][4]) ** 0.5)
+                    ax.plot(x, fitted_correlations, color='k', label=fit_label)
+                    data_label = 'Data'
+                    ax.plot(bin_centers, correlations, marker='s', linestyle='None', label=data_label)
+#                     yerr = correlations/np.sqrt(np.array(res_count))
+#                     ax.errorbar(bin_centers, correlations, yerr=yerr, marker='s', linestyle='None')
                     ax.set_title("%s residual correlation of %s" % (direction.title(), dut_name))
                     ax.set_ylabel("Correlation of %s residuals" % (direction,))
                     ax.set_xlabel("Track distance [um]")
+                    ax.legend(loc="upper right")
                     output_pdf.savefig(fig)
+
+                    if direction == "column":
+                        ax_col.plot(bin_centers, correlations, label='%s' % (dut_name,), marker='s', linestyle='None')
+                    else:
+                        ax_row.plot(bin_centers, correlations, label='%s' % (dut_name,), marker='s', linestyle='None')
+
+            ax_col.legend(loc="upper right")
+            ax_row.legend(loc="upper right")
+            output_pdf.savefig(fig_col)
+            output_pdf.savefig(fig_row)
