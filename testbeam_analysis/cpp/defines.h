@@ -46,6 +46,7 @@ typedef struct ClusterInfo{
   float err_column; //column position error
   float err_row; //row position error
   unsigned int n_cluster; //number of all clusters in the event
+  int64_t cluster_shape; //cluster shape
 } ClusterInfo;
 
 #pragma pack(pop) // pop needed to suppress VS C4103 compiler warning

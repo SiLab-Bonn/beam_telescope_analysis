@@ -7,12 +7,13 @@ import re
 
 import tables as tb
 import numpy as np
+import numba
 from scipy.ndimage import median_filter
 from pixel_clusterizer.clusterizer import HitClusterizer
 
 from testbeam_analysis.tools import smc
 from testbeam_analysis.tools import analysis_utils, plot_utils
-from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_size
+from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_size, plot_cluster_hists
 
 
 def check_file(input_hits_file, n_pixel, output_check_file=None,
@@ -243,7 +244,12 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
 
     # Define end of cluster function to
     # calculate the size in col/row for each cluster
+    @numba.njit(locals={'diff_col': numba.int32, 'diff_row': numba.int32, 'cluster_shape': numba.int64})
     def end_of_cluster_function(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
+        hit_arr = np.zeros((15, 15), dtype=np.bool_)
+        center_col = hits[cluster_hit_indices[0]].column
+        center_row = hits[cluster_hit_indices[0]].row
+        hit_arr[7, 7] = 1
         min_col = hits[cluster_hit_indices[0]].column
         max_col = hits[cluster_hit_indices[0]].column
         min_row = hits[cluster_hit_indices[0]].row
@@ -251,6 +257,10 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
+            diff_col = hits[i].column - center_col
+            diff_row = hits[i].row - center_row
+            if np.abs(diff_col) < 8 and np.abs(diff_row) < 8:
+                hit_arr[7 + hits[i].column - center_col, 7 + hits[i].row - center_row] = 1
             if hits[i].column < min_col:
                 min_col = hits[i].column
             if hits[i].column > max_col:
@@ -259,6 +269,23 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                 min_row = hits[i].row
             if hits[i].row > max_row:
                 max_row = hits[i].row
+
+        if max_col - min_col < 8 and max_row - min_row < 8:
+            # make 8x8 array
+            col_base = 7 + min_col - center_col
+            row_base = 7 + min_row - center_row
+            cluster_arr = hit_arr[col_base:col_base + 8, row_base:row_base + 8]
+            # finally calculate cluster shape
+            # uint64 is desired, but Numexpr and other tools are limited to the dtype int64
+            if cluster_arr[7,7] == 1:
+                cluster_shape = -1
+            else:
+                cluster_shape = analysis_utils.calculate_cluster_shape(cluster_arr)
+        else:
+            # cluster is exceeding 8x8 array
+            cluster_shape = -1
+
+        clusters[cluster_index].cluster_shape = cluster_shape
         clusters[cluster_index].err_column = max_col - min_col + 1
         clusters[cluster_index].err_row = max_row - min_row + 1
 
@@ -296,6 +323,7 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
     clz.add_cluster_field(description=('err_column', '<f4'))  # Add an additional field to hold the cluster size in x
     clz.add_cluster_field(description=('err_row', '<f4'))  # Add an additional field to hold the cluster size in y
     clz.add_cluster_field(description=('n_cluster', '<u4'))  # Adding additional field for number of clusters per event
+    clz.add_cluster_field(description=('cluster_shape', '<i8'))  # Adding additional field for the cluster shape
     clz.set_end_of_cluster_function(end_of_cluster_function)  # Set the new function to the clusterizer
     clz.set_end_of_event_function(end_of_event_function)
 
@@ -386,9 +414,10 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                 input_mask_file_h5.root.NoisyPixelMask._f_copy(newparent=output_file_h5.root)
 
     if plot:
-        plot_cluster_size(output_cluster_file, dut_name=os.path.split(output_cluster_file)[1],
-                          output_pdf_file=os.path.splitext(output_cluster_file)[0] + '_cluster_size.pdf',
-                          chunk_size=chunk_size, gui=False)
+        plot_cluster_hists(input_cluster_file=output_cluster_file,
+                           dut_name=dut_name,
+                           chunk_size=chunk_size,
+                           gui=False)
 
     return output_cluster_file
 

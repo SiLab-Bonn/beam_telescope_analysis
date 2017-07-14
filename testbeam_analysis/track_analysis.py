@@ -83,6 +83,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
         z_err = tracklets_data_chunk['zerr_dut_0']
         charge = tracklets_data_chunk['charge_dut_0']
         n_hits = tracklets_data_chunk['n_hits_dut_0']
+        cluster_shape = tracklets_data_chunk['cluster_shape_dut_0']
         n_cluster = tracklets_data_chunk['n_cluster_dut_0']
         for dut_index in range(1, n_duts):
             x_local = np.column_stack((x_local, tracklets_data_chunk['x_dut_%d' % (dut_index)]))
@@ -100,6 +101,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
             z_err = np.column_stack((z_err, tracklets_data_chunk['zerr_dut_%d' % (dut_index)]))
             charge = np.column_stack((charge, tracklets_data_chunk['charge_dut_%d' % (dut_index)]))
             n_hits = np.column_stack((n_hits, tracklets_data_chunk['n_hits_dut_%d' % (dut_index)]))
+            cluster_shape = np.column_stack((cluster_shape, tracklets_data_chunk['cluster_shape_dut_%d' % (dut_index)]))
             n_cluster = np.column_stack((n_cluster, tracklets_data_chunk['n_cluster_dut_%d' % (dut_index)]))
 
         event_number = tracklets_data_chunk['event_number']
@@ -123,6 +125,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
                           z_err=z_err,
                           charge=charge,
                           n_hits=n_hits,
+                          cluster_shape=cluster_shape,
                           n_cluster=n_cluster,
                           hit_flag=hit_flag,
                           n_tracks=n_tracks)
@@ -132,7 +135,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
 #             geometry_utils.apply_alignment_to_hits(hits=combined, dut_index=dut_index, use_prealignment=use_prealignment, alignment=alignment, inverse=True, no_z=False)
 
         # Merge result data from arrays into one recarray
-        combined = np.column_stack((event_number, x_local, y_local, z_local, charge, n_hits, n_cluster, hit_flag, quality_flag, n_tracks, x_err_local, y_err_local, z_err_local))
+        combined = np.column_stack((event_number, x_local, y_local, z_local, charge, n_hits, cluster_shape, n_cluster, hit_flag, quality_flag, n_tracks, x_err_local, y_err_local, z_err_local))
         return np.core.records.fromarrays(combined.transpose(), dtype=tracklets_data_chunk.dtype)
 
     smc.SMC(table_file_in=input_tracklets_file,
@@ -376,7 +379,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
     else:
         same_tracks_for_all_duts = False
 
-    def create_results_array(slopes, offsets, chi2s, n_duts, good_track_selection, track_candidates_chunk, track_estimates_chunk_full=None):
+    def create_results_array(slopes, offsets, chi2s, quality_flag, n_duts, good_track_selection, track_candidates_chunk, track_estimates_chunk_full=None):
         # Define description
         description = [('event_number', np.int64)]
         for index in range(n_duts):
@@ -389,6 +392,8 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             description.append(('charge_dut_%d' % index, np.float))
         for index in range(n_duts):
             description.append(('n_hits_dut_%d' % index, np.uint32))
+        for index in range(n_duts):
+            description.append(('cluster_shape_dut_%d' % index, np.int64))
         for index in range(n_duts):
             description.append(('n_cluster_dut_%d' % index, np.uint32))
         for dimension in range(3):
@@ -435,6 +440,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             tracks_array['zerr_dut_%d' % index] = track_candidates_chunk['zerr_dut_%d' % index]
             tracks_array['charge_dut_%d' % index] = track_candidates_chunk['charge_dut_%d' % index]
             tracks_array['n_hits_dut_%d' % index] = track_candidates_chunk['n_hits_dut_%d' % index]
+            tracks_array['cluster_shape_dut_%d' % index] = track_candidates_chunk['cluster_shape_dut_%d' % index]
             tracks_array['n_cluster_dut_%d' % index] = track_candidates_chunk['n_cluster_dut_%d' % index]
 
         if keep_data:
@@ -995,7 +1001,7 @@ def _set_n_tracks(x, y, start_index, stop_index, n_tracks, n_actual_tracks, n_du
 
 
 @njit
-def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, n_cluster, hit_flag, n_tracks):
+def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_err_local, z_err_local, x, y, z, x_err, y_err, z_err, charge, n_hits, cluster_shape, n_cluster, hit_flag, n_tracks):
     ''' Complex loop to resort the tracklets array inplace to form track candidates. Each track candidate
     is given a quality identifier. Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -1046,7 +1052,7 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                     curr_x_err_local, curr_y_err_local, curr_z_err_local = x_err_local[hit_index][dut_index], y_err_local[hit_index][dut_index], z_err_local[hit_index][dut_index]
                     curr_x, curr_y, curr_z = x[hit_index][dut_index], y[hit_index][dut_index], z[hit_index][dut_index]
                     curr_x_err, curr_y_err, curr_z_err = x_err[hit_index][dut_index], y_err[hit_index][dut_index], z_err[hit_index][dut_index]
-                    curr_charge, curr_n_hits, curr_n_cluster = charge[hit_index][dut_index], n_hits[hit_index][dut_index], n_cluster[hit_index][dut_index]
+                    curr_charge, curr_n_hits, curr_cluster_shape, curr_n_cluster = charge[hit_index][dut_index], n_hits[hit_index][dut_index], cluster_shape[hit_index][dut_index], n_cluster[hit_index][dut_index]
                     if not np.isnan(curr_x):  # x = nan is no hit
                         # Calculate the hit distance of the actual DUT hit towards the actual reference hit
                         x_distance, y_distance = abs(curr_x - actual_x), abs(curr_y - actual_y)
@@ -1068,19 +1074,19 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
                                 tmp_x_err_local, tmp_y_err_local, tmp_z_err_local = x_err_local[track_index][dut_index], y_err_local[track_index][dut_index], z_err_local[track_index][dut_index]
                                 tmp_x, tmp_y, tmp_z = x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index]
                                 tmp_x_err, tmp_y_err, tmp_z_err = x_err[track_index][dut_index], y_err[track_index][dut_index], z_err[track_index][dut_index]
-                                tmp_charge, tmp_n_hits, tmp_n_cluster = charge[track_index][dut_index], n_hits[track_index][dut_index], n_cluster[track_index][dut_index]
+                                tmp_charge, tmp_n_hits, tmp_cluster_shape, tmp_n_cluster = charge[track_index][dut_index], n_hits[track_index][dut_index], cluster_shape[track_index][dut_index], n_cluster[track_index][dut_index]
 
                                 x_local[track_index][dut_index], y_local[track_index][dut_index], z_local[track_index][dut_index] = curr_x_local, curr_y_local, curr_z_local
                                 x_err_local[track_index][dut_index], y_err_local[track_index][dut_index], z_err_local[track_index][dut_index] = curr_x_err_local, curr_y_err_local, curr_z_err_local
                                 x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index] = curr_x, curr_y, curr_z
                                 x_err[track_index][dut_index], y_err[track_index][dut_index], z_err[track_index][dut_index] = curr_x_err, curr_y_err, curr_z_err
-                                charge[track_index][dut_index], n_hits[track_index][dut_index], n_cluster[track_index][dut_index] = curr_charge, curr_n_hits, curr_n_cluster
+                                charge[track_index][dut_index], n_hits[track_index][dut_index], cluster_shape[track_index][dut_index], n_cluster[track_index][dut_index] = curr_charge, curr_n_hits, curr_cluster_shape, curr_n_cluster
 
                                 x_local[hit_index][dut_index], y_local[hit_index][dut_index], z_local[hit_index][dut_index] = tmp_x_local, tmp_y_local, tmp_z_local
                                 x_err_local[hit_index][dut_index], y_err_local[hit_index][dut_index], z_err_local[hit_index][dut_index] = tmp_x_err_local, tmp_y_err_local, tmp_z_err_local
                                 x[hit_index][dut_index], y[hit_index][dut_index], z[hit_index][dut_index] = tmp_x, tmp_y, tmp_z
                                 x_err[hit_index][dut_index], y_err[hit_index][dut_index], z_err[hit_index][dut_index] = tmp_x_err, tmp_y_err, tmp_z_err
-                                charge[hit_index][dut_index], n_hits[hit_index][dut_index], n_cluster[hit_index][dut_index] = tmp_charge, tmp_n_hits, tmp_n_cluster
+                                charge[hit_index][dut_index], n_hits[hit_index][dut_index], cluster_shape[hit_index][dut_index], n_cluster[hit_index][dut_index] = tmp_charge, tmp_n_hits, tmp_cluster_shape, tmp_n_cluster
                                 if track_index > hit_index:  # Check if hit is already assigned to other track
                                     dut_x, dut_y = x[hit_index][dut_index], y[hit_index][dut_index]
                                     first_dut_index = _get_first_dut_index(x, hit_index)  # Get reference DUT index of other track

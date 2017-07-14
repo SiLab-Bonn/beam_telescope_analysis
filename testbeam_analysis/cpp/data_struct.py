@@ -39,3 +39,4 @@ class ClusterInfoTable(tb.IsDescription):
     err_column = tb.Float32Col(pos=8)
     err_row = tb.Float32Col(pos=9)
     n_cluster = tb.UInt32Col(pos=10)
+    cluster_shape = tb.Int64Col(pos=11)

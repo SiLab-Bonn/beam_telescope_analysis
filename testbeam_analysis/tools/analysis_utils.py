@@ -10,6 +10,7 @@ import progressbar
 import numpy as np
 import numexpr as ne
 import tables as tb
+import numba
 from numba import njit
 from scipy.interpolate import splrep, sproot
 from scipy import stats
@@ -896,6 +897,72 @@ def binned_statistic(x, values, func, nbins, range):
     S = csr_matrix((values, [digitized, np.arange(N)]), shape=(nbins, N))
 
     return [func(group) for group in np.split(S.data, S.indptr[1:-1])]
+
+
+@njit(numba.uint64(numba.uint32, numba.uint32))
+def xy2d_morton(x, y):
+    '''Tuple to number.
+
+    See: https://stackoverflow.com/questions/30539347/2d-morton-code-encode-decode-64bits
+    '''
+    x = (x | (x << 16)) & 0x0000FFFF0000FFFF
+    x = (x | (x << 8)) & 0x00FF00FF00FF00FF
+    x = (x | (x << 4)) & 0x0F0F0F0F0F0F0F0F
+    x = (x | (x << 2)) & 0x3333333333333333
+    x = (x | (x << 1)) & 0x5555555555555555
+
+    y = (y | (y << 16)) & 0x0000FFFF0000FFFF
+    y = (y | (y << 8)) & 0x00FF00FF00FF00FF
+    y = (y | (y << 4)) & 0x0F0F0F0F0F0F0F0F
+    y = (y | (y << 2)) & 0x3333333333333333
+    y = (y | (y << 1)) & 0x5555555555555555
+
+    return x | (y << 1)
+
+
+@njit(numba.uint64(numba.uint64,))
+def morton_1(x):
+    x = x & 0x5555555555555555
+    x = (x | (x >> 1)) & 0x3333333333333333
+    x = (x | (x >> 2)) & 0x0F0F0F0F0F0F0F0F
+    x = (x | (x >> 4)) & 0x00FF00FF00FF00FF
+    x = (x | (x >> 8)) & 0x0000FFFF0000FFFF
+    x = (x | (x >> 16)) & 0xFFFFFFFFFFFFFFFF # TODO: 0x00000000FFFFFFFF
+    return x
+
+
+@njit((numba.uint64,))
+def d2xy_morton(d):
+    '''Number to tuple.
+
+    See: https://stackoverflow.com/questions/30539347/2d-morton-code-encode-decode-64bits
+    '''
+    return morton_1(d), morton_1(d >> 1)
+
+
+@njit(locals={'cluster_shape': numba.uint64})
+def calculate_cluster_shape(cluster_array):
+    '''Boolean 8x8 array to number.
+    '''
+    cluster_shape = 0
+    indices_x, indices_y = np.nonzero(cluster_array)
+    for index in np.arange(indices_x.size):
+        cluster_shape += 2**xy2d_morton(indices_x[index], indices_y[index])
+    return cluster_shape
+
+
+@njit((numba.uint64,), locals={'val': numba.uint64})
+def calculate_cluster_array(cluster_shape):
+    '''Number to boolean 8x8 array.
+    '''
+    cluster_array = np.zeros((8, 8), dtype=np.bool_)
+    for i in np.arange(63, -1, -1):
+        val = 2**i
+        if val <= cluster_shape:
+            x, y = d2xy_morton(i)
+            cluster_array[x, y] = 1
+            cluster_shape -= val
+    return cluster_array
 
 
 def get_data(path, output=None, fail_on_overwrite=False):

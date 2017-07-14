@@ -204,6 +204,8 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
     for index, _ in enumerate(input_cluster_files):
         description.append(('n_hits_dut_%d' % index, np.uint32))
     for index, _ in enumerate(input_cluster_files):
+        description.append(('cluster_shape_dut_%d' % index, np.int64))
+    for index, _ in enumerate(input_cluster_files):
         description.append(('n_cluster_dut_%d' % index, np.uint32))
     description.extend([('hit_flag', np.uint16), ('quality_flag', np.uint16), ('n_tracks', np.uint32)])
     for index, _ in enumerate(input_cluster_files):
@@ -265,6 +267,7 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
                 merged_cluster_array['zerr_dut_0'][selection] = zerr[selection]
                 merged_cluster_array['charge_dut_0'][selection] = actual_cluster_dut_0['charge'][selection]
                 merged_cluster_array['n_hits_dut_0'][selection] = actual_cluster_dut_0['n_hits'][selection]
+                merged_cluster_array['cluster_shape_dut_0'][selection] = actual_cluster_dut_0['cluster_shape'][selection]
                 merged_cluster_array['n_cluster_dut_0'][selection] = actual_cluster_dut_0['n_cluster'][selection]
 
                 # Fill result array with other DUT data
@@ -289,6 +292,7 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
                             merged_cluster_array['zerr_dut_%d' % (dut_index)][selection] = zerr[selection]
                             merged_cluster_array['charge_dut_%d' % (dut_index)][selection] = actual_cluster_dut['charge'][selection]
                             merged_cluster_array['n_hits_dut_%d' % (dut_index)][selection] = actual_cluster_dut['n_hits'][selection]
+                            merged_cluster_array['cluster_shape_dut_%d' % (dut_index)][selection] = actual_cluster_dut['cluster_shape'][selection]
                             merged_cluster_array['n_cluster_dut_%d' % (dut_index)][selection] = actual_cluster_dut['n_cluster'][selection]
 
                 merged_cluster_table.append(merged_cluster_array)
@@ -1214,8 +1218,11 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                          select_duts=align_duts,
                                          duts_hit_selection=duts_selection,
                                          duts_quality_selection=duts_selection,
-                                         chunk_size=chunk_size,
-                                         condition=['n_hits_dut_%d < 3' % dut for dut in align_duts])
+                                         # select good tracks und limit cluster shapes to 1x1, 1x2 and 2x1
+                                         # occurrences of other cluster shapes do not matter much
+                                         condition=['(track_chi2 <= 250) & ((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 4))'.format(dut) for dut in align_duts],
+                                         chunk_size=chunk_size)
+
 
             if set(align_duts) & set(selection_fit_duts):
                 track_angles_file = os.path.splitext(merged_file)[0] + '_tracks_angles_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)

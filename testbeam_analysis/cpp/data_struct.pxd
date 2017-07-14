@@ -31,3 +31,4 @@ cdef packed struct numpy_cluster_info:
     cnp.float32_t err_column  # sum charge of all cluster hits
     cnp.float32_t err_row  # sum charge of all cluster hits
     cnp.uint32_t n_cluster  # number of all clusters in the event
+    cnp.int64_t cluster_shape  # cluster shape
