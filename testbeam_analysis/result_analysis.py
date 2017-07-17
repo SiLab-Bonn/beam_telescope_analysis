@@ -161,18 +161,14 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
                     limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                         limit_x_local_sel &= hit_x_local >= fit_limit_x_local[0]
-                        limit_x_local_sel &= intersection_x_local >= fit_limit_x_local[0]
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                         limit_x_local_sel &= hit_x_local <= fit_limit_x_local[1]
-                        limit_x_local_sel &= intersection_x_local <= fit_limit_x_local[1]
 
                     limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                         limit_y_local_sel &= hit_y_local >= fit_limit_y_local[0]
-                        limit_y_local_sel &= intersection_y_local >= fit_limit_y_local[0]
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
                         limit_y_local_sel &= hit_y_local <= fit_limit_y_local[1]
-                        limit_y_local_sel &= intersection_y_local <= fit_limit_y_local[1]
 
                     limit_xy_local_sel = np.logical_and(limit_x_local_sel, limit_y_local_sel)
 
