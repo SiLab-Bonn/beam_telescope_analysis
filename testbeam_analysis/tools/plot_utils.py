@@ -1711,7 +1711,7 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
             ax_row.set_title("Row residual correlation")
             ax_row.set_ylabel("Correlation of row residuals")
             ax_row.set_xlabel("Track distance [um]")
-            for actual_dut in select_duts:
+            for dut_index, actual_dut in enumerate(select_duts):
                 dut_name = dut_names[actual_dut] if dut_names else ("DUT" + str(actual_dut))
                 for direction in ["column", "row"]:
                     correlations = []
@@ -1750,6 +1750,10 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
                     fig = Figure()
                     _ = FigureCanvas(fig)
                     ax = fig.add_subplot(111)
+                    data_label = 'Data'
+                    ax.plot(bin_centers, correlations, marker='s', linestyle='None', label=data_label)
+#                     yerr = correlations/np.sqrt(np.array(res_count))
+#                     ax.errorbar(bin_centers, correlations, yerr=yerr, marker='s', linestyle='None')
                     fit_label = 'Fit: $a*\exp(x/x_0)+b*\sin(2*\pi*x/p+c)$\n$a=%.3f \pm %.3f$\n$b=%.3f \pm %.3f$\n$c=%.1f \pm %.1f$\n$x_0=%.1f \pm %.1f$\n$p=%.1f \pm %.1f$' % (fit[0],
                                                                                                                                                                                np.absolute(pcov[0][0]) ** 0.5,
                                                                                                                                                                                fit[1],
@@ -1761,10 +1765,6 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
                                                                                                                                                                                fit[4],
                                                                                                                                                                                np.absolute(pcov[4][4]) ** 0.5)
                     ax.plot(x, fitted_correlations, color='k', label=fit_label)
-                    data_label = 'Data'
-                    ax.plot(bin_centers, correlations, marker='s', linestyle='None', label=data_label)
-#                     yerr = correlations/np.sqrt(np.array(res_count))
-#                     ax.errorbar(bin_centers, correlations, yerr=yerr, marker='s', linestyle='None')
                     ax.set_title("%s residual correlation of %s" % (direction.title(), dut_name))
                     ax.set_ylabel("Correlation of %s residuals" % (direction,))
                     ax.set_xlabel("Track distance [um]")
@@ -1772,9 +1772,11 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
                     output_pdf.savefig(fig)
 
                     if direction == "column":
-                        ax_col.plot(bin_centers, correlations, label='%s' % (dut_name,), marker='s', linestyle='None')
+                        seleced_axis = ax_col
                     else:
-                        ax_row.plot(bin_centers, correlations, label='%s' % (dut_name,), marker='s', linestyle='None')
+                        seleced_axis = ax_row
+                    seleced_axis.plot(x, fitted_correlations, color='k', label='Fit: %s' % (dut_name,), zorder=2 * len(select_duts) + dut_index)
+                    seleced_axis.plot(bin_centers, correlations, label='Data: %s' % (dut_name,), marker='s', linestyle='None', zorder=len(select_duts) + dut_index)
 
             ax_col.legend(loc="upper right")
             ax_row.legend(loc="upper right")
