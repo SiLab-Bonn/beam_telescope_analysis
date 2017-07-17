@@ -933,6 +933,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 #                     del track_hits
 
                     # Store results
+                    # TODO: check chi2 fit calculation, global/local system?
                     if method == "Fit":
                         offsets = np.concatenate([i[0] for i in results])  # Merge offsets from all cores in results
                         slopes = np.concatenate([i[1] for i in results])  # Merge slopes from all cores in results
@@ -1049,6 +1050,7 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
         n_track_hits = 0
 
         for dut_index in range(n_duts):  # loop over all DUTs in the actual track
+            # TODO: when switching to next DUT, update x and y for better performance
             if not reference_hit_set and not np.isnan(x[track_index][dut_index]):  # Search for first DUT that registered a hit
                 actual_x, actual_y = x[track_index][dut_index], y[track_index][dut_index]
                 reference_hit_set = True
@@ -1170,14 +1172,7 @@ def _fit_tracks_loop(track_hits):
     chi2 = np.empty((track_hits.shape[0],), dtype=np.float)
 
     for index, hits in enumerate(track_hits):  # Loop over selected track candidate hits and fit
-#         print "***"
-#         print "hits with nn", hits
         hits = hits[~np.isnan(hits).any(axis=1)]
-#         print "hits w/o nn", hits
-#         if len(hits) <= 1:
-#             print "***** only one"
-#             offset[index], slope[index], chi2[index] = np.nan, np.nan, np.nan
-#             continue
         try:
             offset[index], slope[index], chi2[index] = line_fit_3d(hits)
         except np.linalg.linalg.LinAlgError:

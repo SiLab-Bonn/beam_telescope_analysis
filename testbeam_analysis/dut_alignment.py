@@ -1225,7 +1225,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                       input_alignment_file=alignment_file,
                                       select_duts=current_align_duts,
                                       dut_names=dut_names,
-                                      n_bins=200,  # TODO: fix n_bins
+                                      n_bins="auto",
                                       plot=plot)
                 with tb.open_file(track_angles_file, mode="r") as in_file_h5:
                     beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
@@ -1324,7 +1324,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                   input_alignment_file=alignment_file,
                                   select_duts=align_duts,
                                   dut_names=dut_names,
-                                  n_bins=200,  # TODO: fix n_bins
+                                  n_bins="auto",
                                   plot=True)
             with tb.open_file(track_angles_file, mode="r") as in_file_h5:
                 beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean

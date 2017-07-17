@@ -1865,8 +1865,6 @@ def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=N
 
     if plot:
         plot_utils.plot_track_angle(input_track_angle_file=output_track_angle_file, output_pdf_file=None, dut_names=dut_names)
-        # TODO: plot chi2
-#         plot_utils.plot_track_chi2(chi2s=chi2s, fit_dut=fit_dut, output_pdf=output_pdf)
 
 
 def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, nbins_per_pixel=None, npixels_per_bin=None, use_prealignment=False, use_fit_limits=False, plot=True, chunk_size=1000000):
