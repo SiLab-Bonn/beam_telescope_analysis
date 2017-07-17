@@ -882,7 +882,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
     logging.debug('File with realigned hits %s', output_hit_file)
 
 # TODO: selection_track_quality to selection_track_quality_sigma
-def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, use_prealignment=True, align_duts=None, align_telescope=None, selection_fit_duts=None, selection_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
+def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, use_prealignment=True, align_duts=None, select_telescope_duts=None, selection_fit_duts=None, selection_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -917,7 +917,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
         align_duts=[[0, 1, 2, 5, 6, 7],  # align the telescope planes first
                     [4],  # align first DUT
                     [3]]  # align second DUT
-    align_telescope : iterable
+    select_telescope_duts : iterable
         The telescope will be aligned to the given DUTs. The translation in x and y of these DUTs will not be changed.
         Usually the two outermost telescope DUTs are selected.
     selection_fit_duts : iterable or iterable of iterable
@@ -958,15 +958,15 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
         alignment_parameters = _create_alignment_array(n_duts)
         alignment_parameters['translation_z'] = prealignment['z']
 
-        beta = np.arctan(prealignment[align_telescope[-1]]["column_c0"] / prealignment[align_telescope[-1]]["z"])
-        alpha = -np.arctan(prealignment[align_telescope[-1]]["row_c0"] / prealignment[align_telescope[-1]]["z"])
+        beta = np.arctan(prealignment[select_telescope_duts[-1]]["column_c0"] / prealignment[select_telescope_duts[-1]]["z"])
+        alpha = -np.arctan(prealignment[select_telescope_duts[-1]]["row_c0"] / prealignment[select_telescope_duts[-1]]["z"])
         global_rotation = geometry_utils.rotation_matrix(alpha=alpha,
                                                          beta=beta,
                                                          gamma=0.0)
 
         for dut_index in range(n_duts):
             if (isinstance(initial_translation, Iterable) and initial_translation[dut_index] is None) or initial_translation is None:
-                if dut_index in align_telescope:
+                if dut_index in select_telescope_duts:
                     # Telescope is aligned to these DUTs, so align them to the z-axis
                     alignment_parameters['translation_x'][dut_index] = 0.0
                     alignment_parameters['translation_y'][dut_index] = 0.0
@@ -1126,7 +1126,7 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             merged_file=input_merged_file,
             alignment_file=input_alignment_file,
             align_duts=actual_align_duts,
-            align_telescope=align_telescope,
+            select_telescope_duts=select_telescope_duts,
             selection_fit_duts=selection_fit_duts[index],
             selection_hit_duts=selection_hit_duts[index],
             quality_sigma=quality_sigma[index],
@@ -1142,24 +1142,12 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             chunk_size=chunk_size)
 
 
-def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, selection_fit_duts, selection_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_prealignment, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_duts, selection_fit_duts, selection_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_prealignment, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
 
     if alignment_order is None:
         alignment_order = [["alpha", "beta", "gamma", "translation_x", "translation_y", "translation_z"]]
-
-    duts_selection = [list(set([dut]) | set(selection_hit_duts)) for dut in align_duts]
-    print "************* duts_selection ****************", duts_selection
-
-#     output_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_aligned_duts_%s_tmp.h5' % (alignment_duts)
-#     logging.info('= Alignment step 0: Finding tracks for DUTs %s =', alignment_duts_str)
-#     find_tracks(input_tracklets_file=merged_file,
-#                 input_alignment_file=alignment_file,
-#                 output_track_candidates_file=output_track_candidates_file,
-#                 use_prealignment=True,
-#                 max_events=max_events)
-
 
     for iteration in range(max_iterations):
         for alignment_index, selected_alignment_parameters in enumerate(alignment_order):
@@ -1183,8 +1171,14 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                 # use pre-alignment for fit/telescope DUT and first iteration step to find proper track candidates
                 if iteration != 0 or not (set(align_duts) & set(selection_fit_duts)):
                     use_prealignment = False
+                    current_align_duts = align_duts
                 else:
                     use_prealignment = True
+                    current_align_duts = list(set(align_duts) - set(select_telescope_duts)) if use_prealignment else align_duts
+
+                duts_selection = [list(set([dut]) | set(selection_hit_duts)) for dut in current_align_duts]
+                print "************* current_align_duts ****************", current_align_duts
+                print "************* duts_selection ****************", duts_selection
                 print "************* use pre-alignment for find_tracks()", use_prealignment
                 logging.info('= Alignment step 0: Finding tracks for DUTs %s =', alignment_duts_str)
                 find_tracks(input_merged_file=merged_file,
@@ -1200,11 +1194,11 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                        input_alignment_file=alignment_file,
                        output_tracks_file=output_tracks_file,
 #                        max_events=max_events,
-                       select_duts=align_duts,
+                       select_duts=current_align_duts,
                        dut_names=dut_names,
                        n_pixels=n_pixels,
                        pixel_size=pixel_size,
-                       selection_fit_duts=selection_fit_duts,  # Only use selected DUTs for track fit
+                       selection_fit_duts=select_telescope_duts if use_prealignment else selection_fit_duts,  # Only use selected DUTs for track fit
                        selection_hit_duts=selection_hit_duts,  # Only use selected duts
                        quality_sigma=quality_sigma,
                        exclude_dut_hit=False,  # For constrained residuals
@@ -1215,12 +1209,12 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
             logging.info('= Alignment step 2 / iteration %d: Selecting tracks for DUTs %s =', iteration_step, alignment_duts_str)
             data_selection.select_tracks(input_tracks_file=output_tracks_file,
                                          output_tracks_file=output_selected_tracks_file,
-                                         select_duts=align_duts,
+                                         select_duts=current_align_duts,
                                          duts_hit_selection=duts_selection,
                                          duts_quality_selection=duts_selection,
                                          # select good tracks und limit cluster shapes to 1x1, 1x2 and 2x1
                                          # occurrences of other cluster shapes do not matter much
-                                         condition=['(track_chi2 <= 250) & ((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 4))'.format(dut) for dut in align_duts],
+                                         condition=['(track_chi2 <= 250) & ((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 4))'.format(dut) for dut in current_align_duts],
                                          chunk_size=chunk_size)
 
 
@@ -1229,7 +1223,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                 histogram_track_angle(input_tracks_file=output_selected_tracks_file,
                                       output_track_angle_file=track_angles_file,
                                       input_alignment_file=alignment_file,
-                                      select_duts=align_duts,
+                                      select_duts=current_align_duts,
                                       dut_names=dut_names,
                                       n_bins=200,  # TODO: fix n_bins
                                       plot=plot)
@@ -1253,7 +1247,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                     n_pixels=n_pixels,
                                     pixel_size=pixel_size,
                                     use_prealignment=False,
-                                    select_duts=align_duts,
+                                    select_duts=current_align_duts,
                                     npixels_per_bin=None,
                                     nbins_per_pixel=None,
                                     use_fit_limits=use_fit_limits,
@@ -1265,8 +1259,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
             new_alignment = calculate_transformation(input_tracks_file=output_selected_tracks_file,
                                                      input_alignment_file=alignment_file,
                                                      use_prealignment=False,
-                                                     select_duts=align_duts,
-                                                     align_telescope=align_telescope,
+                                                     select_duts=current_align_duts,
                                                      use_fit_limits=use_fit_limits,
                                                      chunk_size=chunk_size)
 
@@ -1278,11 +1271,13 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
 #             os.remove(os.path.splitext(merged_file)[0] + '_tracks_aligned_duts_%s_tmp_%d.pdf' % (alignment_duts, iteration_step)
 #             os.remove(os.path.splitext(merged_file)[0] + '_residuals_aligned_reduced_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step))
 
-            geometry_utils.save_alignment_parameters(alignment_file=alignment_file,
-                                                     alignment_parameters=new_alignment,
-                                                     mode='absolute',
-                                                     select_duts=align_duts,
-                                                     parameters=selected_alignment_parameters)
+            for align_dut in current_align_duts:
+                print "save alignment parameters", list(set(selected_alignment_parameters) - set(["translation_x", "translation_y", "translation_z"])) if align_dut in select_telescope_duts else selected_alignment_parameters
+                geometry_utils.save_alignment_parameters(alignment_file=alignment_file,
+                                                         alignment_parameters=new_alignment,
+                                                         mode='absolute',
+                                                         select_duts=[align_dut],
+                                                         parameters=list(set(selected_alignment_parameters) - set(["translation_x", "translation_y", "translation_z"])) if align_dut in select_telescope_duts else selected_alignment_parameters)
 
 #     # remove temporary files
     os.remove(output_track_candidates_file)
@@ -1319,6 +1314,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
                                      select_duts=align_duts,
                                      duts_hit_selection=duts_selection,
                                      duts_quality_selection=duts_selection,
+                                     condition=None,
                                      chunk_size=chunk_size)
 
         if set(align_duts) & set(selection_fit_duts):
@@ -1368,7 +1364,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, align_telescope, se
 #     os.remove(track_candidates_reduced)
 
 
-def calculate_transformation(input_tracks_file, input_alignment_file, select_duts, align_telescope=None, use_prealignment=False, use_fit_limits=True, chunk_size=1000000):
+def calculate_transformation(input_tracks_file, input_alignment_file, select_duts, use_prealignment=False, use_fit_limits=True, chunk_size=1000000):
     '''Takes the tracks and calculates residuals for selected DUTs in col, row direction.
 
     Parameters
@@ -1379,8 +1375,6 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
         Filename of the input aligment file.
     select_duts : iterable
         Selecting DUTs that will be processed.
-    align_telescope : iterable
-        The translation is not changed for given DUTs.
     use_prealignment : bool
         If True, use pre-alignment; if False, use alignment.
     use_fit_limits : bool
@@ -1411,10 +1405,6 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         for actual_dut in select_duts:
             node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT_%d' % actual_dut)
-            if align_telescope and actual_dut in align_telescope:
-                no_translation = True
-            else:
-                no_translation = False
             logging.debug('Calculate transformation for DUT%d', actual_dut)
 
             if use_fit_limits:
@@ -1465,7 +1455,7 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
                 beta_dut_start = alignment[actual_dut]['beta']
                 gamma_dut_start = alignment[actual_dut]['gamma']
                 print "n_tracks for chunk %d:" % actual_chunk, n_tracks
-                delta_t = 0.8  # TODO: optimize
+                delta_t = 1.0  # TODO: optimize
                 iterations = 100
                 lin_alpha = 1.0
 
@@ -1485,15 +1475,10 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
                         translation_dut_old = np.array([0.0, 0.0, 0.0])
                         initialize_angles = False
 
-#                     if i == 0:
-#                         lin_alpha_opt = 0.000001
-#                         lin_alpha_opt = start_alpha * np.exp(i * (np.log(stop_alpha) - np.log(start_alpha)) / iterations)
-#                         delta_t = start_delta_t * np.exp(i * (np.log(stop_delta_t) - np.log(start_delta_t)) / iterations)
-#                         if i==0:
-#                             delta_t = lin_alpha_opt**-1 / 100.0
-#                         else:
-#                         delta_t = lin_alpha_opt**-1
-#                         delta_t = 1./lin_alpha_opt
+#                     start_delta_t = 0.01
+#                     stop_delta_t = 1.0
+#                     delta_t = start_delta_t * np.exp(i * (np.log(stop_delta_t) - np.log(start_delta_t)) / iterations)
+#                     print "delta_t", delta_t
 
                     tot_matr = None
                     tot_b = None
@@ -1556,8 +1541,7 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
                     u_rot, _, v_rot = np.linalg.svd(rotation_dut, full_matrices=False)
                     rotation_dut = np.dot(u_rot, v_rot)  # orthogonal matrix U
 
-                    if not no_translation:
-                        translation_dut = translation_dut + delta_t * omega_b_dot[3:]
+                    translation_dut = translation_dut + delta_t * omega_b_dot[3:]
 
 #                     try:
 #                         # TODO: do not use minimizer, use algebra
@@ -1578,7 +1562,7 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
 #
 #                     if update:
                     allclose_trans = np.allclose(translation_dut, translation_dut_old, rtol=0.0, atol=1e-2)
-                    allclose_rot = np.allclose(rotation_dut, rotation_dut_old, rtol=1e-5, atol=0.0)
+                    allclose_rot = np.allclose(rotation_dut, rotation_dut_old, rtol=1e-7, atol=0.0)
                     print "allclose rot trans", allclose_rot, allclose_trans
                     if allclose_rot and allclose_trans:
                         print "*** ALL CLOSE, BREAK ***"
