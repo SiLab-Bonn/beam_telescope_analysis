@@ -465,6 +465,8 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                     tracks_array['slope_z_dut_%d' % index][~good_track_selection] = np.nan
             tracks_array['track_chi2'][good_track_selection] = chi2s
             tracks_array['track_chi2'][~good_track_selection] = np.nan
+            tracks_array['quality_flag'][good_track_selection] = quality_flag
+            tracks_array['quality_flag'][~good_track_selection] = 0
         else:
             for dimension in range(3):
                 tracks_array['offset_%d' % dimension] = offsets[:, dimension]
@@ -478,12 +480,13 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                     tracks_array['slope_y_dut_%d' % index] = track_estimates_chunk_full[:, index, 4]
                     tracks_array['slope_z_dut_%d' % index] = track_estimates_chunk_full[:, index, 5]
             tracks_array['track_chi2'] = chi2s
+            tracks_array['quality_flag'] = quality_flag
 
         return tracks_array
 
     def store_track_data(fit_dut, fit_dut_index, min_track_distance):
         # reset quality flag
-        track_candidates_chunk["quality_flag"] = 0
+        quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["quality_flag"].dtype)
         for dut_index in range(n_duts):
             if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
                 dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
@@ -520,51 +523,65 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                                                                                                   dut_index=dut_index,
                                                                                                                   alignment=alignment,
                                                                                                                   inverse=True)
-            if not np.allclose(intersection_z_local, 0.0):
+            if not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                 raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
             # calculate sigma for quality flag
             if np.isfinite(prealignment[dut_index]['column_sigma']):
-                column_sigma = prealignment[dut_index]['column_sigma']
+                min_col_distance = quality_sigma * np.full(n_tracks_chunk, fill_value=prealignment[dut_index]['column_sigma'])
             else:
-                column_sigma = track_candidates_chunk['xerr_dut_%s' % dut_index][good_track_selection]
+                min_col_distance = quality_sigma * track_candidates_chunk['xerr_dut_%s' % dut_index]
             if np.isfinite(prealignment[dut_index]['row_sigma']):
-                row_sigma = prealignment[dut_index]['row_sigma']
+                min_row_distance = quality_sigma * np.full(n_tracks_chunk, fill_value=prealignment[dut_index]['row_sigma'])
             else:
-                row_sigma = track_candidates_chunk['yerr_dut_%s' % dut_index][good_track_selection]
+                min_row_distance = quality_sigma * track_candidates_chunk['yerr_dut_%s' % dut_index]
             # select quality tracks
-            dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * column_sigma)
-                                    & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= quality_sigma * row_sigma))
-            dut_quality_flag = track_candidates_chunk["quality_flag"][good_track_selection]
-            dut_quality_flag[dut_quality_flag_sel] |= (1 << dut_index)
-            track_candidates_chunk["quality_flag"][good_track_selection] = dut_quality_flag
+            print np.all(np.isfinite(intersection_x_local)), np.all(np.isfinite(track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]))
+            print np.all(np.isfinite(intersection_y_local)), np.all(np.isfinite(track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]))
+            dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= min_col_distance[good_track_selection])
+                                    & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= min_row_distance[good_track_selection]))
+            print "dut_quality_flag_sel", dut_quality_flag_sel, dut_quality_flag_sel.dtype
+            quality_flag[dut_quality_flag_sel] |= np.uint16((1 << dut_index))
+
+            # Select tracks that are too close when extrapolated to the actual DUT
+            # All selected tracks will result in a quality_flag = 0 for the actual DUT
+            dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
+            _find_small_distance(event_number_array=track_candidates_chunk['event_number'][good_track_selection],
+                                 position_array_x=intersection_x_local,
+                                 position_array_y=intersection_y_local,
+                                 min_x_distance_array=min_col_distance[good_track_selection],
+                                 min_y_distance_array=min_row_distance[good_track_selection],
+                                 small_distance_flag_array=dut_small_track_distance_flag_sel)
+            logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_track_distance_flag_sel] &= np.uint16(~(1 << dut_index))
+
+            # Select hits that are too close in a DUT
+            # All selected hits will result in a quality_flag = 0 for the actual DUT
+            dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
+            _find_small_distance(event_number_array=track_candidates_chunk['event_number'],
+                                 position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
+                                 position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
+                                 min_x_distance_array=min_col_distance,
+                                 min_y_distance_array=min_row_distance,
+                                 small_distance_flag_array=dut_small_hit_distance_flag_sel)
+            logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint16(~(1 << dut_index))
 
             if dut_index == fit_dut:
                 # use offsets at the location of the fit DUT
                 dut_offsets = intersections
                 # select only quality tracks
 
-#             print "good tracks selection before quality cut", np.count_nonzero(good_track_selection)
-#             good_track_selection &= (track_candidates_chunk["quality_flag"] & dut_quality_selection == dut_quality_selection)
-#             print "good tracks selection after quality cut", np.count_nonzero(good_track_selection)
-
         tracks_array = create_results_array(slopes=slopes,
                                             offsets=dut_offsets,
                                             chi2s=chi2s,
+                                            quality_flag=quality_flag,
                                             n_duts=n_duts,
                                             good_track_selection=good_track_selection,
                                             track_candidates_chunk=track_candidates_chunk,
                                             track_estimates_chunk_full=None)
-
-        # Remove tracks that are too close when extrapolated to the actual DUT
-        # All merged tracks have quality_flag = 0
-        actual_min_track_distance = min_track_distance[fit_dut_index]
-        if actual_min_track_distance is not None and actual_min_track_distance > 0:
-            _find_merged_tracks(tracks_array=tracks_array,
-                                min_tracks_distancce=actual_min_track_distance)
-#             selection = tracks_array['n_tracks'] > 0
-#             logging.info('Removed %d merged tracks (%1.1f%%)', np.count_nonzero(~selection), float(np.count_nonzero(~selection)) / selection.shape[0] * 100.0)
-#             tracks_array = tracks_array[selection]
 
         try:  # Check if table exists already, than append data
             tracklets_table = out_file_h5.get_node('/Tracks_DUT_%d' % fit_dut)
@@ -807,12 +824,11 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                         # also include tracks where no hit is required but have hit in fit DUT
                         good_track_selection &= (track_candidates_chunk['hit_flag'] & dut_fit_selection_dut_removed) > 0
                     n_tracks_quality = np.count_nonzero(good_track_selection)
-                    removed_n_tracks = n_tracks_chunk - n_tracks_quality
 
-                    logging.info('Removed %d of %d (%.1f%%) track candidates (requiring hit in DUT)',
-                                 removed_n_tracks,
+                    logging.info('Selected %d of %d (%.1f%%) track candidates for track fitting due to hit requirements',
+                                 n_tracks_quality,
                                  n_tracks_chunk,
-                                 100.0 * removed_n_tracks / n_tracks_chunk)
+                                 100.0 * n_tracks_quality / n_tracks_chunk)
 
 #                     if max_tracks is not None:
 #                         cut_index = np.where(np.cumsum(good_track_selection) + total_n_tracks > max_tracks)[0]
@@ -1120,27 +1136,19 @@ def _find_tracks_loop(event_number, x_local, y_local, z_local, x_err_local, y_er
 
 
 @njit
-def _find_merged_tracks(tracks_array, min_track_distance):  # Check if several tracks are less than min_track_distance apart. Then exclude these tracks (set quality_flag to 0)
-    i = 0
-    for _ in range(0, tracks_array.shape[0]):
-        track_index = i
-        if track_index >= tracks_array.shape[0]:
-            break
-        actual_event = tracks_array[track_index]['event_number']
-        for _ in range(track_index, tracks_array.shape[0]):  # Loop over event hits
-            if tracks_array[i]['event_number'] != actual_event:  # Next event reached, break loop
-                break
-            if tracks_array[i]['n_tracks'] < 2:  # Only if the event has more than one track check the min_track_distance
-                i += 1
-                break
-            offset_x, offset_y = tracks_array[i]['offset_0'], tracks_array[i]['offset_1']
-            for j in range(i + 1, tracks_array.shape[0]):  # Loop over other event hits
-                if tracks_array[j]['event_number'] != actual_event:  # Next event reached, break loop
-                    break
-                if sqrt((offset_x - tracks_array[j]['offset_0'])**2 + (offset_y - tracks_array[j]['offset_1'])**2) < min_track_distance:
-                    tracks_array[i]['quality_flag'] = 0
-                    tracks_array[j]['quality_flag'] = 0
-            i += 1
+def _find_small_distance(event_number_array, position_array_x, position_array_y, min_x_distance_array, min_y_distance_array, small_distance_flag_array):  # Check if several tracks are less than min_track_distance apart. Then exclude these tracks (set quality_flag to 0)
+    max_index = event_number_array.shape[0]
+    index = 0
+    while index < max_index:
+        current_event_number = event_number_array[index]
+        while (index < max_index) and (event_number_array[index] == current_event_number):  # Next event reached, break loop
+            event_index = index + 1
+            while (event_index < max_index) and (event_number_array[event_index] == current_event_number):  # Loop over other event hits
+                if np.isfinite(position_array_x[index]) and np.isfinite(position_array_x[event_index]) and np.isfinite(position_array_y[index]) and np.isfinite(position_array_y[event_index]) and (abs(position_array_x[index] - position_array_x[event_index]) <= 2 * max(min_x_distance_array[index], min_x_distance_array[event_index])) and (abs(position_array_y[index] - position_array_y[event_index]) <= 2 * max(min_y_distance_array[index], min_y_distance_array[event_index])):
+                    small_distance_flag_array[index] = 1
+                    small_distance_flag_array[event_index] = 1
+                event_index += 1
+            index += 1
 
 
 def _fit_tracks_loop(track_hits):
