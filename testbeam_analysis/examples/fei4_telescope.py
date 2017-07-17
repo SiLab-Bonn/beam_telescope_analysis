@@ -89,7 +89,7 @@ def run_analysis(data_files):
     dut_alignment.alignment(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
                             input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                             align_duts=[0, 1, 2, 3],
-                            align_telescope=[0, 3],
+                            select_telescope_duts=[0, 3],
                             selection_fit_duts=[0, 1, 2, 3],
                             selection_hit_duts=[0, 1, 2, 3],
                             max_iterations=[5],
