@@ -137,7 +137,8 @@ def run_analysis(data_files):
                             pixel_size=pixel_size,
                             dut_names=dut_names,
                             use_fit_limits=True,
-                            plot=True)
+                            plot=True,
+                            quality_sigma=5.0)
 
     # Find tracks from the tracklets and stores the with quality indicator
     # into track candidates table
@@ -154,6 +155,9 @@ def run_analysis(data_files):
                               select_duts=[0, 1, 2, 3, 4, 5],
                               select_hit_duts=[0, 1, 2, 3, 4, 5],
                               select_fit_duts=[0, 1, 2, 3, 4, 5],
+                              n_pixels=n_pixels,
+                              pixel_size=pixel_size,
+                              dut_names=dut_names,
                               quality_sigma=5.0,
                               # To get unconstrained residuals do not use DUT
                               # hit for track fit

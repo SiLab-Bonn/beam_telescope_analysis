@@ -35,8 +35,7 @@ class TestResultAnalysis(unittest.TestCase):
                                                         input_alignment_file=analysis_utils.get_data('fixtures/result_analysis/Alignment_result.h5'),
                                                         output_residuals_file=os.path.join(self.output_folder, 'Residuals.h5'),
                                                         n_pixels=self.n_pixels,
-                                                        pixel_size=self.pixel_size,
-                                                        max_chi2=10000)
+                                                        pixel_size=self.pixel_size)
         # Only test row residuals, columns are too large (250 um) for meaningfull gaussian residuals distribution
         self.assertAlmostEqual(residuals[1], 22.9135, msg='DUT 0 row residuals do not match', places=3)
         self.assertAlmostEqual(residuals[3], 18.7317, msg='DUT 1 row residuals do not match', places=3)

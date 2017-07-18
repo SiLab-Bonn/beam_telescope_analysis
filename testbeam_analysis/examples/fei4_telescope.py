@@ -99,7 +99,7 @@ def run_analysis(data_files):
                             dut_names=dut_names,
                             use_fit_limits=True,
                             plot=True,
-                            quality_sigma=2.0)
+                            quality_sigma=5.0)
 
     # Find tracks from the tracklets and stores the with quality indicator into track candidates table
     track_analysis.find_tracks(input_merged_file=os.path.join(output_folder, 'Merged.h5'),
@@ -115,8 +115,11 @@ def run_analysis(data_files):
                               select_duts=[0, 1, 2, 3],
                               select_hit_duts=[0, 1, 2, 3],
                               select_fit_duts=[0, 1, 2, 3],
+                              n_pixels=n_pixels,
+                              pixel_size=pixel_size,
+                              dut_names=dut_names,
                               exclude_dut_hit=True,
-                              quality_sigma=2.0,
+                              quality_sigma=5.0,
                               use_prealignment=False)
 
     data_selection.select_tracks(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
