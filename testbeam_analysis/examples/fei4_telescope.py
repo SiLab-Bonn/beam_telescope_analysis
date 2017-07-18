@@ -136,9 +136,12 @@ def run_analysis(data_files):
 
     # Optional: plot some tracks (or track candidates) of a selected event range
     plot_utils.plot_events(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
+                           input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                            output_pdf_file=os.path.join(output_folder, 'Event.pdf'),
+                           dut_names=dut_names,
                            event_range=(0, 40),
-                           dut=1)
+                           select_duts=[1],
+                           use_prealignment=False)
 
     # Calculate the unconstrained residuals to check the alignment
     result_analysis.calculate_residuals(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),

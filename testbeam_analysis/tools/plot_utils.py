@@ -5,6 +5,7 @@ import re
 import os.path
 import warnings
 from math import ceil
+from itertools import cycle
 
 import numpy as np
 import tables as tb
@@ -1014,7 +1015,7 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                 output_pdf.savefig(fig)
 
 
-def plot_events(input_tracks_file, event_range=(0, 100), dut=None, n_tracks=None, max_chi2=None, output_pdf_file=None, gui=False):
+def plot_events(input_tracks_file, input_alignment_file, event_range, use_prealignment, select_duts, dut_names=None, output_pdf_file=None, gui=False):
     '''Plots the tracks (or track candidates) of the events in the given event range.
 
     Parameters
@@ -1023,17 +1024,19 @@ def plot_events(input_tracks_file, event_range=(0, 100), dut=None, n_tracks=None
         Filename of the input tracks file.
     event_range : iterable
         Tuple of start event number and stop event number (excluding), e.g. (0, 100).
-    dut : uint
-        Take data from DUT with the given number. If None, plot all DUTs
-    max_chi2 : uint
-        Plot events with track chi2 smaller than the gven number.
+    use_prealignment : bool
+        If True, use pre-alignment; if False, use alignment.
+    select_duts : iterable
+        Selecting DUTs that will be processed.
+    dut_names : iterable
+        Names of the DUTs. If None, generic DUT names will be used.
     output_pdf_file : string
         Filename of the output PDF file. If None, the filename is derived from the input file.
     gui: bool
         Determines whether to plot directly onto gui
     n_tracks: uint
         plots all tracks from first to n_tracks, if amount of tracks less than n_tracks, plot all
-        if not None, event_range has no effect
+        if not None, event_range has no effect.
     '''
 
     if not output_pdf_file:
@@ -1042,61 +1045,84 @@ def plot_events(input_tracks_file, event_range=(0, 100), dut=None, n_tracks=None
     if gui:
         figs = []
 
-    with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:  # if gui, we dont want to safe empty pdf
+    with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
+        if use_prealignment:
+            logging.info('Use pre-alignment data')
+            prealignment = in_file_h5.root.PreAlignment[:]
+            n_duts = prealignment.shape[0]
+        else:
+            logging.info('Use alignment data')
+            alignment = in_file_h5.root.Alignment[:]
+            n_duts = alignment.shape[0]
+
+    with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_tracks_file, "r") as in_file_h5:
-            fitted_tracks = False
-            try:  # data has track candidates
-                _ = in_file_h5.root.TrackCandidates
-            except tb.NoSuchNodeError:  # data has fitted tracks
-                fitted_tracks = True
+            for actual_dut in select_duts:
+                logging.info('Plotting events for DUT%d', actual_dut)
 
-            n_duts = sum(['charge' in col for col in table.dtype.names])
-            array = table[:]
-            tracks = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_range[0], event_range[-1])
-            if tracks.shape[0] == 0:
-                logging.warning('No tracks in event selection, cannot plot events!')
-                return
-            if max_chi2:
-                tracks = tracks[tracks['track_chi2'] <= max_chi2]
-            mpl.rcParams['legend.fontsize'] = 10
-            fig = Figure()
-            _ = FigureCanvas(fig)
-            ax = fig.gca(projection='3d')
-            for track in tracks:
-                x, y, z = [], [], []
-                for dut_index in range(0, n_duts):
-                    if track['x_dut_%d' % dut_index] != 0:  # No hit has x = 0
-                        x.append(track['x_dut_%d' % dut_index] * 1.e-3)  # in mm
-                        y.append(track['y_dut_%d' % dut_index] * 1.e-3)  # in mm
-                        z.append(track['z_dut_%d' % dut_index] * 1.e-3)  # in mm
+                node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT_%d' % actual_dut)
+                dut_name = dut_names[actual_dut] if dut_names else ("DUT" + str(actual_dut))
 
-                if fitted_tracks:
-                    offset = np.array((track['offset_0'], track['offset_1'], track['offset_2']))
-                    slope = np.array((track['slope_0'], track['slope_1'], track['slope_2']))
-                    linepts = offset * 1.e-3 + slope * 1.e-3 * np.mgrid[-150000:150000:2000j][:, np.newaxis]
+                table = in_file_h5.get_node(in_file_h5.root, name='Tracks_DUT_%d' % actual_dut)
+                array = table[:]
+                tracks_chunk = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_range[0], event_range[-1])
+                if tracks_chunk.shape[0] == 0:
+                    raise ValueError('No events found, cannot plot events!')
 
-                n_hits = np.binary_repr(track['hit_flag']).count('1')
-                n_very_good_hits = np.binary_repr(track['quality_flag']).count('1')
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111, projection='3d')
 
-                if n_hits > 2:  # only plot tracks with more than 2 hits
-                    if fitted_tracks:
-                        ax.plot(x, y, z, '.' if n_hits == n_very_good_hits else 'o')
-                        ax.plot3D(*linepts.T)
+                colors = cycle('bgrcmyk')
+                for track in tracks_chunk:
+                    color = next(colors)
+                    x, y, z = [], [], []
+                    for dut_index in range(0, n_duts):
+                        # Coordinates in global coordinate system (x, y, z)
+                        hit_x_local, hit_y_local, hit_z_local = track['x_dut_%d' % dut_index], track['y_dut_%d' % dut_index], track['z_dut_%d' % dut_index]
+
+                        if use_prealignment:
+                            hit_x, hit_y, hit_z = testbeam_analysis.tools.geometry_utils.apply_alignment(hit_x_local, hit_y_local, hit_z_local,
+                                                                                                         dut_index=dut_index,
+                                                                                                         prealignment=prealignment,
+                                                                                                         inverse=False)
+                        else:
+                            hit_x, hit_y, hit_z = testbeam_analysis.tools.geometry_utils.apply_alignment(hit_x_local, hit_y_local, hit_z_local,
+                                                                                                         dut_index=dut_index,
+                                                                                                         alignment=alignment,
+                                                                                                         inverse=False)
+
+                        hit_x = hit_x * 1.e-3  # in mm
+                        hit_y = hit_y * 1.e-3  # in mm
+                        hit_z = hit_z * 1.e-3  # in mm
+                        x.extend(hit_x)
+                        y.extend(hit_y)
+                        z.extend(hit_z)
+
+                    if np.isfinite(track['offset_0']):
+                        offset = np.array((track['offset_0'], track['offset_1'], track['offset_2']))
+                        slope = np.array((track['slope_0'], track['slope_1'], track['slope_2']))
+                        linepts = offset * 1.e-3 + slope * 1.e-3 * np.mgrid[-150000:150000:2000j][:, np.newaxis]
+                        no_fit = False
                     else:
-                        ax.plot(x, y, z, '.-' if n_hits == n_very_good_hits else '.--')
+                        no_fit = True
 
-            ax.set_zlim(np.amin(np.array(z)), np.amax(np.array(z)))
-            ax.set_xlabel('x [mm]')
-            ax.set_ylabel('y [mm]')
-            ax.set_zlabel('z [mm]')
-            title_prefix = '%d tracks of %d events' if fitted_tracks else '%d track candidates of %d events'
-            title_prefix += ' of DUT %d' % dut if dut else ''
-            ax.set_title(title_prefix % (tracks.shape[0], np.unique(tracks['event_number']).shape[0]))
+                    if no_fit is False:
+                        ax.plot(x, y, z, 's' if track['hit_flag'] == track['quality_flag'] else 'o', color=color)
+                        ax.plot3D(*linepts.T, color=color)
+                    else:
+                        ax.plot(x, y, z, 'x', color=color)
 
-            if gui:
-                figs.append(fig)
-            else:
-                output_pdf.savefig(fig)
+                ax.set_zlim(min(z), max(z))
+                ax.set_xlabel('x [mm]')
+                ax.set_ylabel('y [mm]')
+                ax.set_zlabel('z [mm]')
+                ax.set_title('%d tracks of %d events for %s' % (tracks_chunk.shape[0], np.unique(tracks_chunk['event_number']).shape[0], dut_name))
+
+                if gui:
+                    figs.append(fig)
+                else:
+                    output_pdf.savefig(fig)
 
     if gui:
         return figs
