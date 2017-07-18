@@ -28,7 +28,7 @@ def run_analysis(data_files):
     # Dimensions
     pixel_size = [(250.0, 50.0)] * 4  # in um
     n_pixels = [(80, 336)] * 4
-    z_positions = [0., 19500, 108800, 128300]  # in um
+    z_positions = [0.0, 19500.0, 108800.0, 128300.0]  # in um
     dut_names = ("Tel_0", "Tel_1", "Tel_2", "Tel_3")
 
     # Create output subfolder where all output data and plots are stored
