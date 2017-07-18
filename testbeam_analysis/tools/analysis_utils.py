@@ -800,9 +800,8 @@ def fit_residuals(hist, edges):
     hist_std = get_rms_from_histogram(hist, bin_center)
     try:
         fit, cov = curve_fit(gauss, bin_center, hist, p0=[np.amax(hist), hist_mean, hist_std])
-    except RuntimeError:
+    except (RuntimeError, TypeError):
         fit, cov = [np.amax(hist), hist_mean, hist_std], np.full((3, 3), np.nan)
-
     return fit, cov
 
 

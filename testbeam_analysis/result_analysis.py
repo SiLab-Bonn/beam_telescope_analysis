@@ -270,7 +270,10 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
                             nbins = int(nbins_per_pixel * width / pixel_size[actual_dut][0])
                             x_range = (center_x - 0.5 * width, center_x + 0.5 * width)
                         else:
-                            nbins = "auto"
+                            if fwhm_x < 0.01:
+                                nbins = 1000
+                            else:
+                                nbins = "auto"
                             width = pixel_size[actual_dut][0] * np.ceil(plot_n_pixels * fwhm_x / pixel_size[actual_dut][0])
                             x_range = (center_x - width, center_x + width)
                         x_res_hist, x_res_hist_edges = np.histogram(difference[:, 0], range=x_range, bins=nbins)
@@ -289,7 +292,10 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
                             nbins = int(nbins_per_pixel * width / pixel_size[actual_dut][1])
                             y_range = (center_y - 0.5 * width, center_y + 0.5 * width)
                         else:
-                            nbins = "auto"
+                            if fwhm_y < 0.01:
+                                nbins = 1000
+                            else:
+                                nbins = "auto"
                             width = pixel_size[actual_dut][1] * np.ceil(plot_n_pixels * fwhm_y / pixel_size[actual_dut][1])
                             y_range = (center_y - width, center_y + width)
                         y_res_hist, y_res_hist_edges = np.histogram(difference[:, 1], range=y_range, bins=nbins)
@@ -308,7 +314,10 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
                             nbins = int(nbins_per_pixel * width / pixel_size[actual_dut][0])
                             col_range = (center_col - 0.5 * width, center_col + 0.5 * width)
                         else:
-                            nbins = "auto"
+                            if fwhm_col < 0.01:
+                                nbins = 1000
+                            else:
+                                nbins = "auto"
                             width = pixel_size[actual_dut][0] * np.ceil(plot_n_pixels * fwhm_col / pixel_size[actual_dut][0])
                             col_range = (center_col - width, center_col + width)
                         col_res_hist, col_res_hist_edges = np.histogram(difference_local_limit_xy[:, 0], range=col_range, bins=nbins)
@@ -327,7 +336,10 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
                             nbins = int(nbins_per_pixel * width / pixel_size[actual_dut][1])
                             row_range = (center_row - 0.5 * width, center_row + 0.5 * width)
                         else:
-                            nbins = "auto"
+                            if fwhm_row < 0.01:
+                                nbins = 1000
+                            else:
+                                nbins = "auto"
                             width = pixel_size[actual_dut][1] * np.ceil(plot_n_pixels * fwhm_row / pixel_size[actual_dut][1])
                             row_range = (center_row - width, center_row + width)
                         row_res_hist, row_res_hist_edges = np.histogram(difference_local_limit_xy[:, 1], range=row_range, bins=nbins)
