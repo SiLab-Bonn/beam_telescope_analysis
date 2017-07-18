@@ -381,7 +381,7 @@ def get_data_in_event_range(array, event_start=None, event_stop=None, assume_sor
             min_index_data = 0
         return array[min_index_data:max_index_data]
     else:
-        return array[ne.evaluate('event_number >= event_start & event_number < event_stop')]
+        return array[ne.evaluate('(event_number >= event_start) & (event_number < event_stop)')]
 
 
 def data_aligned_at_events(table, start_event_number=None, stop_event_number=None, start_index=None, stop_index=None, chunk_size=1000000, try_speedup=False, first_event_aligned=True, fail_on_missing_events=True):
