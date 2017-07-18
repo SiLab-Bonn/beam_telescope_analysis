@@ -120,9 +120,9 @@ def run_analysis():
                                         [4],  # align the time reference after the telescope alignment
                                         [3]],  # align the DUT last and not with the reference since it is rather small and would make the time reference alinmnt worse
                             # The DUTs to be used in the fit, always just the high resolution Mimosa26 planes used
-                            selection_fit_duts=[0, 1, 2, 5, 6, 7],
+                            select_fit_duts=[0, 1, 2, 5, 6, 7],
                             # The DUTs to be required to have a hit for the alignment
-                            selection_hit_duts=[[0, 1, 2, 4, 5, 6, 7],  # Take tracks with time reference hit
+                            select_hit_duts=[[0, 1, 2, 4, 5, 6, 7],  # Take tracks with time reference hit
                                                 [0, 1, 2, 4, 5, 6, 7],  # Take tracks with time reference hit
                                                 [0, 1, 2, 3, 4, 5, 6, 7]],  # Also require hit in the small DUT
                             # The required track quality per alignment step and DUT
@@ -171,8 +171,8 @@ def run_analysis():
     track_analysis.fit_tracks(input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates.h5'),
                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                               output_tracks_file=os.path.join(output_folder, 'Tracks.h5'),
-                              selection_hit_duts=[0, 1, 2, 4, 5, 6, 7],
-                              selection_fit_duts=[0, 1, 2, 5, 6, 7],
+                              select_hit_duts=[0, 1, 2, 4, 5, 6, 7],
+                              select_fit_duts=[0, 1, 2, 5, 6, 7],
                               selection_track_quality=1)  # Take all tracks with good hits, do not care about time reference hit quality
 
     # Create unconstrained residuals with aligned data
@@ -201,8 +201,8 @@ def run_analysis():
                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                               output_tracks_file=os.path.join(output_folder, 'Tracks_prealignment.h5'),
                               force_prealignment=True,
-                              selection_hit_duts=[0, 1, 2, 4, 5, 6, 7],
-                              selection_fit_duts=[0, 1, 2, 5, 6, 7],
+                              select_hit_duts=[0, 1, 2, 4, 5, 6, 7],
+                              select_fit_duts=[0, 1, 2, 5, 6, 7],
                               selection_track_quality=1)  # Take all tracks with good hits, do not care about time reference hit quality
 
     # Create unconstrained residuals with prealigned data

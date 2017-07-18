@@ -32,7 +32,7 @@ orig_fit_track = testbeam_analysis.track_analysis.fit_tracks
 
 
 def fit_tracks_fast(input_track_candidates_file, input_alignment_file, output_tracks_file, select_duts=None,
-                    selection_hit_duts=None, selection_fit_duts=None, exclude_dut_hit=True, selection_track_quality=1,
+                    select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, selection_track_quality=1,
                     pixel_size=None, n_pixels=None, beam_energy=None, material_budget=None, add_scattering_plane=None,
                     max_tracks=None, use_prealignment=False, use_correlated=False, min_track_distance=False, keep_data=False, method='Fit',
                     full_track_info=False, chunk_size=1000000):
@@ -41,8 +41,8 @@ def fit_tracks_fast(input_track_candidates_file, input_alignment_file, output_tr
         input_alignment_file,
         output_tracks_file,
         select_duts=select_duts if method == 'Fit' else [2],
-        selection_hit_duts=selection_hit_duts,
-        selection_fit_duts=selection_fit_duts,
+        select_hit_duts=select_hit_duts,
+        select_fit_duts=select_fit_duts,
         exclude_dut_hit=exclude_dut_hit,
         selection_track_quality=selection_track_quality,
         pixel_size=pixel_size,

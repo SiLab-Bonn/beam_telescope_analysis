@@ -129,8 +129,8 @@ def run_analysis(data_files):
                             input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                             align_duts=[0, 1, 2, 3, 4, 5],
                             select_telescope_duts=[0, 5],
-                            selection_fit_duts=[0, 1, 2, 3, 4, 5],
-                            selection_hit_duts=[0, 1, 2, 3, 4, 5],
+                            select_fit_duts=[0, 1, 2, 3, 4, 5],
+                            select_hit_duts=[0, 1, 2, 3, 4, 5],
                             max_iterations=[5],
                             max_events=100000,
                             n_pixels=n_pixels,
@@ -152,8 +152,8 @@ def run_analysis(data_files):
                               input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                               output_tracks_file=os.path.join(output_folder, 'Tracks_all.h5'),
                               select_duts=[0, 1, 2, 3, 4, 5],
-                              selection_hit_duts=[0, 1, 2, 3, 4, 5],
-                              selection_fit_duts=[0, 1, 2, 3, 4, 5],
+                              select_hit_duts=[0, 1, 2, 3, 4, 5],
+                              select_fit_duts=[0, 1, 2, 3, 4, 5],
                               quality_sigma=5.0,
                               # To get unconstrained residuals do not use DUT
                               # hit for track fit
@@ -209,12 +209,12 @@ def run_analysis(data_files):
 # #                                                  'TrackCandidates.h5'),
 # #         input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
 # #         output_tracks_file=os.path.join(output_folder, 'Tracks_some.h5'),
-# #         selection_hit_duts=[[1, 2],  # Only select DUTs next to the DUT to fit
-# #                             [0, 2],
-# #                             [1, 3],
-# #                             [2, 4],
-# #                             [3, 5],
-# #                             [3, 4]],
+# #         select_hit_duts=[[1, 2],  # Only select DUTs next to the DUT to fit
+# #                          [0, 2],
+# #                          [1, 3],
+# #                          [2, 4],
+# #                          [3, 5],
+# #                          [3, 4]],
 # #         selection_track_quality=1)  # We cut on track quality
 # #
 # #     # Create unconstrained residuals
