@@ -1214,7 +1214,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                          duts_quality_selection=duts_selection,
                                          # select good tracks und limit cluster shapes to 1x1, 1x2 and 2x1
                                          # occurrences of other cluster shapes do not matter much
-                                         condition=['(track_chi2 <= 250) & ((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 4))'.format(dut) for dut in current_align_duts],
+                                         # TODO: sleect quality tracks for all telescope DUTs
+                                         condition=['((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 4))'.format(dut) for dut in current_align_duts],
                                          chunk_size=chunk_size)
 
 
