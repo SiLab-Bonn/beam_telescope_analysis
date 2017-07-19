@@ -12,6 +12,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.optimize import curve_fit
 from scipy import stats
+from scipy.signal import hilbert
 
 from testbeam_analysis.tools import plot_utils
 from testbeam_analysis.tools import geometry_utils
@@ -1838,17 +1839,33 @@ def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=N
                 bin_center = (total_angle_hist_edges[1:] + total_angle_hist_edges[:-1]) / 2.0
                 mean = analysis_utils.get_mean_from_histogram(total_angle_hist, bin_center)
                 rms = analysis_utils.get_rms_from_histogram(total_angle_hist, bin_center)
-                fit_total, cov = curve_fit(analysis_utils.gauss, bin_center, total_angle_hist, p0=[np.amax(total_angle_hist), mean, rms])
+                try:
+                    fit_total, _ = curve_fit(analysis_utils.gauss, bin_center, total_angle_hist, p0=[np.amax(total_angle_hist), mean, rms])
+                except RuntimeError:
+                    hilb = hilbert(total_angle_hist)
+                    total_hilb = np.absolute(hilb)
+                    fit_total, _ = curve_fit(analysis_utils.gauss, bin_center, total_hilb, p0=[np.amax(total_angle_hist), mean, rms])
 
                 bin_center = (beta_angle_hist_edges[1:] + beta_angle_hist_edges[:-1]) / 2.0
                 mean = analysis_utils.get_mean_from_histogram(beta_angle_hist, bin_center)
                 rms = analysis_utils.get_rms_from_histogram(beta_angle_hist, bin_center)
-                fit_beta, cov = curve_fit(analysis_utils.gauss, bin_center, beta_angle_hist, p0=[np.amax(beta_angle_hist), mean, rms])
+                try:
+                    fit_beta, _ = curve_fit(analysis_utils.gauss, bin_center, beta_angle_hist, p0=[np.amax(beta_angle_hist), mean, rms])
+                except RuntimeError:
+                    hilb = hilbert(beta_angle_hist)
+                    beta_hilb = np.absolute(hilb)
+                    fit_beta, _ = curve_fit(analysis_utils.gauss, bin_center, beta_hilb, p0=[np.amax(beta_angle_hist), mean, rms])
+#                     fit_beta = [np.nan, np.nan, np.nan]
 
                 bin_center = (alpha_angle_hist_edges[1:] + alpha_angle_hist_edges[:-1]) / 2.0
                 mean = analysis_utils.get_mean_from_histogram(alpha_angle_hist, bin_center)
                 rms = analysis_utils.get_rms_from_histogram(alpha_angle_hist, bin_center)
-                fit_alpha, cov = curve_fit(analysis_utils.gauss, bin_center, alpha_angle_hist, p0=[np.amax(alpha_angle_hist), mean, rms])
+                try:
+                    fit_alpha, _ = curve_fit(analysis_utils.gauss, bin_center, alpha_angle_hist, p0=[np.amax(alpha_angle_hist), mean, rms])
+                except RuntimeError:
+                    hilb = hilbert(alpha_angle_hist)
+                    alpha_hilb = np.absolute(hilb)
+                    fit_alpha, _ = curve_fit(analysis_utils.gauss, bin_center, alpha_hilb, p0=[np.amax(alpha_angle_hist), mean, rms])
 
                 # total
                 # FIXME: sometimes hist size too large and cannot be stored in attrs
