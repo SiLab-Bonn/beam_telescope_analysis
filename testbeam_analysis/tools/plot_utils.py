@@ -1673,13 +1673,16 @@ def purity_plots(pure_hit_hist, hit_hist, purity, actual_dut, minimum_hit_densit
     else:
         logging.warning('Cannot create purity plots, since all pixels are masked')
 
-def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=None):
+
+def plot_track_angle(input_track_angle_file, select_duts, output_pdf_file=None, dut_names=None):
     ''' Plotting track slopes.
 
     Parameters
     ----------
     input_track_angle_file : string
         Filename of the track angle file.
+    select_duts : iterable
+        Selecting DUTs that will be processed.
     output_pdf_file: string
         Filename of the output PDF file.
         If None, deduce filename from input track angle file.
@@ -1690,39 +1693,43 @@ def plot_track_angle(input_track_angle_file, output_pdf_file=None, dut_names=Non
     if output_pdf_file is None:
         output_pdf_file = os.path.splitext(input_track_angle_file)[0] + '.pdf'
 
+    select_duts_mod = select_duts[:]
+    select_duts_mod.insert(0, None)
+
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_track_angle_file, mode="r") as in_file_h5:
-            for node in in_file_h5.root:
-                actual_dut = int(re.findall(r'\d+', node.name)[-1])
-                if dut_names is not None:
-                    dut_name = dut_names[actual_dut]
+            for actual_dut in select_duts_mod:
+                if actual_dut is not None:
+                    if dut_names is not None:
+                        dut_name = dut_names[actual_dut]
+                    else:
+                        dut_name = "DUT%d" % actual_dut
                 else:
-                    dut_name = "DUT%d" % actual_dut
-                track_angle_hist = node[:]
-                edges = node._v_attrs.edges * 1000  # conversion to mrad
-                mean = node._v_attrs.mean * 1000  # conversion to mrad
-                sigma = node._v_attrs.sigma * 1000  # conversion to mrad
-                amplitude = node._v_attrs.amplitude
-                bin_center = (edges[1:] + edges[:-1]) / 2.0
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                # fixing bin width in plotting
-                width = (edges[1:] - edges[:-1])
-                ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if dut_name else ""), width=width, color='b', align='center')
-                x_gauss = np.arange(np.min(edges), np.max(edges), step=0.00001)
-                ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amplitude, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
-                ax.set_ylabel('#')
-                if 'x' in node.name:
-                    direction = "X"
-                else:
-                    direction = "Y"
-                ax.set_title('Angular distribution of fitted tracks for %s in %s-direction (beta)' % (dut_name, direction))
-                ax.set_xlabel('Track angle [mrad]')
-                ax.legend(loc=1, fancybox=True, frameon=True)
-                ax.grid()
-                ax.set_xlim(min(edges), max(edges))
-                output_pdf.savefig(fig)
+                    dut_name = None
+                for angle in ["total", "alpha", "beta"]:
+                    node = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_hist%s' % (angle.title(), ("_DUT%d" % actual_dut) if actual_dut else ""))
+                    track_angle_hist = node[:]
+                    edges = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_edges%s' % (angle.title(), ("_DUT%d" % actual_dut) if actual_dut else ""))[:]
+                    edges = edges * 1000  # conversion to mrad
+                    mean = node._v_attrs.mean * 1000  # conversion to mrad
+                    sigma = node._v_attrs.sigma * 1000  # conversion to mrad
+                    amplitude = node._v_attrs.amplitude
+                    bin_center = (edges[1:] + edges[:-1]) / 2.0
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    # fixing bin width in plotting
+                    width = (edges[1:] - edges[:-1])
+                    ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if actual_dut else ""), width=width, color='b', align='center')
+                    x_gauss = np.arange(np.min(edges), np.max(edges), step=0.00001)
+                    ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amplitude, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
+                    ax.set_ylabel('#')
+                    ax.set_title('%s angular distribution of fitted tracks%s' % (angle.title(), (" for %s" % dut_name) if actual_dut else ""))
+                    ax.set_xlabel('Track angle [mrad]')
+                    ax.legend(loc=1, fancybox=True, frameon=True)
+                    ax.grid()
+                    ax.set_xlim(min(edges), max(edges))
+                    output_pdf.savefig(fig)
 
 
 def plot_residual_correlation(input_residual_correlation_file, select_duts, pixel_size, output_pdf_file=None, dut_names=None, chunk_size=1000000):
