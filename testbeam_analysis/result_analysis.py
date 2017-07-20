@@ -1730,7 +1730,7 @@ def calculate_purity(input_tracks_file, input_alignment_file, bin_size, sensor_s
     return purities, pure_hits, total_hits
 
 
-def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=None, output_track_angle_file=None, n_bins="auto", plot_range=(None, None), dut_names=None, plot=True, chunk_size=499999):
+def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=None, output_track_angle_file=None, n_bins="auto", plot_range=(None, None), dut_names=None, plot=True, chunk_size=1000000):
     '''Calculates and histograms the track angle of the fitted tracks for selected DUTs.
 
     Parameters

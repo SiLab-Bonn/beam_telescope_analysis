@@ -27,7 +27,7 @@ from testbeam_analysis.result_analysis import calculate_residuals, histogram_tra
 warnings.simplefilter("ignore", OptimizeWarning)  # Fit errors are handled internally, turn of warnings
 
 
-def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, ref_dut=0, pixel_size=None, dut_names=None, plot=True, chunk_size=4999999):
+def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, ref_dut=0, pixel_size=None, dut_names=None, plot=True, chunk_size=1000000):
     '''"Calculates the correlation histograms from the cluster arrays.
     The 2D correlation array of pairs of two different devices are created on event basis.
     All permutations are considered (all clusters of the first device are correlated with all clusters of the second device).
@@ -167,7 +167,7 @@ def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, re
         plot_utils.plot_correlations(input_correlation_file=output_correlation_file, pixel_size=pixel_size, dut_names=dut_names)
 
 
-def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_size, chunk_size=4999999):
+def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_size, chunk_size=1000000):
     '''Takes the cluster from all cluster files and merges them into one big table aligned at a common event number.
 
     Empty entries are signaled with column = row = charge = nan. Position is translated from indices to um. The

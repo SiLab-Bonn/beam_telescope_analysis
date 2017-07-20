@@ -163,8 +163,7 @@ def run_analysis(data_files):
                                           select_duts=[0, 1, 2, 3],
                                           n_bins=200,
                                           dut_names=dut_names,
-                                          plot=True,
-                                          chunk_size=499999)
+                                          plot=True)
 
     # Calculate the efficiency and mean hit/track hit distance
     # When needed, set included column and row range for each DUT as list of tuples
