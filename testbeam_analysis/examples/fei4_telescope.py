@@ -141,6 +141,8 @@ def run_analysis(data_files):
     plot_utils.plot_events(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                            input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                            output_pdf_file=os.path.join(output_folder, 'Event.pdf'),
+                           n_pixels=n_pixels,
+                           pixel_size=pixel_size,
                            dut_names=dut_names,
                            event_range=(0, 40),
                            select_duts=[1],
