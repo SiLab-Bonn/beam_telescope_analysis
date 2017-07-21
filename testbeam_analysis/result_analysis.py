@@ -20,7 +20,7 @@ from testbeam_analysis.tools import analysis_utils
 import testbeam_analysis.dut_alignment
 
 
-def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_pixels, pixel_size, output_residuals_file=None, dut_names=None, nbins_per_pixel=None, npixels_per_bin=None, use_prealignment=False, use_fit_limits=False, cluster_size_selection=None, plot=True, gui=False, chunk_size=1000000):
+def calculate_residuals(input_tracks_file, input_alignment_file, use_prealignment, select_duts, n_pixels, pixel_size, output_residuals_file=None, dut_names=None, nbins_per_pixel=None, npixels_per_bin=None, use_fit_limits=False, cluster_size_selection=None, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates residuals for selected DUTs in col, row direction.
 
     Parameters
@@ -29,6 +29,8 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
         Filename of the input tracks file.
     input_alignment_file : string
         Filename of the input aligment file.
+    use_prealignment : bool
+        If True, use pre-alignment from correlation data; if False, use alignment.
     n_pixels : iterable of tuples
         One tuple per DUT describing the number of pixels in column, row direction
         e.g. for 2 DUTs: n_pixels = [(80, 336), (80, 336)]
@@ -45,8 +47,6 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
         Number of bins per pixel along the residual axis. Number is a positive integer or None to automatically set the binning.
     npixels_per_bin : int
         Number of pixels per bin along the position axis. Number is a positive integer or None to automatically set the binning.
-    use_prealignment : bool
-        If True, use pre-alignment; if False, use alignment.
     use_fit_limits : bool
         If True, use fit limits from pre-alignment for selecting fit range for the alignment.
     plot : bool
@@ -963,7 +963,7 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
         return figs
 
 
-# def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, pixel_size, n_pixels, select_duts, output_efficiency_file=None, dut_names=None, sensor_sizes=None, minimum_tracks_per_bin=0, use_prealignment=False, cut_distance=None, charge_bins=None, dut_masks=None, col_range=None, row_range=None, efficiency_range=None, show_inefficient_events=False, plot=True, chunk_size=1000000):
+# def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignment, bin_size, pixel_size, n_pixels, select_duts, output_efficiency_file=None, dut_names=None, sensor_sizes=None, minimum_tracks_per_bin=0, cut_distance=None, charge_bins=None, dut_masks=None, col_range=None, row_range=None, efficiency_range=None, show_inefficient_events=False, plot=True, chunk_size=1000000):
 #     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 #
 #     Parameters
@@ -972,6 +972,8 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
 #         Filename of the input tracks file.
 #     input_alignment_file : string
 #         Filename of the input alignment file.
+#     use_prealignment : bool
+#         If True, use pre-alignment from correlation data; if False, use alignment.
 #     bin_size : iterable
 #         Sizes of bins (i.e. (virtual) pixel size). Give one tuple (x, y) for every plane or list of tuples for different planes.
 #     sensor_size : Tuple or list of tuples
@@ -983,8 +985,6 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
 #         Minimum track density required to consider bin for efficiency calculation.
 #     select_duts : iterable
 #         Selecting DUTs that will be processed.
-#     use_prealignment : bool
-#         Take the prealignment, although if a coarse alignment is availale.
 #     cut_distance : int
 #         Use only distances (between DUT hit and track hit) smaller than cut_distance.
 #     col_range, row_range : iterable
@@ -1294,7 +1294,7 @@ def calculate_residuals(input_tracks_file, input_alignment_file, select_duts, n_
 #     return efficiencies, pass_tracks, total_tracks
 
 
-def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, sensor_size, select_duts, output_efficiency_file=None, pixel_size=None, n_pixels=None, minimum_track_density=1, use_prealignment=False, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, gui=False, chunk_size=1000000):
+def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignment, select_duts, pixel_size, n_pixels, bin_size=None, select_area=None, output_efficiency_file=None, minimum_track_density=1, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -1303,6 +1303,8 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, sens
         Filename of the input tracks file.
     input_alignment_file : string
         Filename of the input alignment file.
+    use_prealignment : bool
+        If True, use pre-alignment from correlation data; if False, use alignment.
     bin_size : iterable
         Sizes of bins (i.e. (virtual) pixel size). Give one tuple (x, y) for every plane or list of tuples for different planes.
     sensor_size : Tuple or list of tuples
@@ -1314,8 +1316,6 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, sens
         Minimum track density required to consider bin for efficiency calculation.
     select_duts : iterable
         Selecting DUTs that will be processed.
-    use_prealignment : bool
-        Take the prealignment, although if a coarse alignment is availale.
     cut_distance : int
         Use only distances (between DUT hit and track hit) smaller than cut_distance.
     col_range : iterable
@@ -1516,7 +1516,7 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, bin_size, sens
     return efficiencies, pass_tracks, total_tracks
 
 
-def calculate_purity(input_tracks_file, input_alignment_file, bin_size, sensor_size, select_duts, output_purity_file=None, pixel_size=None, n_pixels=None, minimum_hit_density=10, use_prealignment=False, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, chunk_size=1000000):
+def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, bin_size, sensor_size, select_duts, output_purity_file=None, pixel_size=None, n_pixels=None, minimum_hit_density=10, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit purity and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -1525,6 +1525,8 @@ def calculate_purity(input_tracks_file, input_alignment_file, bin_size, sensor_s
         Filename with the tracks table.
     input_alignment_file : pytables file
         Filename of the input aligment data.
+    use_prealignment : bool
+        If True, use pre-alignment from correlation data; if False, use alignment.
     bin_size : iterable
         Bins sizes (i.e. (virtual) pixel size). Give one tuple (x, y) for every plane or list of tuples for different planes.
     sensor_size : Tuple or list of tuples
@@ -1536,8 +1538,6 @@ def calculate_purity(input_tracks_file, input_alignment_file, bin_size, sensor_s
         Minimum hit density required to consider bin for purity calculation.
     select_duts : iterable
         Selecting DUTs that will be processed.
-    use_prealignment : bool
-        If True, use pre-alignment; if False, use alignment.
     cut_distance : int
         Hit - track intersection <= cut_distance = pure hit (hit assigned to track).
         Hit - track intersection > cut_distance = inpure hit (hit without a track).
@@ -1905,7 +1905,7 @@ def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file=N
         plot_utils.plot_track_angle(input_track_angle_file=output_track_angle_file, select_duts=select_duts, output_pdf_file=None, dut_names=dut_names)
 
 
-def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, nbins_per_pixel=None, npixels_per_bin=None, use_prealignment=False, use_fit_limits=False, plot=True, chunk_size=1000000):
+def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_prealignment, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, nbins_per_pixel=None, npixels_per_bin=None, use_fit_limits=False, plot=True, chunk_size=1000000):
     logging.info('=== Calculating residual correlation ===')
 
     with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
@@ -2016,7 +2016,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
 #                         dut_plane_normal = basis_global[2]
 #                         if dut_plane_normal[2] < 0:
 #                             dut_plane_normal = -dut_plane_normal
-# 
+#
 #                         # Set the offset to the track intersection with the tilted plane
 #                         ref_dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=ref_offsets,
 #                                                                                                 line_directions=ref_slopes,
@@ -2094,7 +2094,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, n_pi
 #                             dut_plane_normal = basis_global[2]
 #                             if dut_plane_normal[2] < 0:
 #                                 dut_plane_normal = -dut_plane_normal
-# 
+#
 #                             # Set the offset to the track intersection with the tilted plane
 #                             dut_intersection = geometry_utils.get_line_intersections_with_plane(line_origins=offsets,
 #                                                                                                 line_directions=slopes,

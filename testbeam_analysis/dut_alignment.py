@@ -798,8 +798,7 @@ def refit_advanced(x_data, y_data, y_fit, p0):
     return coeff, var_matrix
 
 
-def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inverse=False,
-                    use_prealignment=False, no_z=False, use_duts=None, chunk_size=1000000):
+def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, use_prealignment, inverse=False, no_z=False, use_duts=None, chunk_size=1000000):
     ''' Takes a file with tables containing hit information (x, y, z) and applies the alignment to each DUT hit (positions and errors).
     The alignment data is used. If this is not available a fallback to the pre-alignment is done.
     One can also inverse the alignment or apply the alignment without changing the z position.
@@ -821,7 +820,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
     inverse : bool
         If True, apply the inverse alignment.
     use_prealignment : bool
-        If True, use pre-alignment; if False, use alignment.
+        If True, use pre-alignment from correlation data; if False, use alignment.
     no_z : bool
         If True, do not change the z alignment. Needed since the z position is special for x / y based plane measurements.
     use_duts : iterable
@@ -882,7 +881,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, inver
     logging.debug('File with realigned hits %s', output_hit_file)
 
 # TODO: selection_track_quality to selection_track_quality_sigma
-def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, use_prealignment=True, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
+def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -1136,13 +1135,12 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             pixel_size=pixel_size,
             max_events=max_events[index],
             max_iterations=max_iterations[index],
-            use_prealignment=use_prealignment,
             use_fit_limits=use_fit_limits,
             plot=plot,
             chunk_size=chunk_size)
 
 
-def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_prealignment, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
 
@@ -1365,7 +1363,7 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
 #     os.remove(track_candidates_reduced)
 
 
-def calculate_transformation(input_tracks_file, input_alignment_file, select_duts, use_prealignment=False, use_fit_limits=True, chunk_size=1000000):
+def calculate_transformation(input_tracks_file, input_alignment_file, select_duts, use_prealignment, use_fit_limits=True, chunk_size=1000000):
     '''Takes the tracks and calculates residuals for selected DUTs in col, row direction.
 
     Parameters
@@ -1377,7 +1375,7 @@ def calculate_transformation(input_tracks_file, input_alignment_file, select_dut
     select_duts : iterable
         Selecting DUTs that will be processed.
     use_prealignment : bool
-        If True, use pre-alignment; if False, use alignment.
+        If True, use pre-alignment from correlation data; if False, use alignment.
     use_fit_limits : bool
         If True, use fit limits from pre-alignment for selecting fit range for the alignment.
     chunk_size : int

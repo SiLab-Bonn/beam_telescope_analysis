@@ -161,7 +161,6 @@ def run_analysis(data_files):
                                           output_track_angle_file=None,
                                           input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
                                           select_duts=[0, 1, 2, 3],
-                                          n_bins=200,
                                           dut_names=dut_names,
                                           plot=True)
 
