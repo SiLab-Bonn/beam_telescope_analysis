@@ -1227,8 +1227,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                       n_bins="auto",
                                       plot=plot)
                 with tb.open_file(track_angles_file, mode="r") as in_file_h5:
-                    beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
-                    beam_beta = -in_file_h5.root.Beta_Track_Angle_Hist.attrs.mean
+                    beam_alpha = -in_file_h5.root.Alpha_track_angle_hist.attrs.mean
+                    beam_beta = -in_file_h5.root.Beta_track_angle_hist.attrs.mean
                 beam_alignment = _create_beam_alignment_array()
                 beam_alignment[0]['beam_alpha'] = beam_alpha
                 beam_alignment[0]['beam_beta'] = beam_beta
@@ -1326,8 +1326,8 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                   n_bins="auto",
                                   plot=True)
             with tb.open_file(track_angles_file, mode="r") as in_file_h5:
-                beam_alpha = -in_file_h5.root.Alpha_Track_Angle_Hist.attrs.mean
-                beam_beta = -in_file_h5.root.Beta_Track_Angle_Hist.attrs.mean
+                beam_alpha = -in_file_h5.root.Alpha_track_angle_hist.attrs.mean
+                beam_beta = -in_file_h5.root.Beta_track_angle_hist.attrs.mean
             beam_alignment = _create_beam_alignment_array()
             beam_alignment[0]['beam_alpha'] = beam_alpha
             beam_alignment[0]['beam_beta'] = beam_beta
