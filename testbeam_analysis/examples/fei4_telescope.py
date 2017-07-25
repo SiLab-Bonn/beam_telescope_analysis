@@ -160,6 +160,7 @@ def run_analysis(data_files):
     result_analysis.histogram_track_angle(input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
                                           output_track_angle_file=None,
                                           input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
+                                          use_prealignment=False,
                                           select_duts=[0, 1, 2, 3],
                                           dut_names=dut_names,
                                           plot=True)

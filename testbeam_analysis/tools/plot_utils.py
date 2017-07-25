@@ -1706,10 +1706,12 @@ def plot_track_angle(input_track_angle_file, select_duts, output_pdf_file=None, 
                         dut_name = "DUT%d" % actual_dut
                 else:
                     dut_name = None
-                for angle in ["total", "alpha", "beta"]:
-                    node = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_hist%s' % (angle.title(), ("_DUT%d" % actual_dut) if actual_dut else ""))
+                for angle in ["Total", "Alpha", "Beta", "Local_alpha", "Local_beta"]:
+                    if actual_dut is None and "Local" in angle:
+                        continue
+                    node = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_hist%s' % (angle, ("_DUT%d" % actual_dut) if actual_dut is not None else ""))
                     track_angle_hist = node[:]
-                    edges = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_edges%s' % (angle.title(), ("_DUT%d" % actual_dut) if actual_dut else ""))[:]
+                    edges = in_file_h5.get_node(in_file_h5.root, '%s_track_angle_edges%s' % (angle, ("_DUT%d" % actual_dut) if actual_dut is not None else ""))[:]
                     edges = edges * 1000  # conversion to mrad
                     mean = node._v_attrs.mean * 1000  # conversion to mrad
                     sigma = node._v_attrs.sigma * 1000  # conversion to mrad
@@ -1720,11 +1722,11 @@ def plot_track_angle(input_track_angle_file, select_duts, output_pdf_file=None, 
                     ax = fig.add_subplot(111)
                     # fixing bin width in plotting
                     width = (edges[1:] - edges[:-1])
-                    ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if actual_dut else ""), width=width, color='b', align='center')
+                    ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if actual_dut is not None else ""), width=width, color='b', align='center')
                     x_gauss = np.arange(np.min(edges), np.max(edges), step=0.00001)
                     ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amplitude, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
                     ax.set_ylabel('#')
-                    ax.set_title('%s angular distribution of fitted tracks%s' % (angle.title(), (" for %s" % dut_name) if actual_dut else ""))
+                    ax.set_title('%s angular distribution of fitted tracks%s' % (angle.replace("_", " "), (" for %s" % dut_name) if actual_dut is not None else ""))
                     ax.set_xlabel('Track angle [mrad]')
                     ax.legend(loc=1, fancybox=True, frameon=True)
                     ax.grid()
