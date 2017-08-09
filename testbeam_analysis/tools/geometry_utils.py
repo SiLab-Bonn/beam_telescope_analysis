@@ -124,9 +124,8 @@ def get_z_point_on_plane(point, position_plane, normal_plane):
     z_coord = (normal_plane[2] * position_plane[2] - A1 - A2) / normal_plane[2]
     A3 = normal_plane[2]*(z_coord - position_plane[2])
 
-    if np.any(A1 + A2 + A3) != 0.0:
+    if not np.allclose(A1 + A2 + A3, 0.0):
         logging.warning('Some points do not lie in specified plane!')
-
     return z_coord
 
 

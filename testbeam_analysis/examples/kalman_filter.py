@@ -115,13 +115,13 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     pixel_resolution = pixel_size / np.sqrt(12)
 
     # measurements: (x, y, z, xerr, yerr), data is taken from measurement
-    measurements = np.array([[[-1229.22372954, 2828.19616302, 0., pixel_resolution[0][0], pixel_resolution[0][1]],
-                              [-1254.51224282, 2827.4291421, 29900., pixel_resolution[1][0], pixel_resolution[1][1]],
-                              [-1285.6117892, 2822.34536687, 60300., pixel_resolution[2][0], pixel_resolution[2][1]],
-                              [-1311.31083616, 2823.56121414, 82100., pixel_resolution[3][0], pixel_resolution[3][1]],
-                              [-1335.8529645, 2828.43359043, 118700., pixel_resolution[4][0], pixel_resolution[4][1]],
-                              [-1357.81872222, 2840.86947964, 160700., pixel_resolution[5][0], pixel_resolution[5][1]],
-                              [-1396.35698339, 2843.76799577, 197800., pixel_resolution[6][0], pixel_resolution[6][1]]]])
+    measurements = np.array([[[-1229.22372954, 2828.19616302, 0., pixel_resolution[0][0], pixel_resolution[0][1], 0.],
+                              [-1254.51224282, 2827.4291421, 29900., pixel_resolution[1][0], pixel_resolution[1][1], 0.],
+                              [-1285.6117892, 2822.34536687, 60300., pixel_resolution[2][0], pixel_resolution[2][1], 0.],
+                              [-1311.31083616, 2823.56121414, 82100., pixel_resolution[3][0], pixel_resolution[3][1], 0.],
+                              [-1335.8529645, 2828.43359043, 118700., pixel_resolution[4][0], pixel_resolution[4][1], 0.],
+                              [-1357.81872222, 2840.86947964, 160700., pixel_resolution[5][0], pixel_resolution[5][1], 0.],
+                              [-1396.35698339, 2843.76799577, 197800., pixel_resolution[6][0], pixel_resolution[6][1], 0.]]])
 
     # copy of measurements for plotting, needed if actual measurements contains NaNs
     measurements_plot = np.array([[[-1229.22372954, 2828.19616302, 0.],
@@ -132,12 +132,15 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
                                    [-1357.81872222, 2840.86947964, 160700.],
                                    [-1396.35698339, 2843.76799577, 197800.]]])
 
+    # pre-alignment data
+    prealignment = {'z': [0., 29900., 60300., 82100., 118700., 160700., 197800.]}
+
     # duts to fit tracks for
     fit_duts = np.array([0])
     # dut_fit_selection
     dut_fit_selection = 126  # E.g. 61 corresponds to 0b111101 which means that DUT 1 and DUT 6 are treated as missing meas..
     # intialize arrays for storing data
-    track_estimates_chunk_all = np.zeros((fit_duts.shape[0], measurements.shape[1], 4))
+    track_estimates_chunk_all = np.zeros((fit_duts.shape[0], measurements.shape[1], 6))
     chi2s = np.zeros((fit_duts.shape[0], 1))
     fit_results_x = np.zeros((fit_duts.shape[0], 2))
     fit_results_y = np.zeros((fit_duts.shape[0], 2))
@@ -158,12 +161,18 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
 
     for fit_dut_index, actual_fit_dut in enumerate(fit_duts):
         track_estimates_chunk, chi2, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
-            measurements, dut_fit_selection,
-            pixel_size, n_pixels, measurements_plot[0, :, -1],
-            alignment=None,
+            track_hits=measurements,
+            dut_fit_selection=dut_fit_selection,
+            pixel_size=pixel_size,
+            n_pixels=n_pixels,
+            z_positions=prealignment['z'],
+            alignment=prealignment,
+            use_prealignment=True,
             beam_energy=2500.,
-            material_budget=[100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390., 250. / 93700],
+            material_budget=[100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390.,
+                             100. / 125390., 100. / 125390., 250. / 93700],
             add_scattering_plane=False)
+
         # interpolate hits with straight line
         fit_x, _ = curve_fit(straight_line, measurements_plot[0, :, -1][fit_selection] / 1000., measurements[0, :, 0][fit_selection])
         fit_y, _ = curve_fit(straight_line, measurements_plot[0, :, -1][fit_selection] / 1000., measurements[0, :, 1][fit_selection])

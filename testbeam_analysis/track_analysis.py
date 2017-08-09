@@ -364,10 +364,10 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         If False only state vector of DUT for which the track is fitted is appended to track table.
         This option is only possible, if the Kalman Filter method is choosen.
     min_track_distance : iterable
-        A minimum distance all track intersection at the DUT have to be apart, otherwise these tracks are removed.
+        A minimum distance (for each DUT) all track intersection at the DUT have to be apart, otherwise these tracks are removed.
         This is needed to get a correct efficiency number, since assigning the same cluster to several tracks is error prone
         and will not be implemented.
-        If None, no limit on the track distance is applied.
+        If None, quality_simga * correlation_sigma is set for the minimum track distance.
     chunk_size : uint
         Chunk size of the data when reading from file.
     '''
@@ -497,14 +497,14 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
     # Create min hit distance
     if not isinstance(min_track_distance, Iterable):
-        min_track_distance = [min_track_distance] * len(select_duts)
+        min_track_distance = [min_track_distance] * n_duts
     # Check iterable and length
     if not isinstance(min_track_distance, Iterable):
         raise ValueError("min_track_distance is no iterable")
     elif not min_track_distance:  # empty iterable
         raise ValueError("min_track_distance has no items")
     # Finally check length of all arrays
-    if len(min_track_distance) != len(select_duts):  # empty iterable
+    if len(min_track_distance) != n_duts:  # empty iterable
         raise ValueError("min_track_distance has the wrong length")
 
     # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
@@ -670,22 +670,28 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                 min_row_distance = quality_sigma * np.full(n_tracks_chunk, fill_value=prealignment[dut_index]['row_sigma'])
             else:
                 min_row_distance = quality_sigma * track_candidates_chunk['yerr_dut_%s' % dut_index]
+
+            if min_track_distance[dut_index] is not None:
+                min_track_distance_col = np.full(n_tracks_chunk, fill_value=min_track_distance[dut_index])
+                min_track_distance_row = np.full(n_tracks_chunk, fill_value=min_track_distance[dut_index])
+            else:
+                min_track_distance_col = min_col_distance
+                min_track_distance_row = min_row_distance
             # select quality tracks
-            print np.all(np.isfinite(intersection_x_local)), np.all(np.isfinite(track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]))
-            print np.all(np.isfinite(intersection_y_local)), np.all(np.isfinite(track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]))
             dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= min_col_distance[good_track_selection])
                                     & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= min_row_distance[good_track_selection]))
             print "dut_quality_flag_sel", dut_quality_flag_sel, dut_quality_flag_sel.dtype
             quality_flag[dut_quality_flag_sel] |= np.uint16((1 << dut_index))
+            print np.count_nonzero(dut_quality_flag_sel), 'dut_quality_flag_sel', dut_index
 
             # Select tracks that are too close when extrapolated to the actual DUT
-            # All selected tracks will result in a quality_flag = 0 for the actual DUT
+            # All selected tracks will result in a quality_flag = 0 for the actual DU
             dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
             _find_small_distance(event_number_array=track_candidates_chunk['event_number'][good_track_selection],
                                  position_array_x=intersection_x_local,
                                  position_array_y=intersection_y_local,
-                                 min_x_distance_array=min_col_distance[good_track_selection],
-                                 min_y_distance_array=min_row_distance[good_track_selection],
+                                 min_x_distance_array=min_track_distance_col[good_track_selection],
+                                 min_y_distance_array=min_track_distance_row[good_track_selection],
                                  small_distance_flag_array=dut_small_track_distance_flag_sel)
             logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
             # unset quality flag
@@ -697,8 +703,8 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             _find_small_distance(event_number_array=track_candidates_chunk['event_number'],
                                  position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
                                  position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
-                                 min_x_distance_array=min_col_distance,
-                                 min_y_distance_array=min_row_distance,
+                                 min_x_distance_array=min_track_distance_col,
+                                 min_y_distance_array=min_track_distance_row,
                                  small_distance_flag_array=dut_small_hit_distance_flag_sel)
             logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
             # unset quality flag
@@ -732,96 +738,132 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
 
-    def store_track_data_kalman(fit_dut, min_track_distance):  # Set the offset to the track intersection with the tilted plane and store the data
+    def store_track_data_kalman(fit_dut, fit_dut_index, min_track_distance):
         # reset quality flag
-        track_candidates_chunk["quality_flag"] = 0
-        if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
-            dut_position = np.array([0.0, 0.0, prealignment['z'][fit_dut]])
-            dut_plane_normal = np.array([0.0, 0.0, 1.0])
-        else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
-            dut_position = np.array([alignment[fit_dut]['translation_x'],
-                                     alignment[fit_dut]['translation_y'],
-                                     alignment[fit_dut]['translation_z']])
-            rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[fit_dut]['alpha'],
-                                                             beta=alignment[fit_dut]['beta'],
-                                                             gamma=alignment[fit_dut]['gamma'])
-            basis_global = rotation_matrix.T.dot(np.eye(3))
-            dut_plane_normal = basis_global[2]
-            if dut_plane_normal[2] < 0:
-                dut_plane_normal = -dut_plane_normal
+        quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["quality_flag"].dtype)
+        for dut_index in range(n_duts):
+            if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
+                dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
+                dut_plane_normal = np.array([0.0, 0.0, 1.0])
+            else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
+                dut_position = np.array([alignment[dut_index]['translation_x'],
+                                         alignment[dut_index]['translation_y'],
+                                         alignment[dut_index]['translation_z']])
+                rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[dut_index]['alpha'],
+                                                                 beta=alignment[dut_index]['beta'],
+                                                                 gamma=alignment[dut_index]['gamma'])
+                basis_global = rotation_matrix.T.dot(np.eye(3))
+                dut_plane_normal = basis_global[2]
+                if dut_plane_normal[2] < 0:
+                    dut_plane_normal = -dut_plane_normal
 
-        slopes = np.column_stack([track_estimates_chunk[:, fit_dut, 2],
-                                  track_estimates_chunk[:, fit_dut, 3],
-                                  np.sqrt(1.0 - track_estimates_chunk[:, fit_dut, 2]**2 - track_estimates_chunk[:, fit_dut, 3]**2)])
+            # TODO: use plane at z=0
+    #         dut_position = np.array([0.0, 0.0, 0.0])
+    #         dut_plane_normal = np.array([0.0, 0.0, 1.0])
 
-        # z position of each track estimate
-        z_position = geometry_utils.get_z_point_on_plane(point=[track_estimates_chunk[:, fit_dut, 0],
-                                                                track_estimates_chunk[:, fit_dut, 1]],
-                                                         position_plane=dut_position,
-                                                         normal_plane=dut_plane_normal)
+            slopes = np.column_stack((track_estimates_chunk[:, dut_index, 3],
+                                      track_estimates_chunk[:, dut_index, 4],
+                                      track_estimates_chunk[:, dut_index, 5]))
 
-        offsets = np.column_stack([track_estimates_chunk[:, fit_dut, 0],
-                                   track_estimates_chunk[:, fit_dut, 1],
-                                   z_position])
-        # do not need to calculate intersection with plane, since track parameters are estimated at the respective plane in kalman filter.
-        # This is different than for straight line fit, where intersection calculation is needed.
-        actual_offsets = offsets
+            intersections = np.column_stack((track_estimates_chunk[:, dut_index, 0],
+                                             track_estimates_chunk[:, dut_index, 1],
+                                             track_estimates_chunk[:, dut_index, 2]))
 
+            if use_prealignment:
+                intersection_x_local, intersection_y_local, intersection_z_local = geometry_utils.apply_alignment(intersections[:,0],
+                                                                                                                  intersections[:,1],
+                                                                                                                  intersections[:,2],
+                                                                                                                  dut_index=dut_index,
+                                                                                                                  prealignment=prealignment,
+                                                                                                                  inverse=True)
+            else:
+                intersection_x_local, intersection_y_local, intersection_z_local = geometry_utils.apply_alignment(intersections[:,0],
+                                                                                                                  intersections[:,1],
+                                                                                                                  intersections[:,2],
+                                                                                                                  dut_index=dut_index,
+                                                                                                                  alignment=alignment,
+                                                                                                                  inverse=True)
+
+            if not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
+                raise RuntimeError("Transformation into local coordinate system gives z != 0")
+
+            # calculate sigma for quality flag
+            if np.isfinite(prealignment[dut_index]['column_sigma']):
+                min_col_distance = quality_sigma * np.full(n_tracks_chunk, fill_value=prealignment[dut_index]['column_sigma'])
+            else:
+                min_col_distance = quality_sigma * track_candidates_chunk['xerr_dut_%s' % dut_index]
+            if np.isfinite(prealignment[dut_index]['row_sigma']):
+                min_row_distance = quality_sigma * np.full(n_tracks_chunk, fill_value=prealignment[dut_index]['row_sigma'])
+            else:
+                min_row_distance = quality_sigma * track_candidates_chunk['yerr_dut_%s' % dut_index]
+
+            if min_track_distance[dut_index] is not None:
+                min_track_distance_col = np.full(n_tracks_chunk, fill_value=min_track_distance[dut_index])
+                min_track_distance_row = np.full(n_tracks_chunk, fill_value=min_track_distance[dut_index])
+            else:
+                min_track_distance_col = min_col_distance
+                min_track_distance_row = min_row_distance
+            # select quality tracks
+            dut_quality_flag_sel = ((np.abs(intersection_x_local - track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]) <= min_col_distance[good_track_selection])
+                                    & (np.abs(intersection_y_local - track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]) <= min_row_distance[good_track_selection]))
+            print "dut_quality_flag_sel", dut_quality_flag_sel, dut_quality_flag_sel.dtype
+            quality_flag[dut_quality_flag_sel] |= np.uint16((1 << dut_index))
+            print np.count_nonzero(dut_quality_flag_sel), 'dut_quality_flag_sel', dut_index
+
+            # Select tracks that are too close when extrapolated to the actual DUT
+            # All selected tracks will result in a quality_flag = 0 for the actual DU
+            dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
+            _find_small_distance(event_number_array=track_candidates_chunk['event_number'][good_track_selection],
+                                 position_array_x=intersection_x_local,
+                                 position_array_y=intersection_y_local,
+                                 min_x_distance_array=min_track_distance_col[good_track_selection],
+                                 min_y_distance_array=min_track_distance_row[good_track_selection],
+                                 small_distance_flag_array=dut_small_track_distance_flag_sel)
+            logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_track_distance_flag_sel] &= np.uint16(~(1 << dut_index))
+
+            # Select hits that are too close in a DUT
+            # All selected hits will result in a quality_flag = 0 for the actual DUT
+            dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
+            _find_small_distance(event_number_array=track_candidates_chunk['event_number'],
+                                 position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
+                                 position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
+                                 min_x_distance_array=min_track_distance_col,
+                                 min_y_distance_array=min_track_distance_row,
+                                 small_distance_flag_array=dut_small_hit_distance_flag_sel)
+            logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint16(~(1 << dut_index))
+
+            if dut_index == fit_dut:
+                # use offsets at the location of the fit DUT
+                dut_offsets = intersections
+                # use slopes at the location of the fit DUT
+                dut_slopes = slopes
+                # select only quality tracks
+
+            if full_track_info is True and method == "Kalman":
+                track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.float)
+                track_estimates_chunk_full[:, dut_index] = np.column_stack([intersections[:, 0],
+                                                                            intersections[:, 1],
+                                                                            intersections[:, 2],
+                                                                            slopes[:, 0],
+                                                                            slopes[:, 1],
+                                                                            slopes[:, 2]])
         if full_track_info is True and method == "Kalman":
-            # array to store x,y,z position and respective slopes of other DUTs
-            track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.float)
-            for dut_index in range(n_duts):
-                if dut_index == fit_dut:  # do not need to transform data of actual fit dut, this is already done,
-                    continue
-                if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
-                    dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
-                    dut_plane_normal = np.array([0.0, 0.0, 1.0])
-                else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
-                    dut_position = np.array([alignment[dut_index]['translation_x'],
-                                             alignment[dut_index]['translation_y'],
-                                             alignment[dut_index]['translation_z']])
-                    rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[dut_index]['alpha'],
-                                                                     beta=alignment[dut_index]['beta'],
-                                                                     gamma=alignment[dut_index]['gamma'])
-                    basis_global = rotation_matrix.T.dot(np.eye(3))
-                    dut_plane_normal = basis_global[2]
-
-                slopes_full = np.column_stack([track_estimates_chunk[:, dut_index, 2],
-                                               track_estimates_chunk[:, dut_index, 3],
-                                               np.sqrt(1.0 - track_estimates_chunk[:, dut_index, 2]**2 - track_estimates_chunk[:, dut_index, 3]**2)])
-
-                # z position of each track estimate
-                z_position = geometry_utils.get_z_point_on_plane(point=[track_estimates_chunk[:, dut_index, 0],
-                                                                        track_estimates_chunk[:, dut_index, 1]],
-                                                                 position_plane=dut_position,
-                                                                 normal_plane=dut_plane_normal)
-
-                offsets_full = np.column_stack([track_estimates_chunk[:, dut_index, 0],
-                                                track_estimates_chunk[:, dut_index, 1],
-                                                z_position])
-
-                # do not need to calculate intersection with plane, since track parameters are estimated at the respective plane in kalman filter.
-                # This is different than for straight line fit, where intersection calculation is needed.
-                actual_offsets_full = offsets_full
-
-                track_estimates_chunk_full[:, dut_index] = np.column_stack([actual_offsets_full[:, 0],
-                                                                            actual_offsets_full[:, 1],
-                                                                            actual_offsets_full[:, 2],
-                                                                            slopes_full[:, 0],
-                                                                            slopes_full[:, 1],
-                                                                            slopes_full[:, 2]])
-
             tracks_array = create_results_array(slopes=slopes,
-                                                offsets=actual_offsets,
+                                                offsets=dut_offsets,
                                                 chi2s=chi2s,
                                                 n_duts=n_duts,
                                                 good_track_selection=good_track_selection,
                                                 track_candidates_chunk=track_candidates_chunk,
                                                 track_estimates_chunk_full=track_estimates_chunk_full)
         else:
-            tracks_array = create_results_array(slopes=slopes,
-                                                offsets=actual_offsets,
+            tracks_array = create_results_array(slopes=dut_slopes,
+                                                offsets=dut_offsets,
                                                 chi2s=chi2s,
+                                                quality_flag=quality_flag,
                                                 n_duts=n_duts,
                                                 good_track_selection=good_track_selection,
                                                 track_candidates_chunk=track_candidates_chunk,
@@ -833,20 +875,10 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
             tracklets_table = out_file_h5.create_table(out_file_h5.root,
                                                        name='Tracks_DUT_%d' % fit_dut,
                                                        description=tracks_array.dtype,
-                                                       title='Tracks fitted for DUT%d with Kalman Filter' % fit_dut,
+                                                       title='Kalman Filter tracks for DUT%d' % fit_dut,
                                                        filters=tb.Filters(complib='blosc',
                                                                           complevel=5,
                                                                           fletcher32=False))
-
-        # Remove tracks that are too close when extrapolated to the actual DUT
-        # All merged tracks have quality_flag = 0
-        actual_min_track_distance = min_track_distance[fit_dut]
-        if actual_min_track_distance is not None and actual_min_track_distance > 0:
-            _find_merged_tracks(tracks_array=tracks_array,
-                                min_tracks_distancce=actual_min_track_distance)
-#             selection = tracks_array['n_tracks'] > 0
-#             logging.info('Removed %d merged tracks (%1.1f%%)', np.count_nonzero(~selection), float(np.count_nonzero(~selection)) / selection.shape[0] * 100.0)
-#             tracks_array = tracks_array[selection]
 
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
@@ -1018,7 +1050,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                     if method == "Fit":
                         track_hits = np.full((n_good_tracks, n_fit_duts, 3), fill_value=np.nan, dtype=np.float)
                     elif method == "Kalman":
-                        track_hits = np.full((n_good_tracks, n_duts, 5), fill_value=np.nan, dtype=np.float)
+                        track_hits = np.full((n_good_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float)
 
                     print "hit flags", np.unique(track_candidates_chunk['hit_flag'][good_track_selection])#, np.min(track_candidates_chunk['hit_flag'][good_track_selection])
                     print "quality flags", np.unique(track_candidates_chunk['quality_flag'][good_track_selection])#, np.min(track_candidates_chunk['quality_flag'][good_track_selection])
@@ -1042,12 +1074,30 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                                                                                                                                                        inverse=False)
                             fit_index += 1
                         elif method == "Kalman":
-                            xyz = np.column_stack(np.ma.array((good_track_candidates['x_dut_%s' % dut_index],
-                                                               good_track_candidates['y_dut_%s' % dut_index],
-                                                               good_track_candidates['z_dut_%s' % dut_index],
-                                                               good_track_candidates['xerr_dut_%s' % dut_index],
-                                                               good_track_candidates['yerr_dut_%s' % dut_index])))
-                            track_hits[:, dut_index, :] = xyz
+                            # apply alignment for fitting the tracks
+                            if use_prealignment:
+                                track_hits[:, fit_index, 0], track_hits[:, fit_index, 1], track_hits[:, fit_index, 2], track_hits[:, fit_index, 3], track_hits[:, fit_index, 4], track_hits[:, fit_index, 5] = geometry_utils.apply_alignment(
+                                    track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection],
+                                    track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection],
+                                    track_candidates_chunk['z_dut_%s' % dut_index][good_track_selection],
+                                    dut_index=dut_index,
+                                    hits_xerr=track_candidates_chunk['xerr_dut_%s' % dut_index][good_track_selection],
+                                    hits_yerr=track_candidates_chunk['yerr_dut_%s' % dut_index][good_track_selection],
+                                    hits_zerr=track_candidates_chunk['zerr_dut_%s' % dut_index][good_track_selection],
+                                    prealignment=prealignment,
+                                    inverse=False)
+                            else:
+                                track_hits[:, fit_index, 0], track_hits[:, fit_index, 1], track_hits[:, fit_index, 2], track_hits[:, fit_index, 3], track_hits[:, fit_index, 4], track_hits[:, fit_index, 5] = geometry_utils.apply_alignment(
+                                    track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection],
+                                    track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection],
+                                    track_candidates_chunk['z_dut_%s' % dut_index][good_track_selection],
+                                    dut_index=dut_index,
+                                    hits_xerr=track_candidates_chunk['xerr_dut_%s' % dut_index][good_track_selection],
+                                    hits_yerr=track_candidates_chunk['yerr_dut_%s' % dut_index][good_track_selection],
+                                    hits_zerr=track_candidates_chunk['zerr_dut_%s' % dut_index][good_track_selection],
+                                    alignment=alignment,
+                                    inverse=False)
+                            fit_index += 1
 
                     # Split data and fit on all available cores
                     n_slices = cpu_count()
@@ -1056,14 +1106,12 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                         results = pool.map(_fit_tracks_loop, slices)
                     elif method == "Kalman":
                         if use_prealignment:
-                            # if prealignment is used, planes are not rotated, thus do not have to correct
-                            # rotation in kalman filter
-                            alignment = None
+                            alignment = prealignment
                         else:
                             alignment = alignment
                         results = pool.map(functools.partial(
                             _function_wrapper_fit_tracks_kalman_loop, pixel_size,
-                            n_pixels, dut_fit_selection, z_positions, alignment,
+                            n_pixels, dut_fit_selection, z_positions, alignment, use_prealignment,
                             beam_energy, material_budget, add_scattering_plane), slices)
 #                     del track_hits
 
@@ -1090,10 +1138,14 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
 
                         # Store the data
                         if not same_tracks_for_all_duts:  # Check if all DUTs were fitted at once
-                            store_track_data_kalman(actual_fit_dut, min_track_distance)
+                            store_track_data_kalman(fit_dut=actual_fit_dut,
+                                                    fit_dut_index=fit_dut_index,
+                                                    min_track_distance=min_track_distance)
                         else:
-                            for dut_index in select_duts:
-                                store_track_data_kalman(dut_index, min_track_distance)
+                            for index, dut_index in enumerate(select_duts):
+                                store_track_data_kalman(fit_dut=dut_index,
+                                                        fit_dut_index=index,
+                                                        min_track_distance=min_track_distance)
 #                     total_n_tracks += n_good_tracks
 
                     total_n_events_stored_last = total_n_events_stored
@@ -1320,12 +1372,12 @@ def _function_wrapper_fit_tracks_kalman_loop(*args):  # Needed for multiprocessi
     '''
     Function for multiprocessing call with arguments for speed up.
     '''
-    pixel_size, n_pixels, dut_fit_selection, z_positions, alignment, beam_energy, material_budget, add_scattering_plane, track_hits = args
+    pixel_size, n_pixels, dut_fit_selection, z_positions, alignment, use_prealignment, beam_energy, material_budget, add_scattering_plane, track_hits = args
 
-    return _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels, z_positions, alignment, beam_energy, material_budget, add_scattering_plane)[0:2]
+    return _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels, z_positions, alignment, use_prealignment, beam_energy, material_budget, add_scattering_plane)[0:2]
 
 
-def _kalman_fit_3d(hits, alignment, dut_fit_selection, transition_matrix, transition_covariance, transition_offset, observation_matrix, observation_covariance, observation_offset, initial_state_mean, initial_state_covariance):
+def _kalman_fit_3d(hits, alignment, use_prealignment, dut_fit_selection, transition_matrix, transition_covariance, transition_offset, observation_matrix, observation_covariance, observation_offset, initial_state_mean, initial_state_covariance):
     '''
     This function calls the Kalman Filter. It returns track by track the smoothed state vector which contains in the first two components
     the smoothed hit positions and in the last two components the respective slopes. Additionally the chi square of the track is calculated
@@ -1335,10 +1387,11 @@ def _kalman_fit_3d(hits, alignment, dut_fit_selection, transition_matrix, transi
     ----------
     hits : array_like
         Array which contains the x, y and z hit position of each DUT for one track.
-    alignment : array_like or None
-        Aligment data, which contains rotations and translations for each DUT. Needed to take rotations of DUTs into account,
-        in order to get correct transition matrices. If pre-alignment data is used, this is set to None since no rotations have to be
-        taken into account.
+    use_prealignment : bool
+        If True, use pre-alignment from correlation data; if False, use alignment.
+    alignment : array_like
+        Aligment data, which contains rotations and translations for each DUT. Needed to take rotations of DUTs into account.
+        If use_prealignment is True, this should contain the pre-alignment data.
     dut_fit_selection : iterable
         List of DUTs which should be included in Kalman Filter. DUTs which are not in list
         were treated as missing measurements and will not be included in the Filtering step.
@@ -1374,8 +1427,7 @@ def _kalman_fit_3d(hits, alignment, dut_fit_selection, transition_matrix, transi
     '''
     kf = kalman.KalmanFilter()
 
-    measurements = ma.array(np.append(hits[:, :, 0:2], (np.repeat([np.zeros((hits.shape[1], 2))], hits.shape[0], axis=0)), axis=-1))
-
+    measurements = ma.array(hits[:, :, 0:3])
     # mask duts which should not used in fit
     for dut_index in range(0, measurements.shape[1]):
         if dut_index not in dut_fit_selection:
@@ -1385,13 +1437,20 @@ def _kalman_fit_3d(hits, alignment, dut_fit_selection, transition_matrix, transi
     if np.any(np.isnan(measurements)):
         logging.warning('Not all measurements have valid values (Array contains NANs).')
 
-    smoothed_state_estimates, cov = kf.smooth(alignment, transition_matrix, transition_offset, transition_covariance,
+    smoothed_state_estimates, cov = kf.smooth(alignment, use_prealignment, transition_matrix, transition_offset, transition_covariance,
                                               observation_matrix, observation_offset, observation_covariance,
                                               initial_state_mean, initial_state_covariance, measurements)
 
-    chi2 = np.sum(np.square(measurements[:, :, 0:2] - smoothed_state_estimates[:, :,  0:2]), dtype=np.uint32, axis=(1, 2))
-    x_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2))[:, :, 0]
-    y_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2))[:, :, 1]
+    chi2 = np.sum(np.square(measurements[:, :, 0:2] - smoothed_state_estimates[:, :,  0:2]), dtype=np.float, axis=(1, 2))
+
+    # rough estimate for error on x and y of smoothed estimate
+    x_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2)[:, :, 0])
+    y_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2)[:, :, 1])
+
+    # normalize slopes
+    slope_mag = np.sqrt(smoothed_state_estimates[:, :, 3]**2 + smoothed_state_estimates[:, :, 4]**2 + smoothed_state_estimates[:, :, 5]**2)
+    for i in range(3, 6):
+        smoothed_state_estimates[:, :, i] = smoothed_state_estimates[:, :, i] / slope_mag
 
     # Check for invalid values (NaN)
     if np.any(np.isnan(smoothed_state_estimates)):
@@ -1400,7 +1459,7 @@ def _kalman_fit_3d(hits, alignment, dut_fit_selection, transition_matrix, transi
     return smoothed_state_estimates, chi2, x_err, y_err
 
 
-def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels, z_positions, alignment, beam_energy, material_budget, add_scattering_plane):
+def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels, z_positions, alignment, use_prealignment, beam_energy, material_budget, add_scattering_plane):
     '''
     Loop over the selected tracks. In this function all matrices for the Kalman Filter are calculated track by track
     and the Kalman Filter is started. With dut_fit_selection only the duts which are selected are included in the Kalman Filter.
@@ -1421,10 +1480,11 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
         e.g. for 2 DUTs: n_pixels = [(80, 336), (80, 336)]. Only needed for Kalman Filter.
     z_positions : iterable
         The z positions of the DUTs in um. Here, needed for Kalman Filter.
-    alignment : array_like or None
-        Aligment data, which contains rotations and translations for each DUT. Needed to take rotations of DUTs into account,
-        in order to get correct transition matrices. If pre-alignment data is used, this is set to None since no rotations have to be
-        taken into account.
+    alignment : array_like
+        Aligment data, which contains rotations and translations for each DUT. Needed to take rotations of DUTs into account.
+        If use_prealignment is True, this should contain the pre-alignment data.
+    use_prealignment : bool
+        If True, use pre-alignment from correlation data; if False, use alignment.
     beam_energy : uint
         Energy of electron beam in MeV.
     material_budget : iterable
@@ -1487,6 +1547,7 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
         # correct number of duts and update dut selection
         n_duts = n_duts + len(z_scatter)
         dut_selection = np.array(range(0, n_duts))
+
     # Calculate multiple scattering
     mass = 0.511  # mass in MeV (electrons)
     momentum = np.sqrt(beam_energy**2 - mass**2)
@@ -1496,32 +1557,32 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
     theta = np.array(((13.6 / momentum / beta) * np.sqrt(material_budget) * (1. + 0.038 * np.log(material_budget))))
 
     # express transition covariance matrix
-    transition_covariance = np.zeros((chunk_size, n_duts - 1, 4, 4))
+    transition_covariance = np.zeros((chunk_size, n_duts - 1, 6, 6))
 
     # express transition matrix
-    transition_matrix = np.zeros((chunk_size, n_duts - 1, 4, 4))
+    transition_matrix = np.zeros((chunk_size, n_duts - 1, 6, 6))
 
     # express transition and observation offset matrices
-    transition_offset = np.zeros((chunk_size, n_duts - 1, 4))
-    observation_offset = np.zeros((chunk_size, n_duts, 4))
+    transition_offset = np.zeros((chunk_size, n_duts - 1, 6))
+    observation_offset = np.zeros((chunk_size, n_duts, 3))
 
-    # express initial state. Contains (x_pos, y_pos, slope_x, slope_y).
-    initial_state_mean = np.zeros((chunk_size, 4))
+    # express initial state. Contains (x_pos, y_pos, z_pos, slope_x, slope_y, slope_z).
+    initial_state_mean = np.zeros((chunk_size, 6))
 
-    # express observatipon matrix
-    observation_matrix = np.zeros((chunk_size, n_duts, 4, 4))
-
-    # express observation covariance matrices
-    observation_covariance = np.zeros((chunk_size, n_duts, 4, 4))
-    # only observe x and y position
+    # express observation matrix, only observe (x,y,z)
+    observation_matrix = np.zeros((chunk_size, n_duts, 3, 6))
     observation_matrix[:, :, 0, 0] = 1.
     observation_matrix[:, :, 1, 1] = 1.
+    observation_matrix[:, :, 2, 2] = 1.
+    # express observation covariance matrices
+    observation_covariance = np.zeros((chunk_size, n_duts, 3, 3))
 
-    # express initial state covariance matrices: x and y pos have initial error of pixel resolution and x and y slopes have large error
-    initial_state_covariance = np.zeros((chunk_size, 4, 4))
-    # error on initial slope is roughly divergence of beam (5 mrad). Error on initial x-y position depends on fit selection
-    initial_state_covariance[:, 2, 2] = np.square(5e-3)
+    # express initial state covariance matrices
+    initial_state_covariance = np.zeros((chunk_size, 6, 6))
+    # error on initial slope is roughly divergence of beam (5 mrad).
     initial_state_covariance[:, 3, 3] = np.square(5e-3)
+    initial_state_covariance[:, 4, 4] = np.square(5e-3)
+    initial_state_covariance[:, 5, 5] = np.square(5e-3)
 
     # create a list of duts which should be included in the fit
     dut_list = np.full(shape=(n_duts), fill_value=np.nan)
@@ -1539,63 +1600,95 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
     if add_scattering_plane:
         for i in range(len(index_scatter)):  # need to shift dut fit selection in case of additional scattering plane
                 dut_fit_selection[np.where(dut_fit_selection > (index_scatter[i] - 1))[0][0]:] = dut_fit_selection[np.where(dut_fit_selection > (index_scatter[i] - 1))[0][0]:] + 1
-
     for index, actual_hits in enumerate(track_hits):  # Loop over selected track candidate hits and fit
         # cluster hit position error
         x_err = np.array(actual_hits[:, 3])
         y_err = np.array(actual_hits[:, 4])
+        z_err = np.array(actual_hits[:, 5])
 
         # Take cluster hit position error as measurement error for duts which have a hit.
         # For those who have no hit, need no error, since the should not be included in fit via fit selection
         observation_covariance[index, dut_selection[~np.isnan(x_err)], 0, 0] = np.square(x_err[dut_selection[~np.isnan(x_err)]])
         observation_covariance[index, dut_selection[~np.isnan(x_err)], 1, 1] = np.square(y_err[dut_selection[~np.isnan(x_err)]])
+        observation_covariance[index, dut_selection[~np.isnan(x_err)], 2, 2] = 0.  # np.square(z_err[dut_selection[~np.isnan(x_err)]])
 
         if dut_selection[0] in dut_fit_selection:  # first dut is in fit selection
-            # If first dut is used in track building, take first dut hit as initial value and
+            # If first dut is used in track building, take first dut hit as initial value (z is always zero for first plane) and
             # its corresponding cluster position error as the error on the measurement.
-            initial_state_mean[index] = np.array([actual_hits[0, 0], actual_hits[0, 1], 0., 0.])
+            initial_state_mean[index] = np.array([actual_hits[0, 0], actual_hits[0, 1], actual_hits[0, 2], 0., 0., 1.])
             initial_state_covariance[index, 0, 0] = np.square(x_err[0])
             initial_state_covariance[index, 1, 1] = np.square(y_err[0])
         else:  # first dut is not in fit selction
-            # Take hit from first dut which is in fit selection. Cannot take hit from first dut,
-            # since do not want to pass measurement to kalman filter (unbiased).
-            # Due to the fact that this hit position can be very off through multiple scattering,
-            # take whole sensor as error (this error must be very large).
-            initial_state_mean[index] = np.array([actual_hits[dut_fit_selection[0], 0], actual_hits[dut_fit_selection[0], 1], 0., 0.])
-            initial_state_covariance[index, 0, 0] = np.square(n_pixels * pixel_size)[dut_fit_selection[0], 0]
-            initial_state_covariance[index, 1, 1] = np.square(n_pixels * pixel_size)[dut_fit_selection[0], 1]
+            # Take mean of all hits which are in fit selection (x, y). The z position is set such that the mean hit is on the first plane.
+            # For the initial state covariance the squared standard deviation is taken.
+            mean_x = np.nanmean(actual_hits[dut_fit_selection, 0])
+            mean_y = np.nanmean(actual_hits[dut_fit_selection, 1])
+
+            if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
+                dut_position = np.array([0.0, 0.0, alignment['z'][0]])
+                dut_plane_normal = np.array([0.0, 0.0, 1.0])
+            else:  # Deduce plane orientation in 3D for track extrapolation; not needed if rotation info is not available (e.g. only prealigned data)
+                # take first plane here, since want to find an initial state for KF
+                dut_position = np.array([alignment[0]['translation_x'], alignment[0]['translation_y'], alignment[0]['translation_z']])
+                rotation_matrix = geometry_utils.rotation_matrix(alpha=alignment[0]['alpha'],
+                                                                 beta=alignment[0]['beta'],
+                                                                 gamma=alignment[0]['gamma'])
+
+                basis_global = rotation_matrix.T.dot(np.eye(3))
+                dut_plane_normal = basis_global[2]
+                if dut_plane_normal[2] < 0:
+                    dut_plane_normal = -dut_plane_normal
+
+            # z position of initial state such that the mean hit is on the first plane.
+            mean_z = geometry_utils.get_z_point_on_plane(point=[mean_x, mean_y],
+                                                         position_plane=dut_position,
+                                                         normal_plane=dut_plane_normal)
+
+            initial_state_mean[index] = np.array([mean_x, mean_x, mean_z, 0., 0., 1.])
+            initial_state_covariance[index, 0, 0] = np.square(np.nanstd(actual_hits[dut_fit_selection, 0]))
+            initial_state_covariance[index, 1, 1] = np.square(np.nanstd(actual_hits[dut_fit_selection, 1]))
+
+        if np.isnan(z_err[0]):
+            initial_state_covariance[index, 2, 2] = 0.
+        else:
+            initial_state_covariance[index, 2, 2] = 0.  # np.square(z_err[0])
 
         # express transition matrices
         # transition matrices are filled already here. In case of prealignment matrices will not be updated.
         # If alignment is used, transition matrices are updated (in Kalman Filter) before each prediction step in order to take
         # rotations of planes into account.
-        transition_matrix[index, sel, :, 0] = np.array([1., 0., 0., 0.])
-        transition_matrix[index, sel, :, 1] = np.array([0., 1., 0., 0.])
-        transition_matrix[index, sel, :, 2] = np.array([(z_diff), np.zeros((len(sel),)),
-                                                        np.ones((len(sel),)), np.zeros((len(sel),))]).T
-        transition_matrix[index, sel, :, 3] = np.array([np.zeros((len(sel),)), (z_diff),
-                                                        np.zeros((len(sel),)), np.ones((len(sel),))]).T
+        transition_matrix[index, sel, :, 0] = np.array([1., 0., 0., 0., 0., 0.])
+        transition_matrix[index, sel, :, 1] = np.array([0., 1., 0., 0., 0., 0.])
+        transition_matrix[index, sel, :, 2] = np.array([0., 0., 1., 0., 0., 0.])
+        transition_matrix[index, sel, :, 3] = np.array([(z_diff), np.zeros((len(sel),)), np.zeros((len(sel),)),
+                                                        np.ones((len(sel),)), np.zeros((len(sel),)), np.zeros((len(sel),))]).T
+        transition_matrix[index, sel, :, 4] = np.array([np.zeros((len(sel),)), (z_diff), np.zeros((len(sel),)),
+                                                        np.zeros((len(sel),)), np.ones((len(sel),)), np.zeros((len(sel),))]).T
+        transition_matrix[index, sel, :, 5] = np.array([np.zeros((len(sel),)), np.zeros((len(sel),)), (z_diff),
+                                                        np.zeros((len(sel),)), np.zeros((len(sel),)), np.ones((len(sel),))]).T
 
         # express transition covariance matrices, according to http://web-docs.gsi.de/~ikisel/reco/Methods/CovarianceMatrices-NIMA329-1993.pdf
         transition_covariance[index, sel, :, 0] = np.array([(z_diff)**2 * theta[sel]**2,
-                                                            np.zeros((len(sel),)),
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),)),
                                                             -(z_diff) * theta[sel]**2,
-                                                            np.zeros((len(sel),))]).T
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),))]).T
         transition_covariance[index, sel, :, 1] = np.array([np.zeros((len(sel),)),
                                                             (z_diff)**2 * theta[sel]**2,
-                                                            np.zeros((len(sel),)),
-                                                            -(z_diff) * theta[sel]**2]).T
-        transition_covariance[index, sel, :, 2] = np.array([-(z_diff) * theta[sel]**2,
-                                                            np.zeros((len(sel),)),
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),)),
+                                                            -(z_diff) * theta[sel]**2, np.zeros((len(sel),))]).T
+        transition_covariance[index, sel, :, 2] = np.array([0., 0., 0., 0., 0., 0.])
+        transition_covariance[index, sel, :, 3] = np.array([-(z_diff) * theta[sel]**2,
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),)),
                                                             theta[sel]**2,
-                                                            np.zeros((len(sel),))]).T
-        transition_covariance[index, sel, :, 3] = np.array([np.zeros((len(sel),)),
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),))]).T
+        transition_covariance[index, sel, :, 4] = np.array([np.zeros((len(sel),)),
                                                             -(z_diff) * theta[sel]**2,
-                                                            np.zeros((len(sel),)),
-                                                            theta[sel]**2]).T
+                                                            np.zeros((len(sel),)), np.zeros((len(sel),)),
+                                                            theta[sel]**2, np.zeros((len(sel),))]).T
+        transition_covariance[index, sel, :, 5] = np.array([0., 0., 0., 0., 0., 0.])
 
     # run kalman filter
-    track_estimate_chunks, chi2, x_err, y_err = _kalman_fit_3d(track_hits[:, :, 0:2], alignment, dut_fit_selection,
+    track_estimate_chunks, chi2, x_err, y_err = _kalman_fit_3d(track_hits[:, :, 0:3], alignment, use_prealignment, dut_fit_selection,
                                                                transition_matrix, transition_covariance,
                                                                transition_offset, observation_matrix,
                                                                observation_covariance, observation_offset,

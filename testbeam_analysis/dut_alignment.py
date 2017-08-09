@@ -881,7 +881,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, use_p
     logging.debug('File with realigned hits %s', output_hit_file)
 
 # TODO: selection_track_quality to selection_track_quality_sigma
-def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
+def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut_names=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, quality_sigma=5.0, alignment_order=None, initial_rotation=None, initial_translation=None, max_iterations=3, max_events=100000, fit_method='Fit', min_track_distance=None, beam_energy=None, material_budget=None, use_fit_limits=True, new_alignment=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -1135,12 +1135,16 @@ def alignment(input_merged_file, input_alignment_file, n_pixels, pixel_size, dut
             pixel_size=pixel_size,
             max_events=max_events[index],
             max_iterations=max_iterations[index],
+            fit_method=fit_method,
+            min_track_distance=min_track_distance,
+            beam_energy=beam_energy,
+            material_budget=material_budget,
             use_fit_limits=use_fit_limits,
             plot=plot,
             chunk_size=chunk_size)
 
 
-def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, quality_sigma, alignment_order, dut_names, n_pixels, pixel_size, max_events, max_iterations, fit_method, min_track_distance, beam_energy, material_budget, use_fit_limits=False, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
 
@@ -1202,6 +1206,10 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                        exclude_dut_hit=False,  # For constrained residuals
                        use_prealignment=False,
                        plot=plot,
+                       method=fit_method,#"Fit" if use_prealignment or iteration < 2 else fit_method,
+                       min_track_distance=min_track_distance,
+                       beam_energy=beam_energy,
+                       material_budget=material_budget,
                        chunk_size=chunk_size)
 
             logging.info('= Alignment step 2 / iteration %d: Selecting tracks for DUTs %s =', iteration_step, alignment_duts_str)
@@ -1262,7 +1270,6 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                                                      select_duts=current_align_duts,
                                                      use_fit_limits=use_fit_limits,
                                                      chunk_size=chunk_size)
-
             # Delete temporary files
             os.remove(output_tracks_file)
             os.remove(output_selected_tracks_file)
@@ -1292,7 +1299,6 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                     use_prealignment=False,
                     correct_beam_alignment=True,
                     max_events=max_events)
-
         fit_tracks(input_track_candidates_file=final_track_candidates_file,
                    input_alignment_file=alignment_file,
                    output_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
@@ -1304,9 +1310,13 @@ def _duts_alignment(merged_file, alignment_file, align_duts, select_telescope_du
                    select_fit_duts=select_fit_duts,  # Only use selected duts
                    select_hit_duts=select_hit_duts,
                    quality_sigma=quality_sigma,
-                   exclude_dut_hit=False,  # For unconstrained residuals
+                   exclude_dut_hit=True,  # For unconstrained residuals
                    use_prealignment=False,
                    plot=plot,
+                   method=fit_method,
+                   min_track_distance=min_track_distance,
+                   beam_energy=beam_energy,
+                   material_budget=material_budget,
                    chunk_size=chunk_size)
 
         data_selection.select_tracks(input_tracks_file=os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts,
