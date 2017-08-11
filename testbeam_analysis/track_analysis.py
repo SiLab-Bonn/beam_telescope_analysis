@@ -1644,7 +1644,7 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
                                                          position_plane=dut_position,
                                                          normal_plane=dut_plane_normal)
 
-            initial_state_mean[index] = np.array([mean_x, mean_x, mean_z, 0., 0., 1.])
+            initial_state_mean[index] = np.array([mean_x, mean_y, mean_z, 0., 0., 1.])
             initial_state_covariance[index, 0, 0] = np.square(np.nanstd(actual_hits[dut_fit_selection, 0]))
             initial_state_covariance[index, 1, 1] = np.square(np.nanstd(actual_hits[dut_fit_selection, 1]))
 
