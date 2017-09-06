@@ -1374,6 +1374,8 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     actual_bin_size_x = bin_size[dut_index][0]
                     actual_bin_size_y = bin_size[dut_index][1]
 
+                sensor_size = np.array(n_pixels) * np.array(pixel_size)
+
                 dimensions = [sensor_size, ] if not isinstance(sensor_size, Iterable) else sensor_size  # Sensor dimensions for each DUT
                 if len(dimensions) == 1:
                     dimensions = dimensions[0]
