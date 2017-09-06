@@ -1618,7 +1618,7 @@ def efficiency_plots(hit_hist, track_density, track_density_with_DUT_hit, effici
         logging.warning('Cannot create efficiency plots, all pixels are masked')
 
 
-def purity_plots(pure_hit_hist, hit_hist, purity, actual_dut, minimum_hit_density, plot_range, cut_distance, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def purity_plots(pure_hit_hist, hit_hist, purity, purity_sensor, actual_dut, minimum_hit_density, plot_range, cut_distance, mask_zero=True, output_pdf=None, gui=False, figs=None):
     if not output_pdf and not gui:
         return
     # get number of entries for every histogram
@@ -1670,6 +1670,22 @@ def purity_plots(pure_hit_hist, hit_hist, purity, actual_dut, minimum_hit_densit
             figs.append(fig)
         else:
             output_pdf.savefig(fig)
+
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        ax.grid()
+        ax.set_title('Sensor Purity for DUT%d: %1.4f +- %1.4f' % (actual_dut, np.ma.mean(purity_sensor), np.ma.std(purity_sensor)))
+        ax.set_xlabel('Purity [%]')
+        ax.set_ylabel('#')
+        ax.set_yscale('log')
+        ax.set_xlim([-0.5, 101.5])
+        ax.hist(purity_sensor.ravel()[purity_sensor.ravel().mask != 1], bins=101, range=(0, 100))  # Histogram not masked pixel purity
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
+
     else:
         logging.warning('Cannot create purity plots, since all pixels are masked')
 

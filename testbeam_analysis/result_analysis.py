@@ -1550,7 +1550,7 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
-    logging.info('=== Calculate purity ===')
+    logging.info('=== Calculating purity ===')
 
     if output_purity_file is None:
         output_purity_file = os.path.splitext(input_tracks_file)[0] + '_purity.h5'
@@ -1561,17 +1561,17 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
         output_pdf = None
 
     with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
-        prealignment = in_file_h5.root.PreAlignment[:]
-        n_duts = prealignment.shape[0]
-        if not use_prealignment:
-            try:
-                alignment = in_file_h5.root.Alignment[:]
-                logging.info('Use alignment data')
-            except tb.exceptions.NodeError:
-                use_prealignment = True
-                logging.info('Use prealignment data')
+        if use_prealignment:
+            logging.info('Use pre-alignment data')
+            prealignment = in_file_h5.root.PreAlignment[:]
+            n_duts = prealignment.shape[0]
+        else:
+            logging.info('Use alignment data')
+            alignment = in_file_h5.root.Alignment[:]
+            n_duts = alignment.shape[0]
 
     purities = []
+    purities_sensor_mean = []
     pure_hits = []
     total_hits = []
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
@@ -1607,32 +1607,17 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
 
                     # Transform the hits and track intersections into the local coordinate system
                     # Coordinates in global coordinate system (x, y, z)
-                    hit_x_dut, hit_y_dut, hit_z_dut = tracks_chunk['x_dut_%d' % actual_dut][selection_hit], tracks_chunk['y_dut_%d' % actual_dut][selection_hit], tracks_chunk['z_dut_%d' % actual_dut][selection_hit]
-                    hit_x, hit_y, hit_z = tracks_chunk['x_dut_%d' % actual_dut][selection], tracks_chunk['y_dut_%d' % actual_dut][selection], tracks_chunk['z_dut_%d' % actual_dut][selection]
+                    hit_x_local_dut, hit_y_local_dut, hit_z_local_dut = tracks_chunk['x_dut_%d' % actual_dut][selection_hit], tracks_chunk['y_dut_%d' % actual_dut][selection_hit], tracks_chunk['z_dut_%d' % actual_dut][selection_hit]
+                    hit_x_local, hit_y_local, hit_z_local = tracks_chunk['x_dut_%d' % actual_dut][selection], tracks_chunk['y_dut_%d' % actual_dut][selection], tracks_chunk['z_dut_%d' % actual_dut][selection]
+
                     intersection_x, intersection_y, intersection_z = tracks_chunk['offset_0'][selection], tracks_chunk['offset_1'][selection], tracks_chunk['offset_2'][selection]
 
                     if use_prealignment:
-                        hit_x_local_dut, hit_y_local_dut, hit_z_local_dut = geometry_utils.apply_alignment(hit_x_dut, hit_y_dut, hit_z_dut,
-                                                                                                           dut_index=actual_dut,
-                                                                                                           prealignment=prealignment,
-                                                                                                           inverse=True)
-                        hit_x_local, hit_y_local, hit_z_local = geometry_utils.apply_alignment(hit_x, hit_y, hit_z,
-                                                                                               dut_index=actual_dut,
-                                                                                               prealignment=prealignment,
-                                                                                               inverse=True)
                         intersection_x_local, intersection_y_local, intersection_z_local = geometry_utils.apply_alignment(intersection_x, intersection_y, intersection_z,
                                                                                                                           dut_index=actual_dut,
                                                                                                                           prealignment=prealignment,
                                                                                                                           inverse=True)
                     else:
-                        hit_x_local_dut, hit_y_local_dut, hit_z_local_dut = geometry_utils.apply_alignment(hit_x_dut, hit_y_dut, hit_z_dut,
-                                                                                                           dut_index=actual_dut,
-                                                                                                           alignment=alignment,
-                                                                                                           inverse=True)
-                        hit_x_local, hit_y_local, hit_z_local = geometry_utils.apply_alignment(hit_x, hit_y, hit_z,
-                                                                                               dut_index=actual_dut,
-                                                                                               alignment=alignment,
-                                                                                               inverse=True)
                         intersection_x_local, intersection_y_local, intersection_z_local = geometry_utils.apply_alignment(intersection_x, intersection_y, intersection_z,
                                                                                                                           dut_index=actual_dut,
                                                                                                                           alignment=alignment,
@@ -1692,14 +1677,16 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
                 purity = np.zeros_like(total_hit_hist)
                 purity[total_hit_hist != 0] = total_pure_hit_hist[total_hit_hist != 0].astype(np.float) / total_hit_hist[total_hit_hist != 0].astype(np.float) * 100.
                 purity = np.ma.array(purity, mask=total_hit_hist < minimum_hit_density)
+                # calculate sensor purity by weighting each pixel purity with total number of hits within the pixel
+                purity_sensor = np.repeat(purity.ravel(), total_hit_hist.ravel())
 
                 if not np.any(purity):
                     raise RuntimeError('No pure hit for DUT%d, consider changing cut values or check track building!', actual_dut)
 
-                plot_utils.purity_plots(total_pure_hit_hist, total_hit_hist, purity, actual_dut, minimum_hit_density, plot_range=dimensions, cut_distance=cut_distance, output_pdf=output_pdf)
-
+                plot_utils.purity_plots(total_pure_hit_hist, total_hit_hist, purity, purity_sensor, actual_dut, minimum_hit_density, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], cut_distance=cut_distance, output_pdf=output_pdf)
                 logging.info('Purity =  %1.4f +- %1.4f', np.ma.mean(purity), np.ma.std(purity))
                 purities.append(np.ma.mean(purity))
+                purities_sensor_mean.append(np.ma.mean(purity_sensor))
 
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT_%d' % actual_dut)
 
@@ -1718,9 +1705,11 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
                 out_purity.attrs.bin_size = bin_size
                 out_purity.attrs.minimum_hit_density = minimum_hit_density
                 out_purity.attrs.sensor_size = sensor_size
+                out_purity.attrs.use_duts = select_duts
                 out_purity.attrs.cut_distance = cut_distance
                 out_purity.attrs.col_range = col_range
                 out_purity.attrs.row_range = row_range
+                out_purity.attrs.purity_average = total_pure_hit_hist.sum()/total_hit_hist.sum() * 100
                 out_purity[:] = purity.T
                 out_purity_mask[:] = purity.mask.T
                 out_pure_hits[:] = total_pure_hit_hist.T
@@ -1729,7 +1718,7 @@ def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, 
     if output_pdf is not None:
         output_pdf.close()
 
-    return purities, pure_hits, total_hits
+    return purities, pure_hits, total_hits, purities_sensor_mean
 
 
 def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file, use_prealignment, output_track_angle_file=None, n_bins="auto", plot_range=(None, None), dut_names=None, plot=True, chunk_size=1000000):
