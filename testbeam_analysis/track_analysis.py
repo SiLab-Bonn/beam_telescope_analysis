@@ -741,6 +741,7 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
     def store_track_data_kalman(fit_dut, fit_dut_index, min_track_distance):
         # reset quality flag
         quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["quality_flag"].dtype)
+        track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.float)
         for dut_index in range(n_duts):
             if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
                 dut_position = np.array([0.0, 0.0, prealignment['z'][dut_index]])
@@ -844,17 +845,18 @@ def fit_tracks(input_track_candidates_file, input_alignment_file, output_tracks_
                 # select only quality tracks
 
             if full_track_info is True and method == "Kalman":
-                track_estimates_chunk_full = np.full(shape=(track_estimates_chunk.shape[0], n_duts, 6), fill_value=np.nan, dtype=np.float)
-                track_estimates_chunk_full[:, dut_index] = np.column_stack([intersections[:, 0],
-                                                                            intersections[:, 1],
-                                                                            intersections[:, 2],
-                                                                            slopes[:, 0],
-                                                                            slopes[:, 1],
-                                                                            slopes[:, 2]])
+                track_estimates_chunk_full[:, dut_index] = np.column_stack([track_estimates_chunk[:, dut_index, 0],
+                                                                            track_estimates_chunk[:, dut_index, 1],
+                                                                            track_estimates_chunk[:, dut_index, 2],
+                                                                            track_estimates_chunk[:, dut_index, 3],
+                                                                            track_estimates_chunk[:, dut_index, 4],
+                                                                            track_estimates_chunk[:, dut_index, 5]])
+
         if full_track_info is True and method == "Kalman":
-            tracks_array = create_results_array(slopes=slopes,
+            tracks_array = create_results_array(slopes=dut_slopes,
                                                 offsets=dut_offsets,
                                                 chi2s=chi2s,
+                                                quality_flag=quality_flag,
                                                 n_duts=n_duts,
                                                 good_track_selection=good_track_selection,
                                                 track_candidates_chunk=track_candidates_chunk,
@@ -1612,17 +1614,16 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
         observation_covariance[index, dut_selection[~np.isnan(x_err)], 1, 1] = np.square(y_err[dut_selection[~np.isnan(x_err)]])
         observation_covariance[index, dut_selection[~np.isnan(x_err)], 2, 2] = 0.  # np.square(z_err[dut_selection[~np.isnan(x_err)]])
 
-        if dut_selection[0] in dut_fit_selection:  # first dut is in fit selection
-            # If first dut is used in track building, take first dut hit as initial value (z is always zero for first plane) and
+        if dut_selection[0] in dut_fit_selection:  # first plane is in fit selection
+            # If first plane should be included in track building, take first dut hit as initial value and
             # its corresponding cluster position error as the error on the measurement.
             initial_state_mean[index] = np.array([actual_hits[0, 0], actual_hits[0, 1], actual_hits[0, 2], 0., 0., 1.])
             initial_state_covariance[index, 0, 0] = np.square(x_err[0])
             initial_state_covariance[index, 1, 1] = np.square(y_err[0])
-        else:  # first dut is not in fit selction
-            # Take mean of all hits which are in fit selection (x, y). The z position is set such that the mean hit is on the first plane.
-            # For the initial state covariance the squared standard deviation is taken.
-            mean_x = np.nanmean(actual_hits[dut_fit_selection, 0])
-            mean_y = np.nanmean(actual_hits[dut_fit_selection, 1])
+        else:  # first plane is not in fit selction
+            # Take first and last plane which is in fit selction and deduce from this the slope,
+            # then extrapolate it to first plane in order to find initial state.
+            # The position error is estimated with the pixel size.
 
             if use_prealignment:  # Pre-alignment does not set any plane rotations thus plane normal = (0, 0, 1) and position = (0, 0, z)
                 dut_position = np.array([0.0, 0.0, alignment['z'][0]])
@@ -1639,19 +1640,26 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
                 if dut_plane_normal[2] < 0:
                     dut_plane_normal = -dut_plane_normal
 
-            # z position of initial state such that the mean hit is on the first plane.
-            mean_z = geometry_utils.get_z_point_on_plane(point=[mean_x, mean_y],
+            delta_z = (z_positions[dut_fit_selection[-1]] - z_positions[dut_fit_selection[0]])
+            slope_x = (actual_hits[dut_fit_selection[-1], 0] - actual_hits[dut_fit_selection[0], 0]) / delta_z
+            slope_y = (actual_hits[dut_fit_selection[-1], 1] - actual_hits[dut_fit_selection[0], 1]) / delta_z
+
+            init_x = actual_hits[dut_fit_selection[0], 0] - (z_positions[dut_fit_selection[0]] - z_positions[0]) * slope_x
+            init_y = actual_hits[dut_fit_selection[0], 1] - (z_positions[dut_fit_selection[0]] - z_positions[0]) * slope_y
+            init_z = geometry_utils.get_z_point_on_plane(point=[init_x, init_y],
                                                          position_plane=dut_position,
                                                          normal_plane=dut_plane_normal)
 
-            initial_state_mean[index] = np.array([mean_x, mean_y, mean_z, 0., 0., 1.])
-            initial_state_covariance[index, 0, 0] = np.square(np.nanstd(actual_hits[dut_fit_selection, 0]))
-            initial_state_covariance[index, 1, 1] = np.square(np.nanstd(actual_hits[dut_fit_selection, 1]))
+            initial_state_mean[index] = np.array([init_x, init_y, init_z, 0., 0., 1.])
 
+            initial_state_covariance[index, 0, 0] = np.square(pixel_size[0][0])
+            initial_state_covariance[index, 1, 1] = np.square(pixel_size[0][1])
+
+        # TODO: include maybe meaningful error on z-position
         if np.isnan(z_err[0]):
             initial_state_covariance[index, 2, 2] = 0.
         else:
-            initial_state_covariance[index, 2, 2] = 0.  # np.square(z_err[0])
+            initial_state_covariance[index, 2, 2] = 0.
 
         # express transition matrices
         # transition matrices are filled already here. In case of prealignment matrices will not be updated.
