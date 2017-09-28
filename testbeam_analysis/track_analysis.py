@@ -1678,19 +1678,19 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
         # express transition covariance matrices, according to http://web-docs.gsi.de/~ikisel/reco/Methods/CovarianceMatrices-NIMA329-1993.pdf
         transition_covariance[index, sel, :, 0] = np.array([(z_diff)**2 * theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),)),
-                                                            -(z_diff) * theta[sel]**2,
+                                                            (z_diff) * theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),))]).T
         transition_covariance[index, sel, :, 1] = np.array([np.zeros((len(sel),)),
                                                             (z_diff)**2 * theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),)),
-                                                            -(z_diff) * theta[sel]**2, np.zeros((len(sel),))]).T
+                                                            (z_diff) * theta[sel]**2, np.zeros((len(sel),))]).T
         transition_covariance[index, sel, :, 2] = np.array([0., 0., 0., 0., 0., 0.])
-        transition_covariance[index, sel, :, 3] = np.array([-(z_diff) * theta[sel]**2,
+        transition_covariance[index, sel, :, 3] = np.array([(z_diff) * theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),)),
                                                             theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),))]).T
         transition_covariance[index, sel, :, 4] = np.array([np.zeros((len(sel),)),
-                                                            -(z_diff) * theta[sel]**2,
+                                                            (z_diff) * theta[sel]**2,
                                                             np.zeros((len(sel),)), np.zeros((len(sel),)),
                                                             theta[sel]**2, np.zeros((len(sel),))]).T
         transition_covariance[index, sel, :, 5] = np.array([0., 0., 0., 0., 0., 0.])
