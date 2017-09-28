@@ -1531,11 +1531,12 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
         alignment_scatter_total = []
         for i in range(len(add_scattering_plane['alignment_scatter'])):
             if add_scattering_plane['alignment_scatter'][i] is not None:
+                # alignment contains: dut_index, translation in x,y,z and rotation in x,y,z
                 alignment_scatter = [(index_scatter[i], 0., 0., z_scatter[i], add_scattering_plane['alignment_scatter'][i][0],
-                                     add_scattering_plane['alignment_scatter'][i][1], add_scattering_plane['alignment_scatter'][i][2], 0., 0.)]
+                                     add_scattering_plane['alignment_scatter'][i][1], add_scattering_plane['alignment_scatter'][i][2])]
                 alignment_scatter_total.append(alignment_scatter)
             else:
-                alignment_scatter = [(index_scatter[i], 0., 0., z_scatter[i], 0., 0., 0., 0., 0.)]
+                alignment_scatter = [(index_scatter[i], 0., 0., z_scatter[i], 0., 0., 0.)]
                 alignment_scatter_total.append(alignment_scatter)
         # append new values
         for i in range(len(z_scatter)):
@@ -1543,6 +1544,7 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
             z_positions = np.insert(z_positions, index_scatter[i], z_scatter[i])
             alignment = np.insert(alignment, index_scatter[i], alignment_scatter_total[i])
             track_hits = np.insert(track_hits, index_scatter[i], np.full((track_hits.shape[0], track_hits.shape[2]), fill_value=np.nan), axis=1)
+
         # fix dut number in alignment array
         for index in range(alignment.shape[0]):
             alignment[index][0] = index
@@ -1602,6 +1604,7 @@ def _fit_tracks_kalman_loop(track_hits, dut_fit_selection, pixel_size, n_pixels,
     if add_scattering_plane:
         for i in range(len(index_scatter)):  # need to shift dut fit selection in case of additional scattering plane
                 dut_fit_selection[np.where(dut_fit_selection > (index_scatter[i] - 1))[0][0]:] = dut_fit_selection[np.where(dut_fit_selection > (index_scatter[i] - 1))[0][0]:] + 1
+
     for index, actual_hits in enumerate(track_hits):  # Loop over selected track candidate hits and fit
         # cluster hit position error
         x_err = np.array(actual_hits[:, 3])
