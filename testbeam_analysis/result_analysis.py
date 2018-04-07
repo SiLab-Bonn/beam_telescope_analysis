@@ -20,7 +20,7 @@ from testbeam_analysis.tools import analysis_utils
 import testbeam_analysis.dut_alignment
 
 
-def calculate_residuals(input_tracks_file, input_alignment_file, use_prealignment, select_duts, n_pixels, pixel_size, output_residuals_file=None, dut_names=None, nbins_per_pixel=None, npixels_per_bin=None, use_fit_limits=False, cluster_size_selection=None, plot=True, gui=False, chunk_size=1000000):
+def calculate_residuals(input_tracks_file, input_alignment_file, use_prealignment, select_duts, n_pixels, pixel_size, output_residuals_file=None, dut_names=None, nbins_per_pixel=None, npixels_per_bin=None, use_fit_limits=False, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates residuals for selected DUTs in col, row direction.
 
     Parameters
@@ -1927,7 +1927,7 @@ def histogram_track_angle(input_tracks_file, select_duts, input_alignment_file, 
         plot_utils.plot_track_angle(input_track_angle_file=output_track_angle_file, select_duts=select_duts, output_pdf_file=None, dut_names=dut_names)
 
 
-def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_prealignment, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, nbins_per_pixel=None, npixels_per_bin=None, use_fit_limits=False, plot=True, chunk_size=1000000):
+def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_prealignment, n_pixels, pixel_size, plot_n_pixels, plot_n_bins, correlate_n_tracks=10000, output_residual_correlation_file=None, dut_names=None, select_duts=None, use_fit_limits=False, plot=True, chunk_size=1000000):
     logging.info('=== Calculating residual correlation ===')
 
     with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
