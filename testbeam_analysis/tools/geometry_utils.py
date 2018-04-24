@@ -685,7 +685,7 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                           'system using pre-alignment data')
             hits_x = (hits_x - c0_column) / c1_column
             hits_y = (hits_y - c0_row) / c1_row
-            hits_z -= z
+            hits_z = hits_z - z
 
             if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
                 hits_xerr = hits_xerr / c1_column
@@ -695,7 +695,7 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                           'system using pre-alignment data')
             hits_x = c1_column * hits_x + c0_column
             hits_y = c1_row * hits_y + c0_row
-            hits_z += z
+            hits_z = hits_z + z
 
             if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
                 hits_xerr = c1_column * hits_xerr
