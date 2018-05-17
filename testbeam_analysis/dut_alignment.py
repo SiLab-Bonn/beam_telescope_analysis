@@ -57,111 +57,116 @@ def correlate_cluster(input_cluster_files, output_correlation_file, n_pixels, re
     '''
     logging.info('=== Correlating the index of %d DUTs ===', len(input_cluster_files))
 
-    ref_index = ref_dut
-
     n_duts = len(input_cluster_files)
 
-    # remove reference DUT from list of DUTs
-    select_duts = list(set(range(n_duts)) - set([ref_index]))
+    if ref_dut is None:
+        ref_duts = range(n_duts)
+    else:
+        ref_duts = [ref_dut]
 
     with tb.open_file(output_correlation_file, mode="w") as out_file_h5:
-        # Result arrays to be filled
-        column_correlations = []
-        row_correlations = []
-        start_indices = []
-        for dut_index in select_duts:
-            shape_column = (n_pixels[dut_index][0], n_pixels[ref_index][0])
-            shape_row = (n_pixels[dut_index][1], n_pixels[ref_index][1])
-            column_correlations.append(np.zeros(shape_column, dtype=np.int32))
-            row_correlations.append(np.zeros(shape_row, dtype=np.int32))
-            start_indices.append(None)  # Store the loop indices for speed up
+        for ref_index in ref_duts:
+            logging.info('== Correlating with DUT%d ==' % (ref_index,))
+            # Result arrays to be filled
+            column_correlations = []
+            row_correlations = []
+            start_indices = []
 
-        with tb.open_file(input_cluster_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 cluster file
-            widgets = ['', progressbar.Percentage(), ' ',
-                       progressbar.Bar(marker='*', left='|', right='|'),
-                       ' ', progressbar.AdaptiveETA()]
-            progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                   maxval=in_file_h5.root.Cluster.shape[0],
-                                                   term_width=80)
-            progress_bar.start()
+            # remove reference DUT from list of DUTs
+            select_duts = list(set(range(n_duts)) - set([ref_index]))
+            for dut_index in select_duts:
+                shape_column = (n_pixels[dut_index][0], n_pixels[ref_index][0])
+                shape_row = (n_pixels[dut_index][1], n_pixels[ref_index][1])
+                column_correlations.append(np.zeros(shape_column, dtype=np.int32))
+                row_correlations.append(np.zeros(shape_row, dtype=np.int32))
+                start_indices.append(None)  # Store the loop indices for speed up
 
-            pool = Pool()
-            # Loop over the clusters of reference DUT
-            for clusters_ref_dut, ref_read_index in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, chunk_size=chunk_size):
-                actual_event_numbers = clusters_ref_dut[:]['event_number']
+            with tb.open_file(input_cluster_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 cluster file
+                widgets = ['', progressbar.Percentage(), ' ',
+                           progressbar.Bar(marker='*', left='|', right='|'),
+                           ' ', progressbar.AdaptiveETA()]
+                progress_bar = progressbar.ProgressBar(widgets=widgets,
+                                                       maxval=in_file_h5.root.Cluster.shape[0],
+                                                       term_width=80)
+                progress_bar.start()
 
-                # Create correlation histograms to the reference device for all other devices
-                # Do this in parallel to safe time
+                pool = Pool()
+                # Loop over the clusters of reference DUT
+                for clusters_ref_dut, ref_read_index in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, chunk_size=chunk_size):
+                    actual_event_numbers = clusters_ref_dut[:]['event_number']
 
-                dut_results = []
-                # Loop over other DUTs
-                for index, dut_index in enumerate(select_duts):
-                    dut_results.append(pool.apply_async(_correlate_cluster, kwds={'clusters_ref_dut': clusters_ref_dut,
-                                                                                  'cluster_file': input_cluster_files[dut_index],
-                                                                                  'start_index': start_indices[index],
-                                                                                  'start_event_number': actual_event_numbers[0],
-                                                                                  'stop_event_number': actual_event_numbers[-1] + 1,
-                                                                                  'column_correlation': column_correlations[index],
-                                                                                  'row_correlation': row_correlations[index],
-                                                                                  'chunk_size': chunk_size}))
-                # Collect results when available
-                for index, dut_result in enumerate(dut_results):
-                    (start_indices[index], column_correlations[index], row_correlations[index]) = dut_result.get()
+                    # Create correlation histograms to the reference device for all other devices
+                    # Do this in parallel to safe time
 
-                progress_bar.update(ref_read_index)
+                    dut_results = []
+                    # Loop over other DUTs
+                    for index, dut_index in enumerate(select_duts):
+                        dut_results.append(pool.apply_async(_correlate_cluster, kwds={'clusters_ref_dut': clusters_ref_dut,
+                                                                                      'cluster_file': input_cluster_files[dut_index],
+                                                                                      'start_index': start_indices[index],
+                                                                                      'start_event_number': actual_event_numbers[0],
+                                                                                      'stop_event_number': actual_event_numbers[-1] + 1,
+                                                                                      'column_correlation': column_correlations[index],
+                                                                                      'row_correlation': row_correlations[index],
+                                                                                      'chunk_size': chunk_size}))
+                    # Collect results when available
+                    for index, dut_result in enumerate(dut_results):
+                        (start_indices[index], column_correlations[index], row_correlations[index]) = dut_result.get()
 
-            pool.close()
-            pool.join()
+                    progress_bar.update(ref_read_index)
 
-        # Store the correlation histograms
-        for index, dut_index in enumerate(select_duts):
-            out_col = out_file_h5.create_carray(where=out_file_h5.root,
-                                                name='Correlation_column_%d_%d' % (ref_index, dut_index),
-                                                title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
-                                                atom=tb.Atom.from_dtype(column_correlations[index].dtype),
-                                                shape=column_correlations[index].shape,
-                                                filters=tb.Filters(complib='blosc',
-                                                                   complevel=5,
-                                                                   fletcher32=False))
-            out_row = out_file_h5.create_carray(where=out_file_h5.root,
-                                                name='Correlation_row_%d_%d' % (ref_index, dut_index),
-                                                title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
-                                                atom=tb.Atom.from_dtype(row_correlations[index].dtype),
-                                                shape=row_correlations[index].shape,
-                                                filters=tb.Filters(complib='blosc',
-                                                                   complevel=5,
-                                                                   fletcher32=False))
-            out_col_reduced = out_file_h5.create_carray(where=out_file_h5.root,
-                                                        name='Reduced_background_correlation_column_%d_%d' % (ref_index, dut_index),
-                                                        title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
-                                                        atom=tb.Atom.from_dtype(column_correlations[index].dtype),
-                                                        shape=column_correlations[index].shape,
-                                                        filters=tb.Filters(complib='blosc',
-                                                                           complevel=5,
-                                                                           fletcher32=False))
-            out_row_reduced = out_file_h5.create_carray(where=out_file_h5.root,
-                                                        name='Reduced_background_correlation_row_%d_%d' % (ref_index, dut_index),
-                                                        title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
-                                                        atom=tb.Atom.from_dtype(row_correlations[index].dtype),
-                                                        shape=row_correlations[index].shape,
-                                                        filters=tb.Filters(complib='blosc',
-                                                                           complevel=5,
-                                                                           fletcher32=False))
-            out_col.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
-            out_row.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
-            out_col_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
-            out_row_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
-            out_col[:] = column_correlations[index]
-            out_row[:] = row_correlations[index]
-            for correlation in [column_correlations[index], row_correlations[index]]:
-                uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
-                background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
-                background = np.array(background, dtype=np.int32)  # make Numpy array
-                correlation -= background  # remove background
-                correlation -= correlation.min()  # only positive values
-            out_col_reduced[:] = column_correlations[index]
-            out_row_reduced[:] = row_correlations[index]
-        progress_bar.finish()
+                pool.close()
+                pool.join()
+
+            # Store the correlation histograms
+            for index, dut_index in enumerate(select_duts):
+                out_col = out_file_h5.create_carray(where=out_file_h5.root,
+                                                    name='Correlation_column_%d_%d' % (ref_index, dut_index),
+                                                    title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                    atom=tb.Atom.from_dtype(column_correlations[index].dtype),
+                                                    shape=column_correlations[index].shape,
+                                                    filters=tb.Filters(complib='blosc',
+                                                                       complevel=5,
+                                                                       fletcher32=False))
+                out_row = out_file_h5.create_carray(where=out_file_h5.root,
+                                                    name='Correlation_row_%d_%d' % (ref_index, dut_index),
+                                                    title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                    atom=tb.Atom.from_dtype(row_correlations[index].dtype),
+                                                    shape=row_correlations[index].shape,
+                                                    filters=tb.Filters(complib='blosc',
+                                                                       complevel=5,
+                                                                       fletcher32=False))
+                out_col_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                            name='Reduced_background_correlation_column_%d_%d' % (ref_index, dut_index),
+                                                            title='Column Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                            atom=tb.Atom.from_dtype(column_correlations[index].dtype),
+                                                            shape=column_correlations[index].shape,
+                                                            filters=tb.Filters(complib='blosc',
+                                                                               complevel=5,
+                                                                               fletcher32=False))
+                out_row_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                            name='Reduced_background_correlation_row_%d_%d' % (ref_index, dut_index),
+                                                            title='Row Correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                            atom=tb.Atom.from_dtype(row_correlations[index].dtype),
+                                                            shape=row_correlations[index].shape,
+                                                            filters=tb.Filters(complib='blosc',
+                                                                               complevel=5,
+                                                                               fletcher32=False))
+                out_col.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+                out_row.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+                out_col_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+                out_row_reduced.attrs.filenames = [str(input_cluster_files[ref_index]), str(input_cluster_files[dut_index])]
+                out_col[:] = column_correlations[index]
+                out_row[:] = row_correlations[index]
+                for correlation in [column_correlations[index], row_correlations[index]]:
+                    uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
+                    background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
+                    background = np.array(background, dtype=np.int32)  # make Numpy array
+                    correlation -= background  # remove background
+                    correlation -= correlation.min()  # only positive values
+                out_col_reduced[:] = column_correlations[index]
+                out_row_reduced[:] = row_correlations[index]
+            progress_bar.finish()
 
     if plot:
         plot_utils.plot_correlations(input_correlation_file=output_correlation_file, pixel_size=pixel_size, dut_names=dut_names)
