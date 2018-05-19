@@ -1,3 +1,4 @@
+import logging
 import inspect
 
 import numpy as np
@@ -34,6 +35,9 @@ class Dut(object):
             super(Dut, self).__setattr__(name, value)
         else:
             raise ValueError("Attribute '%s' not allowed to be changed." % name)
+
+    def __str__(self):
+        return ("DUT %s: " % self.__class__.__name__) + ", ".join([(name + ": " + str(getattr(self, name))) for name in self.dut_attributes])
 
     @property
     def name(self):

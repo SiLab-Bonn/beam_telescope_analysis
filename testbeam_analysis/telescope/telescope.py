@@ -1,12 +1,10 @@
 import logging
 import os
 from collections import OrderedDict
-
+from inspect import isclass
 import importlib
 
 from yaml import safe_load, safe_dump
-
-from inspect import isclass
 
 from testbeam_analysis.telescope.dut import Dut
 
@@ -37,6 +35,20 @@ class Telescope(object):
         self.dut = {}
         if configuration_file is not None:
             self.load_configuration(configuration_file)
+
+    def __len__(self):
+        return len(self.dut)
+
+    def __getitem__(self, key):
+        return self.dut[key]
+
+    def __iter__(self):
+        for sorted_key in sorted(self.dut.iterkeys()):
+            yield self.dut[sorted_key]
+
+    def __str__(self):
+        for item in self:
+            print item
 
     def load_configuration(self, configuration_file=None):
         if configuration_file:
