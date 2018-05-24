@@ -91,6 +91,32 @@ def merge_on_event_number(data_1, data_2):
 
 
 @njit
+def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x_index, ref_y_index, dut_x_index, dut_y_index, x_corr_hist, y_corr_hist):
+    """
+    """
+    dut_index = 0
+
+    # Loop to determine the needed result array size.astype(np.uint32)
+    for ref_index in range(ref_event_number.shape[0]):
+
+        while dut_index < dut_event_number.shape[0] and dut_event_number[dut_index] < ref_event_number[ref_index]:  # Catch up with outer loop
+            dut_index += 1
+
+        for curr_dut_index in range(dut_index, dut_event_number.shape[0]):
+            if ref_event_number[ref_index] == dut_event_number[curr_dut_index]:
+                x_index_ref = ref_x_index[ref_index]
+                y_index_ref = ref_y_index[ref_index]
+                x_index_dut = dut_x_index[curr_dut_index]
+                y_index_dut = dut_y_index[curr_dut_index]
+
+                # Add correlation to histogram
+                x_corr_hist[x_index_dut, x_index_ref] += 1
+                y_corr_hist[y_index_dut, y_index_ref] += 1
+            else:
+                break
+
+
+@njit
 def correlate_cluster_on_event_number(data_1, data_2, column_corr_hist, row_corr_hist):
     """Correlating the hit/cluster indices of two arrays on an event basis with all permutations.
     In other words: correlate all hit/cluster indices of particular event in data_2 with all hit/cluster indices of the same event in data_1.

@@ -103,6 +103,24 @@ class Dut(object):
     def material_budget(self, material_budget):
         self._material_budget = float(material_budget)
 
+    def x_limit(self):
+        raise NotImplementedError
+
+    def y_limit(self):
+        raise NotImplementedError
+
+    def z_limit(self):
+        raise NotImplementedError
+
+    def x_size(self):
+        raise NotImplementedError
+
+    def y_size(self):
+        raise NotImplementedError
+
+    def z_size(self):
+        raise NotImplementedError
+
     def index_to_position(self, column, row):
         raise NotImplementedError
 
@@ -152,22 +170,80 @@ class RectangularPixelDut(Dut):
     def n_rows(self, n_rows):
         self._n_rows = int(n_rows)
 
-    def index_to_position(self, column, row):
+    def x_limit(self, global_position=False):
+        if global_position:
+            conv = self.index_to_global_position
+        else:
+            conv = self.index_to_local_position
+        x_values = conv([0.5, 0.5, self.n_columns + 0.5, self.n_columns + 0.5], [0.5, self.n_rows + 0.5, 0.5, self.n_rows + 0.5])[0]
+        return min(x_values), max(x_values)
+
+    def y_limit(self, global_position=False):
+        if global_position:
+            conv = self.index_to_global_position
+        else:
+            conv = self.index_to_local_position
+        y_values = conv([0.5, 0.5, self.n_columns + 0.5, self.n_columns + 0.5], [0.5, self.n_rows + 0.5, 0.5, self.n_rows + 0.5])[1]
+        return min(y_values), max(y_values)
+
+    def z_limit(self, global_position=False):
+        if global_position:
+            conv = self.index_to_global_position
+        else:
+            conv = self.index_to_local_position
+        z_values = conv([0.5, 0.5, self.n_columns + 0.5, self.n_columns + 0.5], [0.5, self.n_rows + 0.5, 0.5, self.n_rows + 0.5])[2]
+        return min(z_values), max(z_values)
+
+    def x_size(self, global_position=False):
+        return np.squeeze(np.diff(self.x_limit(global_position=global_position)))
+
+    def y_size(self, global_position=False):
+        return np.squeeze(np.diff(self.y_limit(global_position=global_position)))
+
+    def z_size(self, global_position=False):
+        return np.squeeze(np.diff(self.z_limit(global_position=global_position)))
+
+    def index_to_local_position(self, column, row):
         column = np.array(column, dtype=np.float64)
         row = np.array(row, dtype=np.float64)
         # from index to local coordinates
-        x = np.empty_like(column, dtype=np.float64)
-        y = np.empty_like(column, dtype=np.float64)
-        z = np.full_like(column, fill_value=0.0, dtype=np.float64)  # all DUTs have their origin in 0, 0, 0
-        # whether hit index or cluster index is out of range
+        x = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+        y = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+        z = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+        # check for hit index or cluster index is out of range
         hit_selection = np.logical_and(
-            np.logical_and(column >= 0.5, column < self.n_columns + 0.5),
-            np.logical_and(row >= 0.5, row < self.n_rows + 0.5))
+            np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
+            np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
+        if not np.all(hit_selection):
+            logging.warning("Column/row out of limits.")
         x[hit_selection] = self.column_size * (column[hit_selection] - 0.5 - (0.5 * self.n_columns))
         y[hit_selection] = self.row_size * (row[hit_selection] - 0.5 - (0.5 * self.n_rows))
-        x[~hit_selection] = np.nan
-        y[~hit_selection] = np.nan
-        z[~hit_selection] = np.nan
+        z[hit_selection] = 0.0  # all DUTs have their origin in 0, 0, 0
+        return x, y, z
+
+    def local_position_to_index(self, x, y, z):
+        x = np.array(x, dtype=np.float64)
+        y = np.array(y, dtype=np.float64)
+        z = np.array(z, dtype=np.float64)
+        # check for valid z coordinates
+        if not np.allclose(np.nan_to_num(z), 0.0):
+            raise RuntimeError('The local z coordinate is z!=0.')
+        column = np.full_like(x, fill_value=np.nan, dtype=np.float64)
+        row = np.full_like(x, fill_value=np.nan, dtype=np.float64)
+        # check for hit index or cluster index is out of range
+        hit_selection = np.logical_and(
+            np.logical_and(x >= -0.5 * self.n_columns * self.column_size, x <= 0.5 * self.n_columns * self.column_size),
+            np.logical_and(x >= -0.5 * self.n_rows * self.row_size, x <= 0.5 * self.n_rows * self.row_size))
+        if not np.all(hit_selection):
+            logging.warning("x/y position out of limits.")
+        column[hit_selection] = (x[hit_selection] / self.column_size) + 0.5 + (0.5 * self.n_columns)
+        row[hit_selection] = (y[hit_selection] / self.row_size) + 0.5 + (0.5 * self.n_rows)
+        return column, row
+
+    def local_to_global_position(self, x, y, z):
+        x = np.array(x, dtype=np.float64)
+        y = np.array(y, dtype=np.float64)
+        z = np.array(z, dtype=np.float64)
         # apply DUT alignment
         transformation_matrix = geometry_utils.local_to_global_transformation_matrix(
             x=self.translation_x,
@@ -176,14 +252,13 @@ class RectangularPixelDut(Dut):
             alpha=self.rotation_alpha,
             beta=self.rotation_beta,
             gamma=self.rotation_gamma)
-        x, y, z = geometry_utils.apply_transformation_matrix(
+        return geometry_utils.apply_transformation_matrix(
             x=x,
             y=y,
             z=z,
             transformation_matrix=transformation_matrix)
-        return x, y, z
 
-    def position_to_index(self, x, y, z):
+    def global_to_local_position(self, x, y, z):
         x = np.array(x, dtype=np.float64)
         y = np.array(y, dtype=np.float64)
         z = np.array(z, dtype=np.float64)
@@ -195,29 +270,17 @@ class RectangularPixelDut(Dut):
             alpha=self.rotation_alpha,
             beta=self.rotation_beta,
             gamma=self.rotation_gamma)
-        x, y, z = geometry_utils.apply_transformation_matrix(
+        return geometry_utils.apply_transformation_matrix(
             x=x,
             y=y,
             z=z,
             transformation_matrix=transformation_matrix)
-        if not np.allclose(np.nan_to_num(z), 0.0):
-            raise RuntimeError('The transformation to the local coordinate system did not give all z = 0.')
-        column = np.empty_like(x, dtype=np.float64)
-        row = np.empty_like(x, dtype=np.float64)
-        column = (x / self.column_size) + 0.5 + (0.5 * self.n_columns)
-        row = (y / self.row_size) + 0.5 + (0.5 * self.n_rows)
-        # remove nans
-        column = np.nan_to_num(column)
-        row = np.nan_to_num(row)
-        if np.any(np.logical_and(
-            np.logical_and(
-                column != 0.0,
-                row != 0.0),
-            np.logical_or(
-                np.logical_or(column < 0.5, column >= (self.n_columns + 0.5)),
-                np.logical_or(row < 0.5, row >= (self.n_rows + 0.5))))):
-            raise RuntimeError('The transformation to the local coordinate system did not give all columns and rows within boundaries.')
-        return column, row
+
+    def index_to_global_position(self, column, row):
+        return self.local_to_global_position(*self.index_to_local_position(column=column, row=row))
+
+    def global_position_to_index(self, x, y, z):
+        return self.local_position_to_index(*self.global_to_local_position(x=x, y=y, z=z))
 
 
 class FEI4(RectangularPixelDut):

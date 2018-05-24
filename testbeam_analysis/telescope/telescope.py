@@ -6,8 +6,6 @@ import importlib
 
 from yaml import safe_load, safe_dump
 
-from testbeam_analysis.telescope.dut import Dut
-
 
 def open_configuation(configuation):
     configuration_dict = {}
@@ -47,8 +45,24 @@ class Telescope(object):
             yield self.dut[sorted_key]
 
     def __str__(self):
+        string = ""
         for item in self:
-            print item
+            if string:
+                string += '\n'
+            string += str(item)
+        return string
+
+    @property
+    def dut_names(self):
+        return [item.name for item in self]
+
+    @property
+    def pixel_sizes(self):
+        return [(item.column_size, item.row_size) for item in self]
+
+    @property
+    def n_pixels(self):
+        return [(item.n_columns, item.n_rows) for item in self]
 
     def load_configuration(self, configuration_file=None):
         if configuration_file:
@@ -56,45 +70,35 @@ class Telescope(object):
         else:
             configuration_file = self.configuration_file
 
-        if configuration_file is not None:
-            if os.path.isfile(os.path.abspath(configuration_file)):
-                with open(os.path.abspath(configuration_file), 'r') as f:
-                    configuration = safe_load(f)
-                if not configuration:
-                    configuration = {}
-                if not configuration["TELESCOPE"]:
-                    configuration["TELESCOPE"] = {}
-                if not configuration["TELESCOPE"]["DUT"]:
-                    configuration["TELESCOPE"]["DUT"] = {}
-            else:
-                configuration = {}
+        configuration = None
+        if configuration_file and os.path.isfile(os.path.abspath(configuration_file)):
+            with open(os.path.abspath(configuration_file), 'r') as f:
+                configuration = safe_load(f)
         else:
-            raise ValueError("No configuration file given.")
+            raise ValueError("No valid configuration file given.")
 
-        if "TELESCOPE" in configuration:
+        if configuration and "TELESCOPE" in configuration:
             if "DUT" in configuration["TELESCOPE"]:
                 for dut_id, dut_configuration in configuration["TELESCOPE"]["DUT"].items():
                     dut_type = dut_configuration.pop("dut_type", "RectangularPixelDut")
                     self.add_dut(dut_type=dut_type, dut_id=dut_id, **dut_configuration)
 
-    def save_configuration(self, configuration_file=None):
+    def save_configuration(self, configuration_file=None, keep_others=False):
         if configuration_file:
             self.configuration_file = configuration_file
         else:
             configuration_file = self.configuration_file
 
-        if configuration_file is not None:
-            if os.path.isfile(os.path.abspath(configuration_file)):
+        if configuration_file:
+            if keep_others and os.path.isfile(os.path.abspath(configuration_file)):
                 with open(os.path.abspath(configuration_file), 'r') as f:
                     configuration = safe_load(f)
             else:
                 configuration = {}
-            if not configuration:
-                configuration = {}
-            if not configuration["TELESCOPE"]:
+            if 'TELESCOPE' not in configuration:
                 configuration["TELESCOPE"] = {}
-            if not configuration["TELESCOPE"]["DUT"]:
-                configuration["TELESCOPE"]["DUT"] = {}
+            # overwrite all existing DUTs
+            configuration["TELESCOPE"]["DUT"] = {}
             for dut_id, dut in self.dut.items():
                 dut_configuration = {name: getattr(dut, name) for name in dut.dut_attributes}
                 dut_configuration["dut_type"] = dut.__class__.__name__
@@ -104,7 +108,7 @@ class Telescope(object):
             with open(configuration_file, 'w') as f:
                 safe_dump(configuration, f, default_flow_style=False)
         else:
-            raise ValueError("No configuration file given.")
+            raise ValueError("No valid configuration file given.")
 
     def add_dut(self, dut_type, dut_id, **kwargs):
         if not isinstance(dut_id, (long, int)):

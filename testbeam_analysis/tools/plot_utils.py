@@ -41,7 +41,7 @@ def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=
 
 
 def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None):
-#     extent = [0.5, plot_range[0] + .5, plot_range[1] + .5, 0.5]
+    #     extent = [0.5, plot_range[0] + .5, plot_range[1] + .5, 0.5]
     if z_max is None:
         if hist2d.all() is np.ma.masked:  # check if masked array is fully masked
             z_max = 1
@@ -419,17 +419,17 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 ax.xaxis.set_ticks(x)
                 fig.subplots_adjust(bottom=0.2)
                 ax.set_xticklabels([u"\u2004\u2596",
-                                    u"\u2597\u2009\u2596", # 2 hit cluster, horizontal
-                                    u"\u2004\u2596\n\u2004\u2598", # 2 hit cluster, vertical
-                                    u"\u259e", # 2 hit cluster
-                                    u"\u259a", # 2 hit cluster
-                                    u"\u2599", # 3 hit cluster, L
-                                    u"\u259f", # 3 hit cluster
-                                    u"\u259b", # 3 hit cluster
-                                    u"\u259c", # 3 hit cluster
-                                    u"\u2004\u2596\u2596\u2596", # 3 hit cluster, horizontal
-                                    u"\u2004\u2596\n\u2004\u2596\n\u2004\u2596", # 3 hit cluster, vertical
-                                    u"\u2597\u2009\u2596\n\u259d\u2009\u2598"]) # 4 hit cluster
+                                    u"\u2597\u2009\u2596",  # 2 hit cluster, horizontal
+                                    u"\u2004\u2596\n\u2004\u2598",  # 2 hit cluster, vertical
+                                    u"\u259e",  # 2 hit cluster
+                                    u"\u259a",  # 2 hit cluster
+                                    u"\u2599",  # 3 hit cluster, L
+                                    u"\u259f",  # 3 hit cluster
+                                    u"\u259b",  # 3 hit cluster
+                                    u"\u259c",  # 3 hit cluster
+                                    u"\u2004\u2596\u2596\u2596",  # 3 hit cluster, horizontal
+                                    u"\u2004\u2596\n\u2004\u2596\n\u2004\u2596",  # 3 hit cluster, vertical
+                                    u"\u2597\u2009\u2596\n\u259d\u2009\u2598"])  # 4 hit cluster
                 ax.set_title('Cluster shapes%s\n(%i hits in %i clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
@@ -450,465 +450,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
         return figs
 
 
-def plot_correlation_fit(x, y, x_fit, y_fit, xlabel, fit_label, title, output_pdf=None, gui=False, figs=None):
-    if not output_pdf and not gui:
-        return
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    ax.plot(x, y, 'r.-', label='Data')
-    ax.plot(x_fit, y_fit, 'g-', linewidth=2, label='Fit: %s' % fit_label)
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel('#')
-    ax.set_xlim((np.min(x), np.max(x)))
-    ax.grid()
-    ax.legend(loc=0)
-
-    if gui:
-        figs.append(fig)
-    else:
-        output_pdf.savefig(fig)
-
-
-def plot_prealignments(x, mean_fitted, mean_error_fitted, n_cluster, ref_name, dut_name, prefix, pre_fit=None, non_interactive=False):
-    '''PLots the correlation and lets the user cut on the data in an interactive way.
-
-    Parameters
-    ----------
-    mean_fitted : array like
-        The fitted peaks of one column / row correlation
-    mean_error_fitted : array like
-        The error of the fitted peaks of one column / row correlation
-    n_cluster : array like
-        The number of hits per column / row
-    ref_name : string
-        Reference name
-    dut_name : string
-        DUT name
-    title : string
-        Plot title
-    pre_fit : iterable
-        Tuple of offset and slope, e.g. (offset, slope). If proper values are provided, the
-        automatic pre-alignment precision can be improved. If None, the data will be fitted.
-    non_interactive : bool
-        Deactivate user interaction to apply cuts
-    '''
-    # Global variables needed to manipulate them within a matplotlib QT slot function
-    global selected_data
-    global fit
-    global do_refit
-    global error_limit
-    global offset_limit
-    global left_limit
-    global right_limit
-    global offset
-    global fit
-    global fit_fn
-
-    do_refit = True  # True as long as not the Refit button is pressed, needed to signal calling function that the fit is ok or not
-
-    def update_offset(offset_limit_new):  # Function called when offset slider is moved
-        global selected_data
-        global offset_limit
-        offset_limit_tmp = offset_limit
-        offset_limit = offset_limit_new
-        update_selected_data()
-        if np.count_nonzero(selected_data) < 2:
-            logging.warning("Offset limit: less than 2 data points are left")
-            offset_limit = offset_limit_tmp
-            update_selected_data()
-        update_plot()
-
-    def update_error(error_limit_new):  # Function called when error slider is moved
-        global selected_data
-        global error_limit
-        error_limit_tmp = error_limit
-        error_limit = error_limit_new / 10.0
-        update_selected_data()
-        if np.count_nonzero(selected_data) < 2:
-            logging.warning("Error limit: less than 2 data points are left")
-            error_limit = error_limit_tmp
-            update_selected_data()
-        update_plot()
-
-    def update_left_limit(left_limit_new):  # Function called when left limit slider is moved
-        global selected_data
-        global left_limit
-        left_limit_tmp = left_limit
-        left_limit = left_limit_new
-        update_selected_data()
-        if np.count_nonzero(selected_data) < 2:
-            logging.warning("Left limit: less than 2 data points are left")
-            left_limit = left_limit_tmp
-            update_selected_data()
-        update_plot()
-
-    def update_right_limit(right_limit_new):  # Function called when right limit slider is moved
-        global selected_data
-        global right_limit
-        right_limit_tmp = right_limit
-        right_limit = right_limit_new
-        update_selected_data()
-        if np.count_nonzero(selected_data) < 2:
-            logging.warning("Right limit: less than 2 data points are left")
-            right_limit = right_limit_tmp
-            update_selected_data()
-        update_plot()
-
-    def update_selected_data():
-        global selected_data
-        global offset
-        global error_limit
-        global offset_limit
-        global left_limit
-        global right_limit
-        #init_selected_data()
-        selected_data = initial_select.copy()
-#         selected_data &= np.logical_and(np.logical_and(np.logical_and(np.abs(offset) <= offset_limit, np.abs(mean_error_fitted) <= error_limit), x >= left_limit), x <= right_limit)
-        selected_data[selected_data] = (np.abs(offset[selected_data]) <= offset_limit)
-        selected_data[selected_data] = (np.abs(mean_error_fitted[selected_data]) <= error_limit)
-        selected_data &= (x >= left_limit)
-        selected_data &= (x <= right_limit)
-
-    def update_auto(event):  # Function called when auto button is pressed
-        global selected_data
-        global offset
-        global error_limit
-        global offset_limit
-        global left_limit
-        global right_limit
-
-        selected_data_tmp = selected_data.copy()
-        error_limit_tmp = error_limit
-        offset_limit_tmp = offset_limit
-        left_limit_tmp = left_limit
-        right_limit_tmp = right_limit
-
-        # This function automatically applies cuts according to these percentiles
-        n_hit_percentile = 1
-        mean_error_percentile = 95
-        offset_percentile = 99
-
-        error_median = np.nanmedian(mean_error_fitted[selected_data])
-        error_std = np.nanstd(mean_error_fitted[selected_data])
-        error_limit = max(error_median + error_std * 2, np.percentile(np.abs(mean_error_fitted[selected_data]), mean_error_percentile))
-        offset_median = np.nanmedian(offset[selected_data])
-        offset_std = np.nanstd(offset[selected_data])
-        offset_limit = max(offset_median + offset_std * 2, np.percentile(np.abs(offset[selected_data]), offset_percentile))  # Do not cut too much on the offset, it depends on the fit that might be off
-
-        n_hit_cut = np.percentile(n_cluster[selected_data], n_hit_percentile)  # Cut off low/high % of the hits
-        n_hit_cut_index = np.zeros_like(n_cluster, dtype=np.bool)
-        n_hit_cut_index |= (n_cluster <= n_hit_cut)
-        n_hit_cut_index[selected_data] |= (np.abs(offset[selected_data]) > offset_limit)
-        n_hit_cut_index[~np.isfinite(offset)] = 1
-        n_hit_cut_index[selected_data] |= (np.abs(mean_error_fitted[selected_data]) > error_limit)
-        n_hit_cut_index[~np.isfinite(mean_error_fitted)] = 1
-        n_hit_cut_index = np.where(n_hit_cut_index == 1)[0]
-        left_index = np.where(x <= left_limit)[0][-1]
-        right_index = np.where(x >= right_limit)[0][0]
-
-        # update plot and selected data
-        n_hit_cut_index = n_hit_cut_index[n_hit_cut_index >= left_index]
-        n_hit_cut_index = n_hit_cut_index[n_hit_cut_index <= right_index]
-        if not np.any(n_hit_cut_index == left_index):
-            n_hit_cut_index = np.r_[[left_index], n_hit_cut_index]
-        if not np.any(n_hit_cut_index == right_index):
-            n_hit_cut_index = np.r_[n_hit_cut_index, [right_index]]
-
-        if np.any(n_hit_cut_index.shape):  # If data has no anomalies n_hit_cut_index is empty
-            def consecutive(data, max_stepsize=1):  # Returns group of consecutive increasing values
-                return np.split(data, np.where(np.diff(data) > max_stepsize)[0] + 1)
-            cons = consecutive(n_hit_cut_index, max_stepsize=10)
-            left_cut = left_index if cons[0].shape[0] == 1 else cons[0][-1]
-            right_cut = right_index if cons[-1].shape[0] == 1 else cons[-1][0] - 1
-            left_limit = x[left_cut]
-            right_limit = x[right_cut]
-
-        update_selected_data()
-        if np.count_nonzero(selected_data) < 2:
-            logging.info("Automatic pre-alignment: less than 2 data points are left, discard new limits")
-            selected_data = selected_data_tmp
-            error_limit = error_limit_tmp
-            offset_limit = offset_limit_tmp
-            left_limit = left_limit_tmp
-            right_limit = right_limit_tmp
-            update_selected_data()
-        fit_data()
-        if not non_interactive:
-            offset_limit = np.max(np.abs(offset[selected_data]))
-            error_limit = np.max(np.abs(mean_error_fitted[selected_data]))
-            update_plot()
-
-    def update_plot():  # Replot correlation data with new selection
-        global selected_data
-        global offset
-        global error_limit
-        global offset_limit
-        global left_limit
-        global right_limit
-        if np.count_nonzero(selected_data) > 1:
-            left_index = np.where(x <= left_limit)[0][-1]
-            right_index = np.where(x >= right_limit)[0][0]
-            # set ymax to maximum of either error or offset within the left and right limit, and increase by 10%
-            ax2.set_ylim(ymax=max(np.max(np.abs(mean_error_fitted[selected_data])) * 10.0, np.max(np.abs(offset[selected_data])) * 1.0) * 1.1)
-            offset_limit_plot.set_ydata([offset_limit, offset_limit])
-            error_limit_plot.set_ydata([error_limit * 10.0, error_limit * 10.0])
-            left_limit_plot.set_xdata([left_limit, left_limit])
-            right_limit_plot.set_xdata([right_limit, right_limit])
-            # setting calculated offset data
-            offset_plot.set_data(x[initial_select], np.abs(offset[initial_select]))
-            # update offset slider
-            offset_range = offset[left_index:right_index]
-            offset_range = offset_range[np.isfinite(offset_range)]
-            offset_max = np.max(np.abs(offset_range))
-            ax_offset.set_xlim(xmax=offset_max)
-            offset_slider.valmax = offset_max
-            cid = offset_slider.cnt - 1
-            offset_slider.disconnect(cid)
-            offset_slider.set_val(offset_limit)
-            offset_slider.on_changed(update_offset)
-            # update error slider
-            error_range = mean_error_fitted[left_index:right_index]
-            error_range = error_range[np.isfinite(error_range)]
-            error_max = np.max(np.abs(error_range)) * 10.0
-            ax_error.set_xlim(xmax=error_max)
-            error_slider.valmax = error_max
-            cid = error_slider.cnt - 1
-            error_slider.disconnect(cid)
-            error_slider.set_val(error_limit * 10.0)
-            error_slider.on_changed(update_error)
-            # update left slider
-            cid = left_slider.cnt - 1
-            left_slider.disconnect(cid)
-            left_slider.set_val(left_limit)
-            left_slider.on_changed(update_left_limit)
-            # update right slider
-            cid = right_slider.cnt - 1
-            right_slider.disconnect(cid)
-            right_slider.set_val(right_limit)
-            right_slider.on_changed(update_right_limit)
-            # setting calculated fit line
-            line_plot.set_data(x, fit_fn(x))
-        else:
-            if non_interactive:
-                raise RuntimeError('Coarse alignment in non-interactive mode failed. Rerun with less iterations or in interactive mode!')
-            else:
-                logging.info('Cuts are too tight. Not enough data to fit')
-
-    def init_selected_data():
-        global selected_data
-        selected_data = np.ones_like(mean_fitted, dtype=np.bool)
-        selected_data &= np.isfinite(mean_fitted)
-        selected_data &= np.isfinite(mean_error_fitted)
-
-    def finish(event):  # Fit result is ok
-        global do_refit
-        do_refit = False  # Set to signal that no refit is required anymore
-        update_selected_data()
-        fit_data()
-        plt.close()  # Close the plot to let the program continue (blocking)
-
-    def refit(event):
-        fit_data()
-        update_plot()
-
-    def fit_data():
-        global selected_data
-        global offset
-        global fit
-        global fit_fn
-        try:
-            fit, _ = curve_fit(testbeam_analysis.tools.analysis_utils.linear, x[selected_data], mean_fitted[selected_data])  # Fit straight line
-        except TypeError:  # if number of points < 2
-            raise RuntimeError('Cannot find any correlation, please check data!')
-        fit_fn = np.poly1d(fit[::-1])
-        offset = fit_fn(x) - mean_fitted  # Calculate straight line fit offset
-
-    def pre_fit_data():
-        global offset
-        global fit_fn
-        fit_fn = np.poly1d(pre_fit[::-1])
-        offset = fit_fn(x) - mean_fitted  # Calculate straight line fit offset
-
-    # Require the gaussian fit error to be reasonable
-#     selected_data = (mean_error_fitted < 1e-2)
-    # Check for nan's and inf's
-    init_selected_data()
-    initial_select = selected_data.copy()
-
-    # Calculate and plot selected data + fit + fit offset and gauss fit error
-    if pre_fit is None:
-        fit_data()
-    else:
-        pre_fit_data()
-    offset_limit = np.max(np.abs(offset[selected_data]))  # Calculate starting offset cut
-    error_limit = np.max(np.abs(mean_error_fitted[selected_data]))  # Calculate starting fit error cut
-    left_limit = np.min(x[selected_data])  # Calculate starting left cut
-    right_limit = np.max(x[selected_data])  # Calculate starting right cut
-
-    # setup plotting
-    if non_interactive:
-        pass
-#         fig = Figure()
-#         _ = FigureCanvas(fig)
-    else:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ax2 = ax.twinx()
-        # Setup plot
-        mean_plot, = ax.plot(x[selected_data], mean_fitted[selected_data], 'o-', label='Data prefit')  # Plot correlation
-        line_plot, = ax.plot(x[selected_data], fit_fn(x[selected_data]), '-', label='Line fit')  # Plot line fit
-        error_plot, = ax2.plot(x[selected_data], np.abs(mean_error_fitted[selected_data]) * 10.0, 'ro-', label='Error x10')  # Plot gaussian fit error
-        offset_plot, = ax2.plot(x[selected_data], np.abs(offset[selected_data]), 'go-', label='Offset')  # Plot line fit offset
-        offset_limit_plot = ax2.axhline(offset_limit, linestyle='--', color='g', linewidth=2)  # Plot offset cut as a line
-        error_limit_plot = ax2.axhline(error_limit * 10.0, linestyle='--', color='r', linewidth=2)  # Plot error cut as a line
-        left_limit_plot = ax2.axvline(left_limit, linestyle='-', color='r', linewidth=2)  # Plot left cut as a vertical line
-        right_limit_plot = ax2.axvline(right_limit, linestyle='-', color='r', linewidth=2)  # Plot right cut as a vertical line
-        ncluster_plot = ax.bar(x[selected_data], n_cluster[selected_data] / np.max(n_cluster[selected_data]).astype(np.float) * abs(np.diff(ax.get_ylim())[0]), bottom=ax.get_ylim()[0], align='center', alpha=0.1, label='#Cluster [a.u.]', width=np.min(np.diff(x[selected_data])))  # Plot number of hits for each correlation point
-        ax.set_ylim(ymin=np.min(mean_fitted[selected_data]), ymax=np.max(mean_fitted[selected_data]))
-        ax2.set_ylim(ymin=0.0, ymax=max(np.max(np.abs(mean_error_fitted[selected_data])) * 10.0, np.max(np.abs(offset[selected_data])) * 1.0) * 1.1)
-        ax.set_xlim((np.nanmin(x), np.nanmax(x)))
-        ax.set_title("Correlation of %s: %s vs. %s" % (prefix + "s", ref_name, dut_name))
-        ax.set_xlabel("%s [um]" % dut_name)
-        ax.set_ylabel("%s [um]" % ref_name)
-        ax2.set_ylabel("Error / Offset")
-        lines, labels = ax.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax2.legend(lines + lines2, labels + labels2, loc=0)
-        ax.grid()
-        # Setup interactive sliders/buttons
-        ax_offset = plt.axes([0.410, 0.04, 0.2, 0.02], facecolor='white')
-        ax_error = plt.axes([0.410, 0.01, 0.2, 0.02], facecolor='white')
-        ax_left_limit = plt.axes([0.125, 0.04, 0.2, 0.02], facecolor='white')
-        ax_right_limit = plt.axes([0.125, 0.01, 0.2, 0.02], facecolor='white')
-        ax_button_auto = plt.axes([0.670, 0.01, 0.06, 0.05], facecolor='black')
-        ax_button_refit = plt.axes([0.735, 0.01, 0.08, 0.05], facecolor='black')
-        ax_button_ok = plt.axes([0.82, 0.01, 0.08, 0.05], facecolor='black')
-        # Create widgets
-        offset_slider = Slider(ax=ax_offset, label='Offset limit', valmin=0.0, valmax=offset_limit, valinit=offset_limit, closedmin=True, closedmax=True)
-        error_slider = Slider(ax=ax_error, label='Error limit', valmin=0.0, valmax=error_limit * 10.0, valinit=error_limit * 10.0, closedmin=True, closedmax=True)
-        left_slider = Slider(ax=ax_left_limit, label='Left limit', valmin=left_limit, valmax=right_limit, valinit=left_limit, closedmin=True, closedmax=True)
-        right_slider = Slider(ax=ax_right_limit, label='Right limit', valmin=left_limit, valmax=right_limit, valinit=right_limit, closedmin=True, closedmax=True)
-        auto_button = Button(ax_button_auto, 'Auto')
-        refit_button = Button(ax_button_refit, 'Refit')
-        ok_button = Button(ax_button_ok, 'OK')
-        # Connect slots
-        offset_slider.on_changed(update_offset)
-        error_slider.on_changed(update_error)
-        left_slider.on_changed(update_left_limit)
-        right_slider.on_changed(update_right_limit)
-        auto_button.on_clicked(update_auto)
-        refit_button.on_clicked(refit)
-        ok_button.on_clicked(finish)
-        # refit on pressing close button, same effect as OK button
-        fig.canvas.mpl_connect(s='close_event', func=finish)
-
-    if non_interactive:
-        update_auto(None)
-    else:
-        plt.get_current_fig_manager().window.showMaximized()  # Plot needs to be large, so maximize
-        plt.show()
-
-    return selected_data, fit, do_refit  # Return cut data for further processing
-
-
-def plot_prealignment_fit(x, mean_fitted, mask, fit_fn, fit, fit_limit, pcov, chi2, mean_error_fitted, n_cluster, n_pixel_ref, n_pixel_dut, pixel_size_ref, pixel_size_dut, ref_name, dut_name, prefix, output_pdf=None, gui=False, figs=None):
-    if not output_pdf and not gui:
-        return
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax1 = fig.add_subplot(111)
-    ax2 = ax1.twinx()
-    ax1.errorbar(x[mask], mean_fitted[mask], yerr=mean_error_fitted[mask], linestyle='', color="blue", fmt='.', label='Correlation', zorder=9)
-    ax2.plot(x[mask], mean_error_fitted[mask] * 10.0, linestyle='', color="red", marker='o', label='Error x10', zorder=2)
-    ax2.errorbar(x[mask], np.abs(fit_fn(x[mask]) - mean_fitted[mask]), mean_error_fitted[mask], linestyle='', color="lightgreen", marker='o', label='Offset', zorder=3)
-    ax2.plot(x, chi2 / 1e5, 'r--', label="Chi$^2$")
-    # Plot masked data points, but they should not influence the ylimit
-    y_limits = ax2.get_ylim()
-    ax1.plot(x[~mask], mean_fitted[~mask], linestyle='', color="darkblue", marker='.', zorder=10)
-    ax2.plot(x[~mask], mean_error_fitted[~mask] * 10.0, linestyle='', color="darkred", marker='o', zorder=4)
-    ax2.errorbar(x[~mask], np.abs(fit_fn(x[~mask]) - mean_fitted[~mask]), mean_error_fitted[~mask], linestyle='', color="darkgreen", marker='o', zorder=5)
-    ax2.set_ylim(y_limits)
-    ax2.set_ylim(ymin=0.0)
-    ax1.set_ylim((-n_pixel_ref * pixel_size_ref / 2.0, n_pixel_ref * pixel_size_ref / 2.0))
-    ax1.set_xlim((-n_pixel_dut * pixel_size_dut / 2.0, n_pixel_dut * pixel_size_dut / 2.0))
-    ax2.bar(x, n_cluster / np.max(n_cluster).astype(np.float) * ax2.get_ylim()[1], align='center', alpha=0.5, label='# Cluster [a.u.]', width=np.min(np.diff(x)), zorder=1)  # Plot number of hits for each correlation point
-    # Plot again to draw line above the markers
-    if len(pcov) > 1:
-        fit_legend_entry = 'Fit: $c_0+c_1*x$\n$c_0=%.1e \pm %.1e$\n$c_1=%.1e \pm %.1e$' % (fit[0], np.absolute(pcov[0][0]) ** 0.5, fit[1], np.absolute(pcov[1][1]) ** 0.5)
-    else:
-        fit_legend_entry = 'Fit: $c_0+x$\n$c_0=%.1e \pm %.1e$' % (fit[0], np.absolute(pcov[0][0]) ** 0.5)
-    ax1.plot(x, fit_fn(x), linestyle='-', color="darkorange", label=fit_legend_entry, zorder=11)
-    if fit_limit is not None:
-        if np.isfinite(fit_limit[0]):
-            ax1.axvline(x=fit_limit[0], linewidth=2, color='r', zorder=12)
-        if np.isfinite(fit_limit[1]):
-            ax1.axvline(x=fit_limit[1], linewidth=2, color='r', zorder=13)
-    lines, labels = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines + lines2, labels + labels2, loc=0)
-    ax1.set_title("Correlation of %s: %s vs. %s" % (prefix + "s", ref_name, dut_name))
-    ax1.set_xlabel("%s %s [um]" % (prefix.title(), dut_name))
-    ax1.set_ylabel("%s %s [um]" % (prefix.title(), ref_name))
-    ax2.set_ylabel("Error / Offset [a.u.]")
-    ax1.grid()
-    # put ax in front of ax2
-    ax1.set_zorder(ax2.get_zorder() + 1)
-    ax1.patch.set_visible(False)  # hide the canvas
-
-    if gui:
-        figs.append(fig)
-    else:
-        output_pdf.savefig(fig)
-
-
-def plot_hough(x, data, accumulator, offset, slope, theta_edges, rho_edges, n_pixel_ref, n_pixel_dut, pixel_size_ref, pixel_size_dut, ref_name, dut_name, prefix, output_pdf=None, gui=False, figs=None):
-    if not output_pdf and not gui:
-        return
-    capital_prefix = prefix
-    if prefix:
-        capital_prefix = prefix.title()
-    if pixel_size_dut and pixel_size_ref:
-        aspect = pixel_size_ref / pixel_size_dut
-    else:
-        aspect = "auto"
-
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    cmap = cm.get_cmap('viridis')
-    cmap.set_bad('w')
-    ax.imshow(accumulator, interpolation="none", origin="lower", aspect="auto", cmap=cmap, extent=[np.rad2deg(theta_edges[0]), np.rad2deg(theta_edges[-1]), rho_edges[0], rho_edges[-1]])
-    ax.set_xticks([-90, -45, 0, 45, 90])
-    ax.set_title("Accumulator plot of %s correlations: %s vs. %s" % (prefix, ref_name, dut_name))
-    ax.set_xlabel(r'$\theta$ [degree]')
-    ax.set_ylabel(r'$\rho$ [um]')
-
-    if gui:
-        figs.append(fig)
-    else:
-        output_pdf.savefig(fig)
-
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    fit_legend_entry = 'Hough: $c_0+c_1*x$\n$c_0=%.1e$\n$c_1=%.1e$' % (offset, slope)
-    ax.plot(x, testbeam_analysis.tools.analysis_utils.linear(x, offset, slope), linestyle=':', color="darkorange", label=fit_legend_entry)
-    ax.imshow(data, interpolation="none", origin="lower", aspect=aspect, cmap='Greys')
-    ax.set_title("Correlation of %s: %s vs. %s" % (prefix + "s", ref_name, dut_name))
-    ax.set_xlabel("%s %s" % (capital_prefix, dut_name))
-    ax.set_ylabel("%s %s" % (capital_prefix, ref_name))
-    ax.legend(loc=0)
-
-    if gui:
-        figs.append(fig)
-    else:
-        output_pdf.savefig(fig)
-
-
-
-def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=None, dut_names=None, gui=False):
+def plot_correlations(input_correlation_file, output_pdf_file=None, resolution=None, dut_names=None, gui=False):
     '''Takes the correlation histograms and plots them.
 
     Parameters
@@ -932,16 +474,19 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=N
                     indices = re.findall(r'\d+', node.name)
                     ref_index = int(indices[0])
                     dut_index = int(indices[1])
-                    if "column" in node.name:
-                        column = True
+                    if "Correlation_x" in node.name:
+                        x_direction = True
                     else:
-                        column = False
+                        x_direction = False
                     if "background" in node.name:
                         reduced_background = True
                     else:
                         reduced_background = False
                 except AttributeError:
                     continue
+                ref_size = node.attrs.ref_size
+                dut_size = node.attrs.dut_size
+
                 data = node[:]
 
                 if np.all(data <= 0):
@@ -954,18 +499,15 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=N
                 cmap = cm.get_cmap('viridis')
                 cmap.set_bad('w')
                 norm = colors.LogNorm()
-                if pixel_size:
-                    aspect = pixel_size[ref_index][0 if column else 1] / (pixel_size[dut_index][0 if column else 1])
-                else:
-                    aspect = "auto"
-                im = ax.imshow(data.T, origin="lower", cmap=cmap, norm=norm, aspect=aspect, interpolation='none')
+                aspect = 1.0  # "auto"
+                im = ax.imshow(data.T, interpolation='none', origin="lower", norm=norm, aspect=aspect, cmap=cmap, extent=[-dut_size / 2.0, dut_size / 2.0, -ref_size / 2.0, ref_size / 2.0])
                 dut_name = dut_names[dut_index] if dut_names else ("DUT " + str(dut_index))
                 ref_name = dut_names[ref_index] if dut_names else ("DUT " + str(ref_index))
-                ax.set_title("Correlation of %s:\n%s vs. %s%s" % ("columns" if "column" in node.title.lower() else "rows", ref_name, dut_name, " (reduced background)" if reduced_background else ""))
-                ax.set_xlabel('%s %s' % ("Column" if "column" in node.title.lower() else "Row", dut_name))
-                ax.set_ylabel('%s %s' % ("Column" if "column" in node.title.lower() else "Row", ref_name))
+                ax.set_title("%s correlation%s:\n%s vs. %s" % ("X" if x_direction else "Y", " (reduced background)" if reduced_background else "", ref_name, dut_name))
+                ax.set_xlabel('%s %s $\mathrm{\mu}$m]' % (dut_name, "x" if x_direction else "y"))
+                ax.set_ylabel('%s %s $\mathrm{\mu}$m]' % (ref_name, "x" if x_direction else "y"))
                 # do not append to axis to preserve aspect ratio
-                fig.colorbar(im, cmap=cmap, norm=norm, fraction=0.04, pad=0.05)
+                fig.colorbar(im, norm=norm, cmap=cmap, fraction=0.04, pad=0.05)
 
                 if gui:
                     figs.append(fig)
@@ -974,6 +516,46 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, pixel_size=N
 
     if gui:
         return figs
+
+
+def plot_hough(dut_pos, data, accumulator, offset, slope, theta_edges, rho_edges, ref_size, dut_size, ref_name, dut_name, x_direction, reduce_background, output_pdf=None, gui=False, figs=None):
+    if not output_pdf and not gui:
+        return
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    cmap = cm.get_cmap('viridis')
+    cmap.set_bad('w')
+    ax.imshow(np.flip(np.flip(accumulator, 0), 1), interpolation="none", origin="lower", aspect="auto", cmap=cmap, extent=[np.rad2deg(theta_edges[0]), np.rad2deg(theta_edges[-1]), rho_edges[0], rho_edges[-1]])
+    ax.set_xticks([-90, -45, 0, 45, 90])
+    ax.set_title("%s correlation accumulator%s:\n%s vs. %s" % ('X' if x_direction else 'Y', " (reduced background)" if reduce_background else "", ref_name, dut_name))
+    ax.set_xlabel(r'$\theta$ [degree]')
+    ax.set_ylabel(r'$\rho$ [$\mathrm{\mu}$m]')
+
+    if gui:
+        figs.append(fig)
+    else:
+        output_pdf.savefig(fig)
+
+    aspect = 1.0  # "auto"
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    fit_legend_entry = 'Hough: $c_0+c_1*x$\n$c_0=%.1e$\n$c_1=%.1e$' % (offset, slope)
+    ax.plot(dut_pos, testbeam_analysis.tools.analysis_utils.linear(dut_pos, offset, slope), linestyle=':', color="darkorange", label=fit_legend_entry)
+    ax.imshow(data, interpolation="none", origin="lower", aspect=aspect, cmap='Greys', extent=[-dut_size / 2.0, dut_size / 2.0, -ref_size / 2.0, ref_size / 2.0])
+    ax.set_title("%s correlation%s:\n%s vs. %s" % ('X' if x_direction else 'Y', " (reduced background)" if reduce_background else "", ref_name, dut_name))
+    ax.set_xlabel("%s %s [$\mathrm{\mu}$m]" % (dut_name, "x" if x_direction else "y"))
+    ax.set_ylabel("%s %s [$\mathrm{\mu}$m]" % (ref_name, "x" if x_direction else "y"))
+    ax.legend(loc=0)
+    ax.set_xlim(-dut_size / 2.0, dut_size / 2.0)
+    ax.set_ylim(-ref_size / 2.0, ref_size / 2.0)
+
+    if gui:
+        figs.append(fig)
+    else:
+        output_pdf.savefig(fig)
 
 
 def plot_checks(input_corr_file, output_pdf_file=None):
@@ -1267,12 +849,12 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, res_
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.imshow(np.ma.masked_equal(hist, 0).T, extent=[xedges[0], xedges[-1] , yedges[0], yedges[-1]], origin='low', aspect='auto', interpolation='none')
+    ax.imshow(np.ma.masked_equal(hist, 0).T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='low', aspect='auto', interpolation='none')
     if res_mean is not None:
         res_pos = (xedges[1:] + xedges[:-1]) / 2.0
         if select is None:
             select = np.full_like(res_pos, True, dtype=np.bool)
-        ax.plot(res_pos[select], res_mean[select], linestyle='', color="blue", marker='o',  label='Mean residual')
+        ax.plot(res_pos[select], res_mean[select], linestyle='', color="blue", marker='o', label='Mean residual')
         ax.plot(res_pos[~select], res_mean[~select], linestyle='', color="darkblue", marker='o')
     if fit is not None:
         x_lim = np.array(ax.get_xlim(), dtype=np.float)
@@ -1808,7 +1390,7 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
                     ref_res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_reference_DUT_%d' % (direction.title(), actual_dut))
                     res_node = in_file_h5.get_node(in_file_h5.root, '%s_residuals_DUT_%d' % (direction.title(), actual_dut))
                     edges = res_node.attrs.edges
-                    bin_centers = (edges[1:] +  edges[:-1]) / 2.0
+                    bin_centers = (edges[1:] + edges[:-1]) / 2.0
                     res_count = []
                     # iterating over bins
                     for index, _ in enumerate(bin_centers):

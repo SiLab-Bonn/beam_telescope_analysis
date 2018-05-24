@@ -4,16 +4,21 @@ from __future__ import division
 import logging
 import os.path
 import re
+from multiprocessing import Pool
 
 import tables as tb
 import numpy as np
 import numba
 from scipy.ndimage import median_filter
+
+import progressbar
+
 from pixel_clusterizer.clusterizer import HitClusterizer
 
+from testbeam_analysis.telescope.telescope import Telescope
 from testbeam_analysis.tools import smc
 from testbeam_analysis.tools import analysis_utils, plot_utils
-from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_size, plot_cluster_hists
+from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_hists
 
 
 def check_file(input_hits_file, n_pixel, output_check_file=None,
@@ -81,8 +86,7 @@ def check_file(input_hits_file, n_pixel, output_check_file=None,
                 if np.any(hits['column'] < 1) or np.any(hits['row'] < 1):
                     raise RuntimeError('The column/row definition does not \
                     start at 1!')
-                if (np.any(hits['column'] > n_pixel[0])
-                        or np.any(hits['row'] > n_pixel[1])):
+                if (np.any(hits['column'] > n_pixel[0]) or np.any(hits['row'] > n_pixel[1])):
                     raise RuntimeError('The column/row definition exceed the nuber \
                     of pixels (%s/%s)!', n_pixel[0], n_pixel[1])
 
@@ -277,7 +281,7 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
             cluster_arr = hit_arr[col_base:col_base + 8, row_base:row_base + 8]
             # finally calculate cluster shape
             # uint64 is desired, but Numexpr and other tools are limited to the dtype int64
-            if cluster_arr[7,7] == 1:
+            if cluster_arr[7, 7] == 1:
                 cluster_shape = -1
             else:
                 cluster_shape = analysis_utils.calculate_cluster_shape(cluster_arr)
@@ -314,12 +318,12 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                               ('mean_row', '<f4')])
 
     clz = HitClusterizer(column_cluster_distance=column_cluster_distance,
-                                 row_cluster_distance=row_cluster_distance,
-                                 frame_cluster_distance=frame_cluster_distance,
-                                 min_hit_charge=min_hit_charge,
-                                 max_hit_charge=max_hit_charge,
-                                 hit_dtype=hit_dtype,
-                                 cluster_dtype=cluster_dtype)
+                         row_cluster_distance=row_cluster_distance,
+                         frame_cluster_distance=frame_cluster_distance,
+                         min_hit_charge=min_hit_charge,
+                         max_hit_charge=max_hit_charge,
+                         hit_dtype=hit_dtype,
+                         cluster_dtype=cluster_dtype)
     clz.add_cluster_field(description=('err_column', '<f4'))  # Add an additional field to hold the cluster size in x
     clz.add_cluster_field(description=('err_row', '<f4'))  # Add an additional field to hold the cluster size in y
     clz.add_cluster_field(description=('n_cluster', '<u4'))  # Adding additional field for number of clusters per event
@@ -347,8 +351,7 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
     # Calculate cluster size histogram
     def hist_func(cluster):
         n_hits = cluster['n_hits']
-        hist = analysis_utils.hist_1d_index(n_hits,
-                                            shape=(np.max(n_hits) + 1,))
+        hist = analysis_utils.hist_1d_index(n_hits, shape=(np.max(n_hits) + 1,))
         return hist
 
     smc.SMC(table_file_in=output_cluster_file,
@@ -360,9 +363,6 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
     # Load infos from cluster size for error determination and plotting
     with tb.open_file(output_cluster_file[:-3] + '_hist.h5', 'r') as input_file_h5:
         hight = input_file_h5.root.HistClusterSize[:]
-        n_clusters = hight.sum()
-        n_hits = (hight * np.arange(0, hight.shape[0])).sum()
-        max_cluster_size = hight.shape[0] - 1
 
     # Calculate position error from cluster size
     def get_eff_pitch(hist, cluster_size):
@@ -388,9 +388,9 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
             sel = np.logical_and(clusters['err_column'] == css[0],
                                  clusters['err_row'] == css[1])
             clusters['err_column'][sel] = get_eff_pitch(hist=hight,
-                                                      cluster_size=css[0]) / np.sqrt(12)
+                                                        cluster_size=css[0]) / np.sqrt(12)
             clusters['err_row'][sel] = get_eff_pitch(hist=hight,
-                                                      cluster_size=css[1]) / np.sqrt(12)
+                                                     cluster_size=css[1]) / np.sqrt(12)
         # Set errors for big clusters, where delta electrons reduce resolution
         sel = np.logical_or(clusters['err_column'] > 2, clusters['err_row'] > 2)
         clusters['err_column'][sel] = clusters['err_column'][sel] / np.sqrt(12)
@@ -420,6 +420,358 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
                            gui=False)
 
     return output_cluster_file
+
+
+def correlate_cluster(telescope_configuration, input_cluster_files, output_correlation_file, resolution=(100.0, 100.0), ref_index=0, plot=True, chunk_size=100000):
+    '''"Calculates the correlation histograms from the cluster arrays.
+    The 2D correlation array of pairs of two different devices are created on event basis.
+    All permutations are considered (all clusters of the first device are correlated with all clusters of the second device).
+
+    Parameters
+    ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
+    input_cluster_files : iterable
+        Iterable of filenames of the cluster files.
+        The DUT index of each input file is equivalent to its position in the list.
+    output_correlation_file : string
+        Filename of the output correlation file with the correlation histograms.
+    resolution : tuple
+        Resolution of the correlation histogram in x and y direction (in um).
+    ref_index : uint
+        DUT index of the reference plane. Default is DUT 0. If None, generate correlation histograms of all DUT pairs.
+    plot : bool
+        If True, create additional output plots.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    logging.info('=== Correlating the index of %d DUTs ===', len(input_cluster_files))
+
+    telescope = Telescope(telescope_configuration)
+
+    n_duts = len(telescope)
+
+    if ref_index is None:
+        ref_duts = range(n_duts)
+    else:
+        ref_duts = [ref_index]
+
+    with tb.open_file(output_correlation_file, mode="w") as out_file_h5:
+        for ref_index in ref_duts:
+            logging.info('== Correlating with DUT%d ==' % (ref_index,))
+            # Result arrays to be filled
+            x_correlations = []
+            y_correlations = []
+            start_indices = []
+            dut_x_size = []
+            dut_y_size = []
+            ref_x_size = []
+            ref_y_size = []
+
+            # remove reference DUT from list of DUTs
+            select_duts = list(set(range(n_duts)) - set([ref_index]))
+            for dut_index in select_duts:
+                ref_x_size.append((np.ceil(telescope[ref_index].x_size(global_position=True) / resolution[0]) * resolution[0]).astype(np.int32))
+                ref_y_size.append((np.ceil(telescope[ref_index].y_size(global_position=True) / resolution[1]) * resolution[1]).astype(np.int32))
+                dut_x_size.append((np.ceil(telescope[dut_index].x_size(global_position=True) / resolution[0]) * resolution[0]).astype(np.int32))
+                dut_y_size.append((np.ceil(telescope[dut_index].y_size(global_position=True) / resolution[1]) * resolution[1]).astype(np.int32))
+                x_correlations.append(np.zeros((np.array([dut_x_size[-1], ref_x_size[-1]]) / resolution[0]).astype(np.int32), dtype=np.int32))
+                y_correlations.append(np.zeros((np.array([dut_y_size[-1], ref_y_size[-1]]) / resolution[1]).astype(np.int32), dtype=np.int32))
+                start_indices.append(None)  # Store the loop indices for speed up
+
+            with tb.open_file(input_cluster_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 cluster file
+                widgets = ['', progressbar.Percentage(), ' ',
+                           progressbar.Bar(marker='*', left='|', right='|'),
+                           ' ', progressbar.AdaptiveETA()]
+                progress_bar = progressbar.ProgressBar(widgets=widgets,
+                                                       maxval=in_file_h5.root.Cluster.shape[0],
+                                                       term_width=80)
+                progress_bar.start()
+
+                pool = Pool()
+                # Loop over the clusters of reference DUT
+                for ref_clusters, ref_read_index in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, chunk_size=chunk_size):
+                    actual_event_numbers = ref_clusters[:]['event_number']
+
+                    # Create correlation histograms to the reference device for all other devices
+                    # Do this in parallel to safe time
+
+                    dut_results = []
+                    # Loop over other DUTs
+                    for index, dut_index in enumerate(select_duts):
+                        dut_results.append(pool.apply_async(_correlate_position, kwds={
+                            'ref': telescope[ref_index],
+                            'dut': telescope[dut_index],
+                            'ref_clusters': ref_clusters,
+                            'dut_cluster_file': input_cluster_files[dut_index],
+                            'start_index': start_indices[index],
+                            'start_event_number': actual_event_numbers[0],
+                            'stop_event_number': actual_event_numbers[-1] + 1,
+                            'resolution': resolution,
+                            'ref_x_size': ref_x_size[index],
+                            'ref_y_size': ref_y_size[index],
+                            'dut_x_size': dut_x_size[index],
+                            'dut_y_size': dut_y_size[index],
+                            'x_correlation': x_correlations[index],
+                            'y_correlation': y_correlations[index],
+                            'chunk_size': chunk_size}))
+                    # Collect results when available
+                    for index, dut_result in enumerate(dut_results):
+                        (start_indices[index], x_correlations[index], y_correlations[index]) = dut_result.get()
+
+                    progress_bar.update(ref_read_index)
+
+                pool.close()
+                pool.join()
+
+            # Store the correlation histograms
+            for index, dut_index in enumerate(select_duts):
+                out_x = out_file_h5.create_carray(where=out_file_h5.root,
+                                                  name='Correlation_x_%d_%d' % (ref_index, dut_index),
+                                                  title='X correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                  atom=tb.Atom.from_dtype(x_correlations[index].dtype),
+                                                  shape=x_correlations[index].shape,
+                                                  filters=tb.Filters(complib='blosc',
+                                                                     complevel=5,
+                                                                     fletcher32=False))
+                out_x.attrs.resolution = resolution[0]
+                out_x.attrs.ref_size = ref_x_size[index]
+                out_x.attrs.dut_size = dut_x_size[index]
+                out_y = out_file_h5.create_carray(where=out_file_h5.root,
+                                                  name='Correlation_y_%d_%d' % (ref_index, dut_index),
+                                                  title='Y correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                  atom=tb.Atom.from_dtype(y_correlations[index].dtype),
+                                                  shape=y_correlations[index].shape,
+                                                  filters=tb.Filters(complib='blosc',
+                                                                     complevel=5,
+                                                                     fletcher32=False))
+                out_y.attrs.resolution = resolution[1]
+                out_y.attrs.ref_size = ref_y_size[index]
+                out_y.attrs.dut_size = dut_y_size[index]
+                out_x_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                          name='Correlation_x_%d_%d_reduced_background' % (ref_index, dut_index),
+                                                          title='X correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                          atom=tb.Atom.from_dtype(x_correlations[index].dtype),
+                                                          shape=x_correlations[index].shape,
+                                                          filters=tb.Filters(complib='blosc',
+                                                                             complevel=5,
+                                                                             fletcher32=False))
+                out_x_reduced.attrs.resolution = resolution[0]
+                out_x_reduced.attrs.ref_size = ref_x_size[index]
+                out_x_reduced.attrs.dut_size = dut_x_size[index]
+                out_y_reduced = out_file_h5.create_carray(where=out_file_h5.root,
+                                                          name='Correlation_y_%d_%d_reduced_background' % (ref_index, dut_index),
+                                                          title='Y correlation between DUT%d and DUT%d' % (ref_index, dut_index),
+                                                          atom=tb.Atom.from_dtype(y_correlations[index].dtype),
+                                                          shape=y_correlations[index].shape,
+                                                          filters=tb.Filters(complib='blosc',
+                                                                             complevel=5,
+                                                                             fletcher32=False))
+                out_y_reduced.attrs.resolution = resolution[1]
+                out_y_reduced.attrs.ref_size = ref_y_size[index]
+                out_y_reduced.attrs.dut_size = dut_y_size[index]
+                # correlation matrix
+                out_x[:] = x_correlations[index]
+                out_y[:] = y_correlations[index]
+                for correlation in [x_correlations[index], y_correlations[index]]:
+                    uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
+                    background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
+                    background = np.array(background, dtype=np.int32)  # make Numpy array
+                    correlation -= background  # remove background
+                    correlation -= correlation.min()  # only positive values
+                out_x_reduced[:] = x_correlations[index]
+                out_y_reduced[:] = y_correlations[index]
+            progress_bar.finish()
+
+    if plot:
+        plot_utils.plot_correlations(input_correlation_file=output_correlation_file, resolution=resolution, dut_names=telescope.dut_names)
+
+
+# Helper functions to be called from multiple processes
+def _correlate_position(ref, dut, ref_clusters, dut_cluster_file, start_index, start_event_number, stop_event_number, resolution, ref_x_size, ref_y_size, dut_x_size, dut_y_size, x_correlation, y_correlation, chunk_size):
+    with tb.open_file(dut_cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
+        for dut_clusters, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+            ref_event_number = ref_clusters['event_number']
+            dut_event_number = dut_clusters['event_number']
+            ref_x_pos, ref_y_pos, _ = ref.index_to_global_position(column=ref_clusters['mean_column'], row=ref_clusters['mean_row'])
+            dut_x_pos, dut_y_pos, _ = dut.index_to_global_position(column=dut_clusters['mean_column'], row=dut_clusters['mean_row'])
+            ref_x_index = ((ref_x_pos - ref.translation_x + ref_x_size / 2.0) / resolution[0]).astype(np.uint32)
+            ref_y_index = ((ref_y_pos - ref.translation_y + ref_y_size / 2.0) / resolution[1]).astype(np.uint32)
+            dut_x_index = ((dut_x_pos - dut.translation_x + dut_x_size / 2.0) / resolution[0]).astype(np.uint32)
+            dut_y_index = ((dut_y_pos - dut.translation_y + dut_y_size / 2.0) / resolution[1]).astype(np.uint32)
+            # print dut.name
+            # print "x"
+            # print dut_clusters['mean_column']
+            # print dut_x_pos
+            # print ((dut_x_pos + dut_x_size / 2.0)), dut_x_size / 2.0
+            # print ((dut_x_pos + dut_x_size / 2.0) / resolution[0])
+            # print dut_x_index, dut_x_index.min(), dut_x_index.max()
+            # print "y"
+            # print dut_clusters['mean_row']
+            # print dut_y_pos
+            # print ((dut_y_pos + dut_y_size / 2.0)), dut_y_size / 2.0
+            # print ((dut_y_pos + dut_y_size / 2.0) / resolution[1])
+            # print dut_y_index, dut_y_index.min(), dut_y_index.max()
+
+            analysis_utils.correlate_position_on_event_number(
+                ref_event_number=ref_event_number,
+                dut_event_number=dut_event_number,
+                ref_x_index=ref_x_index,
+                ref_y_index=ref_y_index,
+                dut_x_index=dut_x_index,
+                dut_y_index=dut_y_index,
+                x_corr_hist=x_correlation,
+                y_corr_hist=y_correlation)
+
+    return start_index, x_correlation, y_correlation
+
+
+# Helper functions to be called from multiple processes
+def _correlate_cluster(clusters_ref_dut, cluster_file, start_index, start_event_number, stop_event_number, column_correlation, row_correlation, chunk_size):
+    with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
+        for cluster_dut, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+
+            analysis_utils.correlate_cluster_on_event_number(data_1=clusters_ref_dut,
+                                                             data_2=cluster_dut,
+                                                             column_corr_hist=column_correlation,
+                                                             row_corr_hist=row_correlation)
+
+    return start_index, column_correlation, row_correlation
+
+
+def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_size, chunk_size=1000000):
+    '''Takes the cluster from all cluster files and merges them into one big table aligned at a common event number.
+
+    Empty entries are signaled with column = row = charge = nan. Position is translated from indices to um. The
+    local coordinate system origin (0, 0) is defined in the sensor center, to decouple translation and rotation.
+    Cluster position errors are calculated from cluster dimensions.
+
+    Parameters
+    ----------
+    input_cluster_files : list of pytables files
+        File name of the input cluster files with correlation data.
+    output_merged_file : pytables file
+        File name of the output tracklet file.
+    n_pixels : iterable of tuples
+        One tuple per DUT describing the total number of pixels (column/row),
+        e.g. for two FE-I4 DUTs [(80, 336), (80, 336)].
+    pixel_size : iterable of tuples
+        One tuple per DUT describing the pixel dimension (column/row),
+        e.g. for two FE-I4 DUTs [(250, 50), (250, 50)].
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    logging.info('=== Merge cluster files from %d DUTs to merged hit file ===', len(input_cluster_files))
+
+    # Create result array description, depends on the number of DUTs
+    description = [('event_number', np.int64)]
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('x_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('y_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('z_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('charge_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('n_hits_dut_%d' % index, np.uint32))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('cluster_shape_dut_%d' % index, np.int64))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('n_cluster_dut_%d' % index, np.uint32))
+    description.extend([('hit_flag', np.uint16), ('quality_flag', np.uint16), ('n_tracks', np.uint32)])
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('xerr_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('yerr_dut_%d' % index, np.float))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('zerr_dut_%d' % index, np.float))
+
+    start_indices_merging_loop = [None] * len(input_cluster_files)  # Store the merging loop indices for speed up
+    start_indices_data_loop = [None] * len(input_cluster_files)  # Additional store indices for the data loop
+    actual_start_event_number = None  # Defines the first event number of the actual chunk for speed up. Cannot be deduced from DUT0, since this DUT could have missing event numbers.
+
+    # Merge the cluster data from different DUTs into one table
+    with tb.open_file(output_merged_file, mode='w') as out_file_h5:
+        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedCluster', description=np.dtype(description), title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
+            progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Cluster.shape[0], term_width=80)
+            progress_bar.start()
+            for actual_cluster_dut_0, start_indices_data_loop[0] in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, start_index=start_indices_data_loop[0], start_event_number=actual_start_event_number, stop_event_number=None, chunk_size=chunk_size):  # Loop over the cluster of DUT0 in chunks
+                actual_event_numbers = actual_cluster_dut_0[:]['event_number']
+
+                # First loop: calculate the minimum event number indices needed to merge all cluster from all files to this event number index
+                common_event_numbers = actual_event_numbers
+                for dut_index, cluster_file in enumerate(input_cluster_files[1:], start=1):  # Loop over the other cluster files
+                    with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open DUT0 cluster file
+                        for actual_cluster, start_indices_merging_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_indices_merging_loop[dut_index], start_event_number=actual_start_event_number, stop_event_number=actual_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+                            common_event_numbers = analysis_utils.get_max_events_in_both_arrays(common_event_numbers, actual_cluster[:]['event_number'])
+                merged_cluster_array = np.zeros(shape=(common_event_numbers.shape[0],), dtype=description)  # resulting array to be filled
+                for index, _ in enumerate(input_cluster_files):
+                    # for no hit: column = row = charge = nan
+                    merged_cluster_array['x_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['y_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['z_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['charge_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['xerr_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['yerr_dut_%d' % (index)] = np.nan
+                    merged_cluster_array['zerr_dut_%d' % (index)] = np.nan
+
+                # Set the event number
+                merged_cluster_array['event_number'] = common_event_numbers[:]
+
+                # Fill result array with DUT 0 data
+                actual_cluster_dut_0 = analysis_utils.map_cluster(common_event_numbers, actual_cluster_dut_0)
+                # Select real hits, values with nan are virtual hits
+                selection = ~np.isnan(actual_cluster_dut_0['mean_column'])
+                # Convert indices to positions, origin defined in the center of the sensor
+                merged_cluster_array['x_dut_0'][selection] = pixel_size[0][0] * (actual_cluster_dut_0['mean_column'][selection] - 0.5 - (0.5 * n_pixels[0][0]))
+                merged_cluster_array['y_dut_0'][selection] = pixel_size[0][1] * (actual_cluster_dut_0['mean_row'][selection] - 0.5 - (0.5 * n_pixels[0][1]))
+                merged_cluster_array['z_dut_0'][selection] = 0.0
+                # TODO
+                xerr = np.zeros(selection.shape)
+                yerr = np.zeros(selection.shape)
+                zerr = np.zeros(selection.shape)
+                xerr[selection] = actual_cluster_dut_0['err_column'][selection] * pixel_size[0][0]
+                yerr[selection] = actual_cluster_dut_0['err_row'][selection] * pixel_size[0][1]
+                merged_cluster_array['xerr_dut_0'][selection] = xerr[selection]
+                merged_cluster_array['yerr_dut_0'][selection] = yerr[selection]
+                merged_cluster_array['zerr_dut_0'][selection] = zerr[selection]
+                merged_cluster_array['charge_dut_0'][selection] = actual_cluster_dut_0['charge'][selection]
+                merged_cluster_array['n_hits_dut_0'][selection] = actual_cluster_dut_0['n_hits'][selection]
+                merged_cluster_array['cluster_shape_dut_0'][selection] = actual_cluster_dut_0['cluster_shape'][selection]
+                merged_cluster_array['n_cluster_dut_0'][selection] = actual_cluster_dut_0['n_cluster'][selection]
+
+                # Fill result array with other DUT data
+                # Second loop: get the cluster from all files and merge them to the common event number
+                for dut_index, cluster_file in enumerate(input_cluster_files[1:], start=1):  # Loop over the other cluster files
+                    with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
+                        for actual_cluster_dut, start_indices_data_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_indices_data_loop[dut_index], start_event_number=common_event_numbers[0], stop_event_number=common_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+                            actual_cluster_dut = analysis_utils.map_cluster(common_event_numbers, actual_cluster_dut)
+                            # Select real hits, values with nan are virtual hits
+                            selection = ~np.isnan(actual_cluster_dut['mean_column'])
+                            # Convert indices to positions, origin in the center of the sensor, remaining DUTs
+                            merged_cluster_array['x_dut_%d' % (dut_index)][selection] = pixel_size[dut_index][0] * (actual_cluster_dut['mean_column'][selection] - 0.5 - (0.5 * n_pixels[dut_index][0]))
+                            merged_cluster_array['y_dut_%d' % (dut_index)][selection] = pixel_size[dut_index][1] * (actual_cluster_dut['mean_row'][selection] - 0.5 - (0.5 * n_pixels[dut_index][1]))
+                            merged_cluster_array['z_dut_%d' % (dut_index)][selection] = 0.0
+                            xerr = np.zeros(selection.shape)
+                            yerr = np.zeros(selection.shape)
+                            zerr = np.zeros(selection.shape)
+                            xerr[selection] = actual_cluster_dut['err_column'][selection] * pixel_size[dut_index][0]
+                            yerr[selection] = actual_cluster_dut['err_row'][selection] * pixel_size[dut_index][1]
+                            merged_cluster_array['xerr_dut_%d' % (dut_index)][selection] = xerr[selection]
+                            merged_cluster_array['yerr_dut_%d' % (dut_index)][selection] = yerr[selection]
+                            merged_cluster_array['zerr_dut_%d' % (dut_index)][selection] = zerr[selection]
+                            merged_cluster_array['charge_dut_%d' % (dut_index)][selection] = actual_cluster_dut['charge'][selection]
+                            merged_cluster_array['n_hits_dut_%d' % (dut_index)][selection] = actual_cluster_dut['n_hits'][selection]
+                            merged_cluster_array['cluster_shape_dut_%d' % (dut_index)][selection] = actual_cluster_dut['cluster_shape'][selection]
+                            merged_cluster_array['n_cluster_dut_%d' % (dut_index)][selection] = actual_cluster_dut['n_cluster'][selection]
+
+                merged_cluster_table.append(merged_cluster_array)
+                merged_cluster_table.flush()
+                actual_start_event_number = common_event_numbers[-1] + 1  # Set the starting event number for the next chunked read
+                progress_bar.update(start_indices_data_loop[0])
+            progress_bar.finish()
 
 
 if __name__ == '__main__':
