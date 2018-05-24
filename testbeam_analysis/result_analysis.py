@@ -1294,7 +1294,7 @@ def calculate_residuals(input_tracks_file, input_alignment_file, use_prealignmen
 #     return efficiencies, pass_tracks, total_tracks
 
 
-def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignment, select_duts, pixel_size, n_pixels, bin_size=None, select_area=None, output_efficiency_file=None, minimum_track_density=1, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, gui=False, chunk_size=1000000):
+def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignment, select_duts, pixel_size, n_pixels, bin_size=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, in_pixel=False, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -1305,35 +1305,39 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
         Filename of the input alignment file.
     use_prealignment : bool
         If True, use pre-alignment from correlation data; if False, use alignment.
+    select_duts : iterable
+        Selecting DUTs that will be processed.
+    pixel_size : iterable
+        tuple or list of col/row pixel dimension
+    n_pixels : iterable
+        tuple or list of amount of pixel in col/row dimension
     bin_size : iterable
         Sizes of bins (i.e. (virtual) pixel size). Give one tuple (x, y) for every plane or list of tuples for different planes.
-    sensor_size : Tuple or list of tuples
-        Describes the sensor size for each DUT. If one tuple is given it is (size x, size y)
-        If several tuples are given it is [(DUT0 size x, DUT0 size y), (DUT1 size x, DUT1 size y), ...]
+    n_bins_in_pixel : iterable
+        Number of bins used for in-pixel efficiency calculation. Give one tuple (n_bins_x, n_bins_y) for every plane or list of tuples for different planes.
+        Only needed if in_pixel is True.
+    n_pixel_projection : int
+        Number of pixels on which efficiency is projected. Only needed if in_pixel is True.
     output_efficiency_file : string
         Filename of the output efficiency file. If None, the filename will be derived from the input hits file.
     minimum_track_density : int
         Minimum track density required to consider bin for efficiency calculation.
-    select_duts : iterable
-        Selecting DUTs that will be processed.
     cut_distance : int
         Use only distances (between DUT hit and track hit) smaller than cut_distance.
     col_range : iterable
         Column value to calculate efficiency for (to neglect noisy edge pixels for efficiency calculation).
     row_range : iterable
         Row value to calculate efficiency for (to neglect noisy edge pixels for efficiency calculation).
-    plot : bool
-        If True, create additional output plots.
-    chunk_size : int
-        Chunk size of the data when reading from file.
-    pixel_size : iterable
-        tuple or list of col/row pixel dimension
-    n_pixels : iterable
-        tuple or list of amount of pixel in col/row dimension
     show_inefficient_events : bool
         Whether to log inefficient events
+    plot : bool
+        If True, create additional output plots.
+    in_pixel : bool
+        If True, calculate and plot in-pixel efficiency. Default is False.
     gui : bool
         If True, use GUI for plotting.
+    chunk_size : int
+        Chunk size of the data when reading from file.
     '''
     logging.info('=== Calculating efficiency ===')
 
@@ -1371,8 +1375,16 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     actual_bin_size_x = bin_size[0][0]
                     actual_bin_size_y = bin_size[0][1]
                 else:
-                    actual_bin_size_x = bin_size[dut_index][0]
-                    actual_bin_size_y = bin_size[dut_index][1]
+                    actual_bin_size_x = bin_size[actual_dut][0]
+                    actual_bin_size_y = bin_size[actual_dut][1]
+
+                n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
+                if len(n_bins_in_pixel) == 1:
+                    actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
+                    actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
+                else:
+                    actual_bin_size_in_pixel_x = n_bins_in_pixel[actual_dut][0]
+                    actual_bin_size_in_pixel_y = n_bins_in_pixel[actual_dut][1]
 
                 sensor_size = np.array(n_pixels) * np.array(pixel_size)
 
@@ -1380,8 +1392,7 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                 if len(dimensions) == 1:
                     dimensions = dimensions[0]
                 else:
-                    dimensions = dimensions[dut_index]
-
+                    dimensions = dimensions[actual_dut]
                 n_bin_x = int(dimensions[0] / actual_bin_size_x)
                 n_bin_y = int(dimensions[1] / actual_bin_size_y)
 
@@ -1390,6 +1401,11 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                 total_hit_hist = np.zeros(shape=(n_bin_x, n_bin_y), dtype=np.uint32)
                 total_track_density = np.zeros(shape=(n_bin_x, n_bin_y))
                 total_track_density_with_DUT_hit = np.zeros(shape=(n_bin_x, n_bin_y))
+
+                if in_pixel is True:
+                    total_hit_hist_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), dtype=np.uint32)
+                    total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
+                    total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
 
                 for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     # Transform the hits and track intersections into the local coordinate system
@@ -1463,6 +1479,24 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     total_track_density += np.histogram2d(intersections_local[:, 0], intersections_local[:, 1], bins=(n_bin_x, n_bin_y), range=[[0, dimensions[0]], [0, dimensions[1]]])[0]
                     total_track_density_with_DUT_hit += np.histogram2d(intersection_valid_hit[:, 0], intersection_valid_hit[:, 1], bins=(n_bin_x, n_bin_y), range=[[0, dimensions[0]], [0, dimensions[1]]])[0]
 
+                    # project intersections and hits onto n x n pixel area
+                    if in_pixel is True:
+                        n = n_pixel_projection  # select pixel areas (n x n)
+                        hit_x_local_projection = np.mod(hit_x_local, np.array([n * pixel_size[actual_dut][0]] * len(hit_x_local)))
+                        hit_y_local_projection = np.mod(hit_y_local, np.array([n * pixel_size[actual_dut][1]] * len(hit_y_local)))
+                        intersection_x_local_projection = np.mod(intersections_local[:, 0], np.array([n * pixel_size[actual_dut][0]] * len(intersections_local[:, 0])))
+                        intersection_y_local_projection = np.mod(intersections_local[:, 1], np.array([n * pixel_size[actual_dut][1]] * len(intersections_local[:, 1])))
+                        intersection_valid_hit_projection_x = np.mod(intersection_valid_hit[:, 0], np.array([n * pixel_size[actual_dut][0]] * len(intersection_valid_hit[:, 0])))
+                        intersection_valid_hit_projection_y = np.mod(intersection_valid_hit[:, 1], np.array([n * pixel_size[actual_dut][1]] * len(intersection_valid_hit[:, 1])))
+
+                        intersections_local_projection = np.column_stack((intersection_x_local_projection, intersection_y_local_projection))
+                        hits_local_projection = np.column_stack((hit_x_local_projection, hit_y_local_projection))
+                        intersections_valid_hit_projection = np.column_stack((intersection_valid_hit_projection_x, intersection_valid_hit_projection_y))
+
+                        total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]).astype(np.uint32)
+                        total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
+                        total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
+
                     if np.all(total_track_density == 0):
                         logging.warning('No tracks on DUT%d, cannot calculate efficiency', actual_dut)
                         continue
@@ -1470,12 +1504,19 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                 efficiency = np.zeros_like(total_track_density_with_DUT_hit)
                 efficiency[total_track_density != 0] = total_track_density_with_DUT_hit[total_track_density != 0].astype(np.float) / total_track_density[total_track_density != 0].astype(np.float) * 100.
 
+                if in_pixel is True:
+                    in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
+                    in_pixel_efficiency = total_track_density_with_DUT_hit_projected.astype(np.float) / total_track_density_projected.astype(np.float) * 100.
+
                 efficiency = np.ma.array(efficiency, mask=total_track_density < minimum_track_density)
 
                 if not np.any(efficiency):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut)
 
-                plot_utils.efficiency_plots(total_hit_hist, total_track_density, total_track_density_with_DUT_hit, efficiency, actual_dut, minimum_track_density, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], cut_distance=cut_distance, output_pdf=output_pdf, gui=gui, figs=figs)
+                if in_pixel is True:
+                    plot_utils.efficiency_plots(total_hit_hist, total_track_density, total_track_density_with_DUT_hit, efficiency, actual_dut, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], in_pixel_efficiency=in_pixel_efficiency, plot_range_in_pixel=[0.0, n * pixel_size[actual_dut][0], n * pixel_size[actual_dut][1], 0.0], output_pdf=output_pdf, gui=gui, figs=figs)
+                else:
+                    plot_utils.efficiency_plots(total_hit_hist, total_track_density, total_track_density_with_DUT_hit, efficiency, actual_dut, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], output_pdf=output_pdf, gui=gui, figs=figs)
 
                 # Calculate mean efficiency without any binning
                 eff, eff_err_min, eff_err_pl = analysis_utils.get_mean_efficiency(array_pass=total_track_density_with_DUT_hit,

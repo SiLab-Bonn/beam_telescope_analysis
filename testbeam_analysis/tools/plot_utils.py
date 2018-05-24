@@ -1535,7 +1535,7 @@ def plot_charge_distribution(input_tracks_file, input_alignment_file, n_pixels, 
                             output_pdf=output_pdf)
 
 
-def efficiency_plots(hit_hist, track_density, track_density_with_DUT_hit, efficiency, actual_dut, minimum_track_density, plot_range, cut_distance, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def efficiency_plots(hit_hist, track_density, track_density_with_DUT_hit, efficiency, actual_dut, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     if not output_pdf and not gui:
         return
     # get number of entries for every histogram
@@ -1614,6 +1614,22 @@ def efficiency_plots(hit_hist, track_density, track_density_with_DUT_hit, effici
             figs.append(fig)
         else:
             output_pdf.savefig(fig)
+
+    if in_pixel_efficiency is not None:
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        z_min = np.ma.min(in_pixel_efficiency)
+        if z_min == 100.:  # One cannot plot with 0 z axis range
+            z_min = 90.
+        plot_2d_pixel_hist(fig, ax, in_pixel_efficiency.T, plot_range_in_pixel, title='In-Pixel-Efficiency for DUT%d (%d Entries)' % (actual_dut, n_hits_efficiency), x_axis_title="column [um]", y_axis_title="row [um]", z_min=z_min, z_max=100.)
+        fig.tight_layout()
+
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
+
     else:
         logging.warning('Cannot create efficiency plots, all pixels are masked')
 
