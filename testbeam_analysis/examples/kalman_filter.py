@@ -193,8 +193,8 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
 
             # plot tracks in x-direction
             plt.title('Tracks in x-direction for DUT%d' % plot_dut)
-            plt.xlabel('z / mm')
-            plt.ylabel('x / $\mathrm{\mu}$m')
+            plt.xlabel('z [mm]')
+            plt.ylabel('x [$\mathrm{\mu}$m]')
             plt.grid()
 
             plt.errorbar(measurements_plot[0, :, -1] / 1000.,
@@ -216,8 +216,8 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
 
             # plot tracks in y-direction
             plt.title('Tracks in y-direction for DUT%d' % plot_dut)
-            plt.xlabel('z / mm')
-            plt.ylabel('y / $\mathrm{\mu}$m')
+            plt.xlabel('z [mm]')
+            plt.ylabel('y [$\mathrm{\mu}$m]')
             plt.grid()
             plt.errorbar(measurements_plot[0, :, -1] / 1000.,
                          track_estimates_chunk_all[np.where(fit_duts == plot_dut)[0], :, 1].reshape(measurements.shape[1],),

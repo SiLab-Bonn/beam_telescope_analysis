@@ -16,7 +16,7 @@ def plot_setup(telescope_pitch, DUT_pitch, z_positions, plane_offsets, beam_dive
     plt.xlim((z_positions[0] - 0.5, z_positions[-1] + 0.5))
     plt.ylim((-12 * telescope_pitch, 12 * telescope_pitch))
     plt.xlabel('z [cm]')
-    plt.ylabel('x/y [um]')
+    plt.ylabel('x/y [$\mathrm{\mu}$m]')
 
     # Plot devices
     currentAxis = plt.gca()
