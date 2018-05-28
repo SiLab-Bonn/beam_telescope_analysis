@@ -92,7 +92,34 @@ def merge_on_event_number(data_1, data_2):
 
 @njit
 def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x_index, ref_y_index, dut_x_index, dut_y_index, x_corr_hist, y_corr_hist):
-    """
+    """Correlating the hit/cluster positions on event basis including all permutations.
+    The hit/cluster positions are used to fill the X and Y correlation histograms.
+
+    Does the same than the merge of the pandas package:
+        df = data_1.merge(data_2, how='left', on='event_number')
+        df.dropna(inplace=True)
+        correlation_column = np.hist2d(df[column_mean_dut_0], df[column_mean_dut_x])
+        correlation_row = np.hist2d(df[row_mean_dut_0], df[row_mean_dut_x])
+    The following code is > 10x faster than the above code.
+
+    Parameters
+    ----------
+    ref_event_number: array
+        Event number array of the reference DUT.
+    dut_event_number: array
+        Event number array of the second DUT.
+    ref_x_index: array
+        X position indices of the refernce DUT.
+    ref_y_index: array
+        Y position indices of the refernce DUT.
+    dut_x_index: array
+        X position indices of the second DUT.
+    dut_y_index: array
+        Y position indices of the second DUT.
+    x_corr_hist: array
+        X correlation array (2D).
+    y_corr_hist: array
+        Y correlation array (2D).
     """
     dut_index = 0
 
@@ -112,53 +139,6 @@ def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x
                 # Add correlation to histogram
                 x_corr_hist[x_index_dut, x_index_ref] += 1
                 y_corr_hist[y_index_dut, y_index_ref] += 1
-            else:
-                break
-
-
-@njit
-def correlate_cluster_on_event_number(data_1, data_2, column_corr_hist, row_corr_hist):
-    """Correlating the hit/cluster indices of two arrays on an event basis with all permutations.
-    In other words: correlate all hit/cluster indices of particular event in data_2 with all hit/cluster indices of the same event in data_1.
-    Then the hit/cluster indices are used to fill a correlation histograms.
-
-    Does the same than the merge of the pandas package:
-        df = data_1.merge(data_2, how='left', on='event_number')
-        df.dropna(inplace=True)
-        correlation_column = np.hist2d(df[column_mean_dut_0], df[column_mean_dut_x])
-        correlation_row = np.hist2d(df[row_mean_dut_0], df[row_mean_dut_x])
-    The following code is > 10x faster than the above code.
-
-    Parameters
-    ----------
-    data_1, data_2: np.recarray
-        Hit/cluster array. Must have event_number / mean_column / mean_row columns.
-    column_corr_hist, row_corr_hist: np.array
-        2D correlation array containing the correlation data. Has to be of sufficient size.
-
-    """
-    index_data_2 = 0
-
-    # Loop to determine the needed result array size
-    for index_data_1 in range(data_1.shape[0]):
-
-        while index_data_2 < data_2.shape[0] and data_2[index_data_2]['event_number'] < data_1[index_data_1]['event_number']:  # Catch up with outer loop
-            index_data_2 += 1
-
-        for event_index_data_2 in range(index_data_2, data_2.shape[0]):
-            if data_1[index_data_1]['event_number'] == data_2[event_index_data_2]['event_number']:
-                # Assuming value is an index, cluster index 1 from 0.5 to 1.4999, index 2 from 1.5 to 2.4999, etc.
-                column_index_dut_1 = int(np.floor(data_1[index_data_1]['mean_column'] - 0.5))
-                row_index_dut_1 = int(np.floor(data_1[index_data_1]['mean_row'] - 0.5))
-                column_index_dut_2 = int(np.floor(data_2[event_index_data_2]['mean_column'] - 0.5))
-                row_index_dut_2 = int(np.floor(data_2[event_index_data_2]['mean_row'] - 0.5))
-
-                if not (column_index_dut_1 >= 0 and row_index_dut_1 >= 0 and column_index_dut_2 >= 0 and row_index_dut_2 >= 0):
-                    raise ValueError('Column and/or row index is smaller than 0.5')
-
-                # Add correlation to histogram
-                column_corr_hist[column_index_dut_2, column_index_dut_1] += 1
-                row_corr_hist[row_index_dut_2, row_index_dut_1] += 1
             else:
                 break
 

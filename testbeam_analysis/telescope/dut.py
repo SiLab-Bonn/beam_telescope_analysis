@@ -121,10 +121,16 @@ class Dut(object):
     def z_size(self):
         raise NotImplementedError
 
-    def index_to_position(self, column, row):
+    def index_to_local_position(self, index):
         raise NotImplementedError
 
-    def position_to_index(self, x, y, z):
+    def local_position_to_index(self, x, y, z):
+        raise NotImplementedError
+
+    def local_to_global_position(self, x, y, z):
+        raise NotImplementedError
+
+    def global_to_local_position(self, x, y, z):
         raise NotImplementedError
 
 
@@ -155,6 +161,10 @@ class RectangularPixelDut(Dut):
         self._row_size = float(row_size)
 
     @property
+    def pixel_size(self):
+        return (self.column_size, self.row_size)
+
+    @property
     def n_columns(self):
         return self._n_columns
 
@@ -169,6 +179,10 @@ class RectangularPixelDut(Dut):
     @n_rows.setter
     def n_rows(self, n_rows):
         self._n_rows = int(n_rows)
+
+    @property
+    def n_pixel(self):
+        return (self.n_columns, self.n_rows)
 
     def x_limit(self, global_position=False):
         if global_position:

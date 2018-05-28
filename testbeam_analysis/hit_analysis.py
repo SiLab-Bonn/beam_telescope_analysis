@@ -21,8 +21,44 @@ from testbeam_analysis.tools import analysis_utils, plot_utils
 from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_hists
 
 
-def check_file(input_hits_file, n_pixel, output_check_file=None,
-               event_range=1, plot=True, chunk_size=1000000):
+def check(telescope_configuration, input_hits_files, output_check_file=None, check_duts=None, event_ranges=None, plot=True, chunk_size=1000000):
+    '''"Checking hit files. Wrapper for check_file(). For detailed description of the parameters see check_file().
+
+    Parameters
+    ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
+    input_hits_files : list
+        Filenames of the input hit files.
+    output_check_file : list
+        Filenames of the output check files.
+    check_duts : list
+        List of selected DUTs.
+    event_ranges : list
+        The event ranges.
+    plot : bool
+        If True, create additional output plots.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+    logging.info('=== Check hit files of %d DUTs ===', n_duts)
+
+    if not output_check_file:
+        output_check_file = [None] * n_duts
+    for i, dut in enumerate(telescope):
+        if not check_duts or (check_duts and i in check_duts):
+            output_check_file[i] = check_file(input_hits_file=input_hits_files[i],
+                                              n_pixel=dut.n_pixel,
+                                              output_check_file=output_check_file[i],
+                                              event_range=event_ranges[i] if (event_ranges and len(event_ranges) == n_duts and event_ranges[i]) else 1,
+                                              plot=plot,
+                                              chunk_size=chunk_size)
+    return output_check_file
+
+
+def check_file(input_hits_file, n_pixel, output_check_file=None, event_range=1, plot=True, chunk_size=1000000):
     '''Checks the hit table to have proper data.
 
     The checks include:
@@ -50,7 +86,7 @@ def check_file(input_hits_file, n_pixel, output_check_file=None,
         Chunk size of the data when reading from file.
     '''
 
-    logging.info('=== Check data of hit file %s ===', input_hits_file)
+    logging.info('== Check hit file %s ==', input_hits_file)
 
     if output_check_file is None:
         output_check_file = input_hits_file[:-3] + '_check.h5'
@@ -90,10 +126,10 @@ def check_file(input_hits_file, n_pixel, output_check_file=None,
                     raise RuntimeError('The column/row definition exceed the nuber \
                     of pixels (%s/%s)!', n_pixel[0], n_pixel[1])
 
-                analysis_utils.correlate_hits_on_event_range(hits,
-                                                             col_corr,
-                                                             row_corr,
-                                                             event_range)
+                analysis_utils.correlate_hits_on_event_range(hits=hits,
+                                                             column_corr_hist=col_corr,
+                                                             row_corr_hist=row_corr,
+                                                             event_range=event_range)
 
                 event_numbers = np.unique(hits['event_number'])
                 event_delta = np.diff(event_numbers)
@@ -127,17 +163,66 @@ def check_file(input_hits_file, n_pixel, output_check_file=None,
         plot_utils.plot_checks(input_corr_file=output_check_file)
 
 
+def mask(telescope_configuration, input_hits_files, output_mask_files=None, mask_duts=None, pixel_mask_names=None, thresholds=None, filter_sizes=None, plot=True, chunk_size=1000000):
+    '''"Masking noisy pixels. Wrapper for generate_pixel_mask(). For detailed description of the parameters see generate_pixel_mask().
+
+    Parameters
+    ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
+    input_hits_files : list
+        Filenames of the input hit files.
+    output_mask_files : list
+        Filenames of the output mask files.
+    mask_duts : list
+        List of selected DUTs.
+    pixel_mask_names : list
+        Pixel mask type for each DUT. Possible mask types:
+          - DisabledPixelMask
+          - NoisyPixelMask
+    thresholds : list
+        The thresholds for pixel masking.
+    filter_sizes : list
+        Median filter sizes.
+    plot : bool
+        If True, create additional output plots.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+    logging.info('=== Cluster hits of %d DUTs ===', n_duts)
+
+    if not output_mask_files:
+        output_mask_files = [None] * n_duts
+    for i, dut in enumerate(telescope):
+        if not mask_duts or (mask_duts and i in mask_duts):
+            output_mask_files[i] = generate_pixel_mask(input_hits_file=input_hits_files[i],
+                                                       n_pixel=dut.n_pixel,
+                                                       pixel_mask_name=pixel_mask_names[i] if (pixel_mask_names and len(pixel_mask_names) == n_duts and pixel_mask_names[i]) else "NoisyPixelMask",
+                                                       output_mask_file=output_mask_files[i],
+                                                       pixel_size=dut.pixel_size,
+                                                       threshold=thresholds[i] if (thresholds and len(thresholds) == n_duts and thresholds[i]) else 10.0,
+                                                       filter_size=filter_sizes[i] if (filter_sizes and len(filter_sizes) == n_duts and filter_sizes[i]) else 3,
+                                                       dut_name=dut.name,
+                                                       plot=plot,
+                                                       chunk_size=chunk_size)
+    return output_mask_files
+
+
 def generate_pixel_mask(input_hits_file, n_pixel, pixel_mask_name="NoisyPixelMask", output_mask_file=None, pixel_size=None, threshold=10.0, filter_size=3, dut_name=None, plot=True, chunk_size=1000000):
     '''Generating pixel mask from the hit table.
 
     Parameters
     ----------
     input_hits_file : string
-        File name of the hit table.
+        Filename of the input hit file.
     n_pixel : tuple
         Tuple of the total number of pixels (column/row).
     pixel_mask_name : string
-        Name of the node containing the mask inside the output file.
+        Name of the node containing the mask inside the output file. Possible mask types:
+          - DisabledPixelMask: Any noisy pixels is masked and not taken into account when building clusters.
+          - NoisyPixelMask: Clusters solely containing noisy pixels are not built.
     output_mask_file : string
         File name of the output mask file.
     pixel_size : tuple
@@ -157,10 +242,13 @@ def generate_pixel_mask(input_hits_file, n_pixel, pixel_mask_name="NoisyPixelMas
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
-    logging.info('=== Generating %s for %s ===', ' '.join(item.lower() for item in re.findall('[A-Z][^A-Z]*', pixel_mask_name)), input_hits_file)
+    logging.info('== Generating %s for %s ==', ' '.join(item.lower() for item in re.findall('[A-Z][^A-Z]*', pixel_mask_name)), input_hits_file)
+
+    if pixel_mask_name not in ["DisabledPixelMask", "NoisyPixelMask"]:
+        raise ValueError("'%s' is not a valid pixel mask name." % pixel_mask_name)
 
     if output_mask_file is None:
-        output_mask_file = os.path.splitext(input_hits_file)[0] + '_' + '_'.join(item.lower() for item in re.findall('[A-Z][^A-Z]*', pixel_mask_name)) + '.h5'
+        output_mask_file = os.path.splitext(input_hits_file)[0] + '_mask.h5'
 
     # Create occupancy histogram
     def work(hit_chunk):
@@ -197,7 +285,59 @@ def generate_pixel_mask(input_hits_file, n_pixel, pixel_mask_name="NoisyPixelMas
     return output_mask_file
 
 
-def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel_mask_file=None, input_noisy_pixel_mask_file=None, min_hit_charge=0, max_hit_charge=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=1, dut_name=None, plot=True, chunk_size=1000000):
+def cluster(telescope_configuration, input_hits_files, input_mask_files=None, output_cluster_files=None, cluster_duts=None, min_hit_charges=None, max_hit_charges=None, column_cluster_distances=None, row_cluster_distances=None, frame_cluster_distances=None, plot=True, chunk_size=1000000):
+    '''Clustering hits. Wrapper for cluster_hits(). For detailed description of the parameters see cluster_hits().
+
+    Parameters
+    ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
+    input_hits_files : list
+        Filenames of the input hit files.
+    input_mask_files : list
+        Filenames of the input mask files.
+    output_cluster_files : list
+        Filenames of the output cluster files.
+    cluster_duts : list
+        List of selected DUTs.
+    min_hit_charges : list
+        Minimum hit charges.
+    max_hit_charges : list
+        Maximum hit charges.
+    column_cluster_distances : list
+        Maximum column distances.
+    row_cluster_distances : list
+        Maximum row distances.
+    frame_cluster_distances : list
+        Maximum frame distances.
+    plot : bool
+        If True, create additional output plots.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+    logging.info('=== Cluster hits of %d DUTs ===', n_duts)
+
+    if not output_cluster_files:
+        output_cluster_files = [None] * n_duts
+    for i, dut in enumerate(telescope):
+        if not cluster_duts or (cluster_duts and i in cluster_duts):
+            output_cluster_files[i] = cluster_hits(input_hits_file=input_hits_files[i],
+                                                   output_cluster_file=output_cluster_files[i],
+                                                   input_mask_file=input_mask_files[i] if (input_mask_files and len(input_mask_files) == n_duts and input_mask_files[i]) else None,
+                                                   min_hit_charge=min_hit_charges[i] if (min_hit_charges and len(min_hit_charges) == n_duts and min_hit_charges[i]) else 0,
+                                                   max_hit_charge=max_hit_charges[i] if (max_hit_charges and len(max_hit_charges) == n_duts and max_hit_charges[i]) else None,
+                                                   column_cluster_distance=column_cluster_distances[i] if (column_cluster_distances and len(column_cluster_distances) == n_duts and column_cluster_distances[i]) else 1,
+                                                   row_cluster_distance=row_cluster_distances[i] if (row_cluster_distances and len(row_cluster_distances) == n_duts and row_cluster_distances[i]) else 1,
+                                                   frame_cluster_distance=frame_cluster_distances[i] if (frame_cluster_distances and len(frame_cluster_distances) == n_duts and frame_cluster_distances[i]) else 0,
+                                                   dut_name=dut.name,
+                                                   plot=plot,
+                                                   chunk_size=chunk_size)
+    return output_cluster_files
+
+
+def cluster_hits(input_hits_file, output_cluster_file=None, input_mask_file=None, min_hit_charge=0, max_hit_charge=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, dut_name=None, plot=True, chunk_size=1000000):
     '''Clusters the hits in the data file containing the hit table.
 
     Parameters
@@ -206,10 +346,8 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
         Filename of the input hits file.
     output_cluster_file : string
         Filename of the output cluster file. If None, the filename will be derived from the input hits file.
-    input_disabled_pixel_mask_file : string
-        Filename of the input disabled mask file.
-    input_noisy_pixel_mask_file : string
-        Filename of the input disabled mask file.
+    input_mask_file : string
+        Filename of the input mask file.
     min_hit_charge : uint
         Minimum hit charge. Minimum possible hit charge must be given in order to correcly calculate the cluster coordinates.
     max_hit_charge : uint
@@ -227,22 +365,22 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
-    logging.info('=== Clustering hits in %s ===', input_hits_file)
+    logging.info('== Clustering hits in %s ==', input_hits_file)
 
     if output_cluster_file is None:
         output_cluster_file = os.path.splitext(input_hits_file)[0] + '_clustered.h5'
 
-    # Get noisy and disabled pixel, they are excluded for clusters
-    if input_disabled_pixel_mask_file is not None:
-        with tb.open_file(input_disabled_pixel_mask_file, 'r') as input_mask_file_h5:
-            disabled_pixels = np.dstack(np.nonzero(input_mask_file_h5.root.DisabledPixelMask[:]))[0] + 1
-    else:
-        disabled_pixels = None
-    if input_noisy_pixel_mask_file is not None:
-        with tb.open_file(input_noisy_pixel_mask_file, 'r') as input_mask_file_h5:
-            noisy_pixels = np.dstack(np.nonzero(input_mask_file_h5.root.NoisyPixelMask[:]))[0] + 1
-    else:
-        noisy_pixels = None
+    # Getting noisy and disabled pixel mask
+    if input_mask_file is not None:
+        with tb.open_file(input_mask_file, 'r') as input_mask_file_h5:
+            try:
+                disabled_pixels = np.dstack(np.nonzero(input_mask_file_h5.root.DisabledPixelMask[:]))[0] + 1
+            except tb.NoSuchNodeError:
+                disabled_pixels = None
+            try:
+                noisy_pixels = np.dstack(np.nonzero(input_mask_file_h5.root.NoisyPixelMask[:]))[0] + 1
+            except tb.NoSuchNodeError:
+                noisy_pixels = None
 
     # Prepare clusterizer
 
@@ -404,14 +542,19 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_disabled_pixel
             chunk_size=chunk_size)
 
     # Copy masks to result cluster file
-    with tb.open_file(output_cluster_file, 'r+') as output_file_h5:
-        # Copy nodes to result file
-        if input_disabled_pixel_mask_file is not None:
-            with tb.open_file(input_disabled_pixel_mask_file, 'r') as input_mask_file_h5:
-                input_mask_file_h5.root.DisabledPixelMask._f_copy(newparent=output_file_h5.root)
-        if input_noisy_pixel_mask_file is not None:
-            with tb.open_file(input_noisy_pixel_mask_file, 'r') as input_mask_file_h5:
-                input_mask_file_h5.root.NoisyPixelMask._f_copy(newparent=output_file_h5.root)
+
+    # Copy nodes to result file
+    if input_mask_file is not None:
+        with tb.open_file(input_mask_file, 'r') as input_mask_file_h5:
+            with tb.open_file(output_cluster_file, 'r+') as output_file_h5:
+                try:
+                    input_mask_file_h5.root.DisabledPixelMask._f_copy(newparent=output_file_h5.root)
+                except tb.NoSuchNodeError:
+                    pass
+                try:
+                    input_mask_file_h5.root.NoisyPixelMask._f_copy(newparent=output_file_h5.root)
+                except tb.NoSuchNodeError:
+                    pass
 
     if plot:
         plot_cluster_hists(input_cluster_file=output_cluster_file,
@@ -445,11 +588,9 @@ def correlate_cluster(telescope_configuration, input_cluster_files, output_corre
     chunk_size : uint
         Chunk size of the data when reading from file.
     '''
-    logging.info('=== Correlating the index of %d DUTs ===', len(input_cluster_files))
-
     telescope = Telescope(telescope_configuration)
-
     n_duts = len(telescope)
+    logging.info('=== Correlating the index of %d DUTs ===', n_duts)
 
     if ref_index is None:
         ref_duts = range(n_duts)
@@ -626,42 +767,27 @@ def _correlate_position(ref, dut, ref_clusters, dut_cluster_file, start_index, s
     return start_index, x_correlation, y_correlation
 
 
-# Helper functions to be called from multiple processes
-def _correlate_cluster(clusters_ref_dut, cluster_file, start_index, start_event_number, stop_event_number, column_correlation, row_correlation, chunk_size):
-    with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
-        for cluster_dut, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
-
-            analysis_utils.correlate_cluster_on_event_number(data_1=clusters_ref_dut,
-                                                             data_2=cluster_dut,
-                                                             column_corr_hist=column_correlation,
-                                                             row_corr_hist=row_correlation)
-
-    return start_index, column_correlation, row_correlation
-
-
-def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_size, chunk_size=1000000):
+def merge_cluster_data(telescope_configuration, input_cluster_files, output_merged_file, chunk_size=1000000):
     '''Takes the cluster from all cluster files and merges them into one big table aligned at a common event number.
 
-    Empty entries are signaled with column = row = charge = nan. Position is translated from indices to um. The
-    local coordinate system origin (0, 0) is defined in the sensor center, to decouple translation and rotation.
+    Empty entries are signaled with column = row = charge = nan. Position is translated from indices to local position (um).
+    The local coordinate system origin (0, 0, 0) is defined to be in the sensor center, decoupling translation and rotation.
     Cluster position errors are calculated from cluster dimensions.
 
     Parameters
     ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
     input_cluster_files : list of pytables files
         File name of the input cluster files with correlation data.
     output_merged_file : pytables file
         File name of the output tracklet file.
-    n_pixels : iterable of tuples
-        One tuple per DUT describing the total number of pixels (column/row),
-        e.g. for two FE-I4 DUTs [(80, 336), (80, 336)].
-    pixel_size : iterable of tuples
-        One tuple per DUT describing the pixel dimension (column/row),
-        e.g. for two FE-I4 DUTs [(250, 50), (250, 50)].
     chunk_size : uint
         Chunk size of the data when reading from file.
     '''
-    logging.info('=== Merge cluster files from %d DUTs to merged hit file ===', len(input_cluster_files))
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+    logging.info('=== Merge cluster files from %d DUTs ===', n_duts)
 
     # Create result array description, depends on the number of DUTs
     description = [('event_number', np.int64)]
@@ -725,15 +851,15 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
                 # Select real hits, values with nan are virtual hits
                 selection = ~np.isnan(actual_cluster_dut_0['mean_column'])
                 # Convert indices to positions, origin defined in the center of the sensor
-                merged_cluster_array['x_dut_0'][selection] = pixel_size[0][0] * (actual_cluster_dut_0['mean_column'][selection] - 0.5 - (0.5 * n_pixels[0][0]))
-                merged_cluster_array['y_dut_0'][selection] = pixel_size[0][1] * (actual_cluster_dut_0['mean_row'][selection] - 0.5 - (0.5 * n_pixels[0][1]))
-                merged_cluster_array['z_dut_0'][selection] = 0.0
-                # TODO
+                merged_cluster_array['x_dut_0'][selection], merged_cluster_array['y_dut_0'][selection], merged_cluster_array['z_dut_0'][selection] = telescope[0].index_to_local_position(
+                    column=actual_cluster_dut_0['mean_column'][selection],
+                    row=actual_cluster_dut_0['mean_row'][selection])
+                # TODO: Calculate error
                 xerr = np.zeros(selection.shape)
                 yerr = np.zeros(selection.shape)
                 zerr = np.zeros(selection.shape)
-                xerr[selection] = actual_cluster_dut_0['err_column'][selection] * pixel_size[0][0]
-                yerr[selection] = actual_cluster_dut_0['err_row'][selection] * pixel_size[0][1]
+                xerr[selection] = actual_cluster_dut_0['err_column'][selection] * telescope[0].column_size
+                yerr[selection] = actual_cluster_dut_0['err_row'][selection] * telescope[0].row_size
                 merged_cluster_array['xerr_dut_0'][selection] = xerr[selection]
                 merged_cluster_array['yerr_dut_0'][selection] = yerr[selection]
                 merged_cluster_array['zerr_dut_0'][selection] = zerr[selection]
@@ -751,14 +877,14 @@ def merge_cluster_data(input_cluster_files, output_merged_file, n_pixels, pixel_
                             # Select real hits, values with nan are virtual hits
                             selection = ~np.isnan(actual_cluster_dut['mean_column'])
                             # Convert indices to positions, origin in the center of the sensor, remaining DUTs
-                            merged_cluster_array['x_dut_%d' % (dut_index)][selection] = pixel_size[dut_index][0] * (actual_cluster_dut['mean_column'][selection] - 0.5 - (0.5 * n_pixels[dut_index][0]))
-                            merged_cluster_array['y_dut_%d' % (dut_index)][selection] = pixel_size[dut_index][1] * (actual_cluster_dut['mean_row'][selection] - 0.5 - (0.5 * n_pixels[dut_index][1]))
-                            merged_cluster_array['z_dut_%d' % (dut_index)][selection] = 0.0
+                            merged_cluster_array['x_dut_%d' % (dut_index)][selection], merged_cluster_array['y_dut_%d' % (dut_index)][selection], merged_cluster_array['z_dut_%d' % (dut_index)][selection] = telescope[dut_index].index_to_local_position(
+                                column=actual_cluster_dut['mean_column'][selection],
+                                row=actual_cluster_dut['mean_row'][selection])
                             xerr = np.zeros(selection.shape)
                             yerr = np.zeros(selection.shape)
                             zerr = np.zeros(selection.shape)
-                            xerr[selection] = actual_cluster_dut['err_column'][selection] * pixel_size[dut_index][0]
-                            yerr[selection] = actual_cluster_dut['err_row'][selection] * pixel_size[dut_index][1]
+                            xerr[selection] = actual_cluster_dut['err_column'][selection] * telescope[dut_index].column_size
+                            yerr[selection] = actual_cluster_dut['err_row'][selection] * telescope[dut_index].row_size
                             merged_cluster_array['xerr_dut_%d' % (dut_index)][selection] = xerr[selection]
                             merged_cluster_array['yerr_dut_%d' % (dut_index)][selection] = yerr[selection]
                             merged_cluster_array['zerr_dut_%d' % (dut_index)][selection] = zerr[selection]

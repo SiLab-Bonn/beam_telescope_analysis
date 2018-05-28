@@ -43,10 +43,9 @@ def prealignment(telescope_configuration, input_correlation_file, output_alignme
     queue : bool, dict
         If gui is True and non_interactive is False, queue is a dict with a in and output queue to communicate with GUI thread
     '''
-    logging.info('=== Pre-alignment ===')
-
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
+    logging.info('=== Pre-alignment of %d DUTs ===' % n_duts)
 
     if plot is True and not gui:
         output_pdf = PdfPages(os.path.splitext(output_alignment_file)[0] + '_prealigned.pdf', keep_empty=False)
