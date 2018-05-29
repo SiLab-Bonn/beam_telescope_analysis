@@ -612,6 +612,35 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                     alpha=beam_alignment[0]['beam_alpha'],
                     beta=beam_alignment[0]['beam_beta'],
                     gamma=0.0)
+
+            # reverse order
+            if beam_alignment is not None:
+                hits_x, hits_y, hits_z = apply_transformation_matrix(
+                    x=hits_x,
+                    y=hits_y,
+                    z=hits_z,
+                    transformation_matrix=beam_transformation_matrix)
+
+            hits_x, hits_y, hits_z = apply_transformation_matrix(
+                x=hits_x,
+                y=hits_y,
+                z=hits_z,
+                transformation_matrix=transformation_matrix)
+
+            if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
+                # Errors need only rotation but no translation
+                if beam_alignment is not None:
+                    hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
+                        x=hits_xerr,
+                        y=hits_yerr,
+                        z=hits_zerr,
+                        transformation_matrix=beam_rotation_matrix)
+
+                hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
+                    x=hits_xerr,
+                    y=hits_yerr,
+                    z=hits_zerr,
+                    transformation_matrix=rotation_matrix)
         else:
             logging.debug('Transform hit position into the global coordinate '
                           'system using alignment data')
@@ -645,33 +674,33 @@ def apply_alignment(hits_x, hits_y, hits_z, dut_index,
                     beta=beam_alignment[0]['beam_beta'],
                     gamma=0.0)
 
-        hits_x, hits_y, hits_z = apply_transformation_matrix(
-            x=hits_x,
-            y=hits_y,
-            z=hits_z,
-            transformation_matrix=transformation_matrix)
-
-        if beam_alignment is not None:
             hits_x, hits_y, hits_z = apply_transformation_matrix(
                 x=hits_x,
                 y=hits_y,
                 z=hits_z,
-                transformation_matrix=beam_transformation_matrix)
-
-        if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
-            # Errors need only rotation but no translation
-            hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
-                x=hits_xerr,
-                y=hits_yerr,
-                z=hits_zerr,
-                transformation_matrix=rotation_matrix)
+                transformation_matrix=transformation_matrix)
 
             if beam_alignment is not None:
+                hits_x, hits_y, hits_z = apply_transformation_matrix(
+                    x=hits_x,
+                    y=hits_y,
+                    z=hits_z,
+                    transformation_matrix=beam_transformation_matrix)
+
+            if hits_xerr is not None and hits_yerr is not None and hits_zerr is not None:
+                # Errors need only rotation but no translation
                 hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
                     x=hits_xerr,
                     y=hits_yerr,
                     z=hits_zerr,
-                    transformation_matrix=beam_rotation_matrix)
+                    transformation_matrix=rotation_matrix)
+
+                if beam_alignment is not None:
+                    hits_xerr, hits_yerr, hits_zerr = apply_transformation_matrix(
+                        x=hits_xerr,
+                        y=hits_yerr,
+                        z=hits_zerr,
+                        transformation_matrix=beam_rotation_matrix)
 
     else:
         c0_column = prealignment[dut_index]['column_c0']
