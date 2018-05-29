@@ -20,6 +20,69 @@ from testbeam_analysis.track_analysis import find_tracks, fit_tracks
 from testbeam_analysis.result_analysis import calculate_residuals, histogram_track_angle
 
 
+def apply_alignment(telescope_configuration, input_merged_file, output_merged_file=None, local_to_global=True, chunk_size=1000000):
+    '''Convert local to global coordinates and vice versa.
+
+    Note:
+    -----
+    This function cannot be easily made faster with multiprocessing since the computation function (apply_alignment_to_chunk) does not
+    contribute significantly to the runtime (< 20 %), but the copy overhead for not shared memory needed for multipgrocessing is higher.
+    Also the hard drive IO can be limiting (30 Mb/s read, 20 Mb/s write to the same disk)
+
+    Parameters
+    ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
+    input_merged_file : string
+        Filename of the input merged file.
+    output_merged_file : string
+        Filename of the output merged file with the converted coordinates.
+    local_to_global : bool
+        If True, convert from local to global coordinates.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
+    '''
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+    logging.info('== Apply alignment to %d DUTs ==', n_duts)
+
+    if output_merged_file is None:
+        output_merged_file = os.path.splitext(input_merged_file)[0] + ('_global_coordinates.h5' if local_to_global else '_local_coordinates.h5')
+
+    # Looper over the hits of all DUTs of all hit tables in chunks and apply the alignment
+    with tb.open_file(input_merged_file, mode='r') as in_file_h5:
+        with tb.open_file(output_merged_file, mode='w') as out_file_h5:
+            for node in in_file_h5.root:  # Loop over potential hit tables in data file
+                hits = node
+                new_node_name = hits.name
+
+                if new_node_name == 'MergedClusters':  # Merged cluster with alignment are tracklets
+                    new_node_name = 'Tracklets'
+
+                hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=new_node_name, description=hits.dtype, title=hits.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+
+                progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=hits.shape[0], term_width=80)
+                progress_bar.start()
+
+                for hits_chunk, index in analysis_utils.data_aligned_at_events(hits, chunk_size=chunk_size):  # Loop over the hits
+                    for dut_index, dut in enumerate(telescope):  # Loop over the DUTs
+                        if local_to_global:
+                            conv = dut.local_to_global_position
+                        else:
+                            conv = dut.global_to_local_position
+
+                        hits_chunk['x_dut_%d' % dut_index], hits_chunk['y_dut_%d' % dut_index], hits_chunk['z_dut_%d' % dut_index] = conv(
+                            x=hits_chunk['x_dut_%d' % dut_index],
+                            y=hits_chunk['y_dut_%d' % dut_index],
+                            z=hits_chunk['z_dut_%d' % dut_index])
+
+                    hits_aligned_table.append(hits_chunk)
+                    progress_bar.update(index)
+                progress_bar.finish()
+
+    return output_merged_file
+
+
 def prealignment(telescope_configuration, input_correlation_file, output_alignment_file, ref_index=0, reduce_background=True, plot=True, gui=False, queue=False):
     '''Deduce a pre-alignment from the correlations, by fitting the correlations with a straight line (gives offset, slope, but no tild angles).
        The user can define cuts on the fit error and straight line offset in an interactive way.
@@ -159,89 +222,6 @@ def prealignment(telescope_configuration, input_correlation_file, output_alignme
 
     if gui:
         return figs
-
-
-def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, use_prealignment, inverse=False, no_z=False, use_duts=None, chunk_size=1000000):
-    ''' Takes a file with tables containing hit information (x, y, z) and applies the alignment to each DUT hit (positions and errors).
-    The alignment data is used. If this is not available a fallback to the pre-alignment is done.
-    One can also inverse the alignment or apply the alignment without changing the z position.
-
-    Note:
-    -----
-    This function cannot be easily made faster with multiprocessing since the computation function (apply_alignment_to_chunk) does not
-    contribute significantly to the runtime (< 20 %), but the copy overhead for not shared memory needed for multipgrocessing is higher.
-    Also the hard drive IO can be limiting (30 Mb/s read, 20 Mb/s write to the same disk)
-
-    Parameters
-    ----------
-    input_hit_file : string
-        Filename of the input hits file (e.g. merged data file, tracklets file, etc.).
-    input_alignment_file : string
-        Filename of the input alignment file.
-    output_hit_file : string
-        Filename of the output hits file with hit data after alignment was applied.
-    inverse : bool
-        If True, apply the inverse alignment.
-    use_prealignment : bool
-        If True, use pre-alignment from correlation data; if False, use alignment.
-    no_z : bool
-        If True, do not change the z alignment. Needed since the z position is special for x / y based plane measurements.
-    use_duts : iterable
-        Iterable of DUT indices to apply the alignment to. If None, use all DUTs.
-    chunk_size : uint
-        Chunk size of the data when reading from file.
-    '''
-    logging.info('== Apply alignment to %s ==', input_hit_file)
-
-    try:
-        with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
-            if use_prealignment:
-                logging.info('Use pre-alignment data')
-                alignment = in_file_h5.root.PreAlignment[:]
-                n_duts = alignment.shape[0]
-            else:
-                logging.info('Use alignment data')
-                alignment = in_file_h5.root.Alignment[:]
-                n_duts = alignment.shape[0]
-    except TypeError:  # The input_alignment_file is an array
-        alignment = input_alignment_file
-        try:  # Check if array is prealignent array
-            alignment['column_c0']
-            logging.info('Use pre-alignment data')
-            n_duts = alignment.shape[0]
-            use_prealignment = True
-        except ValueError:
-            logging.info('Use alignment data')
-            n_duts = alignment.shape[0]
-            use_prealignment = False
-
-    # Looper over the hits of all DUTs of all hit tables in chunks and apply the alignment
-    with tb.open_file(input_hit_file, mode='r') as in_file_h5:
-        with tb.open_file(output_hit_file, mode='w') as out_file_h5:
-            for node in in_file_h5.root:  # Loop over potential hit tables in data file
-                hits = node
-                new_node_name = hits.name
-
-                if new_node_name == 'MergedClusters':  # Merged cluster with alignment are tracklets
-                    new_node_name = 'Tracklets'
-
-                hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=new_node_name, description=hits.dtype, title=hits.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-
-                progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=hits.shape[0], term_width=80)
-                progress_bar.start()
-
-                for hits_chunk, index in analysis_utils.data_aligned_at_events(hits, chunk_size=chunk_size):  # Loop over the hits
-                    for dut_index in range(0, n_duts):  # Loop over the DUTs in the hit table
-                        if use_duts is not None and dut_index not in use_duts:  # omit DUT
-                            continue
-
-                        geometry_utils.apply_alignment_to_hits(hits=hits_chunk, dut_index=dut_index, use_prealignment=use_prealignment, alignment=alignment, inverse=inverse, no_z=no_z)
-
-                    hits_aligned_table.append(hits_chunk)
-                    progress_bar.update(index)
-                progress_bar.finish()
-
-    logging.debug('File with realigned hits %s', output_hit_file)
 
 
 # TODO: selection_track_quality to selection_track_quality_sigma
