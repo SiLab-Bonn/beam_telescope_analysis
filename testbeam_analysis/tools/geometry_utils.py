@@ -19,14 +19,14 @@ def skew(v):
     matr[4::9] = v.flatten()[1::3]
     matr[8::9] = v.flatten()[2::3]
     matr = matr.reshape(np.r_[v.shape, 3])
-    
+
     if len(v.shape) == 1:
         matr_skv = np.roll(np.roll(matr, 1, 1), -1, 0)
         return matr_skv - matr_skv.T
     else:
         matr_skv = np.roll(np.roll(matr, 1, 2), -1, 1)
         return matr_skv - matr_skv.transpose((0, 2, 1))
-    
+
 
 def get_plane_normal(direction_vector_1, direction_vector_2):
     ''' Normal vector of a plane.
@@ -122,12 +122,11 @@ def get_z_point_on_plane(point, position_plane, normal_plane):
     A2 = normal_plane[1] * (point[1] - position_plane[1])
 
     z_coord = (normal_plane[2] * position_plane[2] - A1 - A2) / normal_plane[2]
-    A3 = normal_plane[2]*(z_coord - position_plane[2])
+    A3 = normal_plane[2] * (z_coord - position_plane[2])
 
     if not np.allclose(A1 + A2 + A3, 0.0):
         logging.warning('Some points do not lie in specified plane!')
     return z_coord
-
 
 
 def cartesian_to_spherical(x, y, z):
@@ -307,9 +306,9 @@ def euler_angles(R):
 
     if not is_rotation_matrix(R):
         raise ValueError("%s is not a rotation matrix" % str(R))
-    
+
 #     sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
-#     
+#
 #     singular = np.isclose(0.0, sy)
 
 #     if not singular:
@@ -321,19 +320,18 @@ def euler_angles(R):
 #         beta = -math.atan2(-R[2,0], sy)
 #         gamma = 0.0
 
+    sy = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
 
-    sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
-     
     singular = np.isclose(0.0, sy)
 
     if not singular:
-        alpha = math.atan2(R[1,0], R[0,0])
-        beta = math.atan2(-R[2,0], sy)
-        gamma = math.atan2(R[2,1], R[2,2])
+        alpha = math.atan2(R[1, 0], R[0, 0])
+        beta = math.atan2(-R[2, 0], sy)
+        gamma = math.atan2(R[2, 1], R[2, 2])
     else:
         raise
-        alpha = math.atan2(-R[1,2], R[1,1])
-        beta = math.atan2(-R[2,0], sy)
+        alpha = math.atan2(-R[1, 2], R[1, 1])
+        beta = math.atan2(-R[2, 0], sy)
         gamma = 0.0
 
     return alpha, beta, gamma
@@ -341,6 +339,7 @@ def euler_angles(R):
 
 def euler_angles_minimizer(R, alpha_start=0.0, beta_start=0.0, gamma_start=0.0, limit=0.5, tol=None):
     print "R", R.dtype
+
     def _minimize_me(angles, R):
         calculated_R = rotation_matrix(alpha=angles[0],
                                        beta=angles[1],
@@ -892,7 +891,6 @@ def save_alignment_parameters(alignment_file, alignment_parameters,
                                                        description=alignment_parameters.dtype)
             alignment_table.append(alignment_parameters)
 
-
         string = "\n".join(['DUT%d: alpha/beta/gamma=%1.4f/%1.4f/%1.4f Rad, '
                             'x/y/z=%.2f/%.2f/%.2f um' % (dut_values['DUT'],
                                                          dut_values['alpha'],
@@ -916,7 +914,7 @@ def load_alignment_parameters(alignment_file):
     # Open file with alignment data
     with tb.open_file(alignment_file, mode="r") as out_file_h5:
         alignment = out_file_h5.root.Alignment[:]
-    
+
     return alignment
 
 
@@ -935,7 +933,6 @@ def save_beam_alignment_parameters(alignment_file, beam_alignment):
                                                        description=beam_alignment.dtype)
             alignment_table.append(beam_alignment)
 
-
         logging.info('Setting beam-alignment parameters to: alpha/beta=%1.4f/%1.4f Rad' % (beam_alignment[0]['beam_alpha'],
                                                                                            beam_alignment[0]['beam_beta']))
 
@@ -943,5 +940,5 @@ def save_beam_alignment_parameters(alignment_file, beam_alignment):
 def load_beam_alignment_parameters(alignment_file):
     with tb.open_file(alignment_file, mode="r") as out_file_h5:
         beam_alignment = out_file_h5.root.BeamAlignment[:]
-    
+
     return beam_alignment
