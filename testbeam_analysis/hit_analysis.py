@@ -482,7 +482,7 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_mask_file=None
             func_kwargs={'clz': clz,
                          'noisy_pixels': noisy_pixels,
                          'disabled_pixels': disabled_pixels},
-            node_desc={'name': 'Cluster'},
+            node_desc={'name': 'Clusters'},
             align_at='event_number',
             chunk_size=chunk_size)
 
@@ -565,18 +565,17 @@ def cluster_hits(input_hits_file, output_cluster_file=None, input_mask_file=None
     return output_cluster_file
 
 
-def correlate_cluster(telescope_configuration, input_cluster_files, output_correlation_file, resolution=(100.0, 100.0), ref_index=0, plot=True, chunk_size=100000):
-    '''"Calculates the correlation histograms from the cluster arrays.
+def correlate(telescope_configuration, input_files, output_correlation_file, resolution=(100.0, 100.0), ref_index=0, plot=True, chunk_size=100000):
+    '''"Calculates the correlation histograms from the hit/cluster indices.
     The 2D correlation array of pairs of two different devices are created on event basis.
-    All permutations are considered (all clusters of the first device are correlated with all clusters of the second device).
+    All permutations are considered (all hits/clusters of the first device are correlated with all hits/clusters of the second device).
 
     Parameters
     ----------
     telescope_configuration : string
         Filename of the telescope configuration file.
-    input_cluster_files : iterable
-        Iterable of filenames of the cluster files.
-        The DUT index of each input file is equivalent to its position in the list.
+    input_files : list
+        Filenames of the input hit/cluster files.
     output_correlation_file : string
         Filename of the output correlation file with the correlation histograms.
     resolution : tuple
@@ -620,19 +619,25 @@ def correlate_cluster(telescope_configuration, input_cluster_files, output_corre
                 y_correlations.append(np.zeros((np.array([dut_y_size[-1], ref_y_size[-1]]) / resolution[1]).astype(np.int32), dtype=np.int32))
                 start_indices.append(None)  # Store the loop indices for speed up
 
-            with tb.open_file(input_cluster_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 cluster file
+            with tb.open_file(input_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 hit/cluster file
+                try:
+                    ref_node = in_file_h5.root.Clusters
+                    ref_use_clusters = True
+                except tb.NoSuchNodeError:
+                    ref_node = in_file_h5.root.Hits
+                    ref_use_clusters = False
                 widgets = ['', progressbar.Percentage(), ' ',
                            progressbar.Bar(marker='*', left='|', right='|'),
                            ' ', progressbar.AdaptiveETA()]
                 progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=in_file_h5.root.Cluster.shape[0],
+                                                       maxval=ref_node.shape[0],
                                                        term_width=80)
                 progress_bar.start()
 
                 pool = Pool()
-                # Loop over the clusters of reference DUT
-                for ref_clusters, ref_read_index in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, chunk_size=chunk_size):
-                    actual_event_numbers = ref_clusters[:]['event_number']
+                # Loop over the hits/clusters of reference DUT
+                for ref_indices, ref_read_index in analysis_utils.data_aligned_at_events(ref_node, chunk_size=chunk_size):
+                    actual_event_numbers = ref_indices[:]['event_number']
 
                     # Create correlation histograms to the reference device for all other devices
                     # Do this in parallel to safe time
@@ -643,8 +648,9 @@ def correlate_cluster(telescope_configuration, input_cluster_files, output_corre
                         dut_results.append(pool.apply_async(_correlate_position, kwds={
                             'ref': telescope[ref_index],
                             'dut': telescope[dut_index],
-                            'ref_clusters': ref_clusters,
-                            'dut_cluster_file': input_cluster_files[dut_index],
+                            'ref_use_clusters': ref_use_clusters,
+                            'ref_indices': ref_indices,
+                            'dut_input_file': input_files[dut_index],
                             'start_index': start_indices[index],
                             'start_event_number': actual_event_numbers[0],
                             'stop_event_number': actual_event_numbers[-1] + 1,
@@ -729,30 +735,29 @@ def correlate_cluster(telescope_configuration, input_cluster_files, output_corre
 
 
 # Helper functions to be called from multiple processes
-def _correlate_position(ref, dut, ref_clusters, dut_cluster_file, start_index, start_event_number, stop_event_number, resolution, ref_x_size, ref_y_size, dut_x_size, dut_y_size, x_correlation, y_correlation, chunk_size):
-    with tb.open_file(dut_cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
-        for dut_clusters, start_index in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
-            ref_event_number = ref_clusters['event_number']
-            dut_event_number = dut_clusters['event_number']
-            ref_x_pos, ref_y_pos, _ = ref.index_to_global_position(column=ref_clusters['mean_column'], row=ref_clusters['mean_row'])
-            dut_x_pos, dut_y_pos, _ = dut.index_to_global_position(column=dut_clusters['mean_column'], row=dut_clusters['mean_row'])
+def _correlate_position(ref, dut, ref_use_clusters, ref_indices, dut_input_file, start_index, start_event_number, stop_event_number, resolution, ref_x_size, ref_y_size, dut_x_size, dut_y_size, x_correlation, y_correlation, chunk_size):
+    with tb.open_file(dut_input_file, mode='r') as in_file_h5:  # Open other DUT hit/cluster file
+        try:
+            dut_node = in_file_h5.root.Clusters
+            dut_use_clusters = True
+        except tb.NoSuchNodeError:
+            dut_node = in_file_h5.root.Hits
+            dut_use_clusters = False
+        for dut_indices, start_index in analysis_utils.data_aligned_at_events(dut_node, start_index=start_index, start_event_number=start_event_number, stop_event_number=stop_event_number, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+            ref_event_number = ref_indices['event_number']
+            dut_event_number = dut_indices['event_number']
+            if ref_use_clusters:
+                ref_x_pos, ref_y_pos, _ = ref.index_to_global_position(column=ref_indices['mean_column'], row=ref_indices['mean_row'])
+            else:
+                ref_x_pos, ref_y_pos, _ = ref.index_to_global_position(column=ref_indices['column'], row=ref_indices['row'])
+            if dut_use_clusters:
+                dut_x_pos, dut_y_pos, _ = dut.index_to_global_position(column=dut_indices['mean_column'], row=dut_indices['mean_row'])
+            else:
+                dut_x_pos, dut_y_pos, _ = dut.index_to_global_position(column=dut_indices['column'], row=dut_indices['row'])
             ref_x_index = ((ref_x_pos - ref.translation_x + ref_x_size / 2.0) / resolution[0]).astype(np.uint32)
             ref_y_index = ((ref_y_pos - ref.translation_y + ref_y_size / 2.0) / resolution[1]).astype(np.uint32)
             dut_x_index = ((dut_x_pos - dut.translation_x + dut_x_size / 2.0) / resolution[0]).astype(np.uint32)
             dut_y_index = ((dut_y_pos - dut.translation_y + dut_y_size / 2.0) / resolution[1]).astype(np.uint32)
-            # print dut.name
-            # print "x"
-            # print dut_clusters['mean_column']
-            # print dut_x_pos
-            # print ((dut_x_pos + dut_x_size / 2.0)), dut_x_size / 2.0
-            # print ((dut_x_pos + dut_x_size / 2.0) / resolution[0])
-            # print dut_x_index, dut_x_index.min(), dut_x_index.max()
-            # print "y"
-            # print dut_clusters['mean_row']
-            # print dut_y_pos
-            # print ((dut_y_pos + dut_y_size / 2.0)), dut_y_size / 2.0
-            # print ((dut_y_pos + dut_y_size / 2.0) / resolution[1])
-            # print dut_y_index, dut_y_index.min(), dut_y_index.max()
 
             analysis_utils.correlate_position_on_event_number(
                 ref_event_number=ref_event_number,
@@ -819,18 +824,18 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
 
     # Merge the cluster data from different DUTs into one table
     with tb.open_file(output_merged_file, mode='w') as out_file_h5:
-        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedCluster', description=np.dtype(description), title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedClusters', description=np.dtype(description), title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
         with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
-            progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Cluster.shape[0], term_width=80)
+            progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Clusters.shape[0], term_width=80)
             progress_bar.start()
-            for actual_cluster_dut_0, start_indices_data_loop[0] in analysis_utils.data_aligned_at_events(in_file_h5.root.Cluster, start_index=start_indices_data_loop[0], start_event_number=actual_start_event_number, stop_event_number=None, chunk_size=chunk_size):  # Loop over the cluster of DUT0 in chunks
+            for actual_cluster_dut_0, start_indices_data_loop[0] in analysis_utils.data_aligned_at_events(in_file_h5.root.Clusters, start_index=start_indices_data_loop[0], start_event_number=actual_start_event_number, stop_event_number=None, chunk_size=chunk_size):  # Loop over the cluster of DUT0 in chunks
                 actual_event_numbers = actual_cluster_dut_0[:]['event_number']
 
                 # First loop: calculate the minimum event number indices needed to merge all cluster from all files to this event number index
                 common_event_numbers = actual_event_numbers
                 for dut_index, cluster_file in enumerate(input_cluster_files[1:], start=1):  # Loop over the other cluster files
                     with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open DUT0 cluster file
-                        for actual_cluster, start_indices_merging_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_indices_merging_loop[dut_index], start_event_number=actual_start_event_number, stop_event_number=actual_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+                        for actual_cluster, start_indices_merging_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Clusters, start_index=start_indices_merging_loop[dut_index], start_event_number=actual_start_event_number, stop_event_number=actual_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
                             common_event_numbers = analysis_utils.get_max_events_in_both_arrays(common_event_numbers, actual_cluster[:]['event_number'])
                 merged_cluster_array = np.zeros(shape=(common_event_numbers.shape[0],), dtype=description)  # resulting array to be filled
                 for index, _ in enumerate(input_cluster_files):
@@ -872,7 +877,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 # Second loop: get the cluster from all files and merge them to the common event number
                 for dut_index, cluster_file in enumerate(input_cluster_files[1:], start=1):  # Loop over the other cluster files
                     with tb.open_file(cluster_file, mode='r') as actual_in_file_h5:  # Open other DUT cluster file
-                        for actual_cluster_dut, start_indices_data_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Cluster, start_index=start_indices_data_loop[dut_index], start_event_number=common_event_numbers[0], stop_event_number=common_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
+                        for actual_cluster_dut, start_indices_data_loop[dut_index] in analysis_utils.data_aligned_at_events(actual_in_file_h5.root.Clusters, start_index=start_indices_data_loop[dut_index], start_event_number=common_event_numbers[0], stop_event_number=common_event_numbers[-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):  # Loop over the cluster in the actual cluster file in chunks
                             actual_cluster_dut = analysis_utils.map_cluster(common_event_numbers, actual_cluster_dut)
                             # Select real hits, values with nan are virtual hits
                             selection = ~np.isnan(actual_cluster_dut['mean_column'])

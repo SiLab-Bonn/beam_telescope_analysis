@@ -155,7 +155,7 @@ def find_tracks(input_merged_file, input_alignment_file, output_track_candidates
 #             chunk_size=chunk_size)
 
     with tb.open_file(input_merged_file, mode='r') as in_file_h5:
-        tracklets_node = in_file_h5.root.MergedCluster
+        tracklets_node = in_file_h5.root.MergedClusters
 
         with tb.open_file(output_track_candidates_file, mode='w') as out_file_h5:
             track_candidates = out_file_h5.create_table(out_file_h5.root, name='TrackCandidates',

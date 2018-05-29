@@ -222,7 +222,7 @@ def apply_alignment(input_hit_file, input_alignment_file, output_hit_file, use_p
                 hits = node
                 new_node_name = hits.name
 
-                if new_node_name == 'MergedCluster':  # Merged cluster with alignment are tracklets
+                if new_node_name == 'MergedClusters':  # Merged cluster with alignment are tracklets
                     new_node_name = 'Tracklets'
 
                 hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=new_node_name, description=hits.dtype, title=hits.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))

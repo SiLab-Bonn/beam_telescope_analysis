@@ -165,9 +165,9 @@ def plot_cluster_size(input_cluster_file, dut_name=None, output_pdf_file=None, c
         with tb.open_file(input_cluster_file, 'r') as input_file_h5:
             hight = None
             n_hits = 0
-            n_clusters = input_file_h5.root.Cluster.nrows
+            n_clusters = input_file_h5.root.Clusters.nrows
             for start_index in range(0, n_clusters, chunk_size):
-                cluster_n_hits = input_file_h5.root.Cluster[start_index:start_index + chunk_size]['n_hits']
+                cluster_n_hits = input_file_h5.root.Clusters[start_index:start_index + chunk_size]['n_hits']
                 # calculate cluster size histogram
                 if hight is None:
                     max_cluster_size = np.amax(cluster_n_hits)
@@ -345,7 +345,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
         with tb.open_file(input_file, "r") as in_file_h5:
             for actual_dut in select_duts:
                 if actual_dut is None:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Cluster')
+                    node = in_file_h5.get_node(in_file_h5.root, 'Clusters')
                 else:
                     node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT_%d' % actual_dut)
 
