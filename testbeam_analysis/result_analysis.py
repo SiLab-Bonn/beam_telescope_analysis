@@ -1378,13 +1378,14 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     actual_bin_size_x = bin_size[actual_dut][0]
                     actual_bin_size_y = bin_size[actual_dut][1]
 
-                n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
-                if len(n_bins_in_pixel) == 1:
-                    actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
-                    actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
-                else:
-                    actual_bin_size_in_pixel_x = n_bins_in_pixel[actual_dut][0]
-                    actual_bin_size_in_pixel_y = n_bins_in_pixel[actual_dut][1]
+                if in_pixel is True:
+                    n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
+                    if len(n_bins_in_pixel) == 1:
+                        actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
+                        actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
+                    else:
+                        actual_bin_size_in_pixel_x = n_bins_in_pixel[actual_dut][0]
+                        actual_bin_size_in_pixel_y = n_bins_in_pixel[actual_dut][1]
 
                 sensor_size = np.array(n_pixels) * np.array(pixel_size)
 
@@ -1503,13 +1504,12 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
 
                 efficiency = np.zeros_like(total_track_density_with_DUT_hit)
                 efficiency[total_track_density != 0] = total_track_density_with_DUT_hit[total_track_density != 0].astype(np.float) / total_track_density[total_track_density != 0].astype(np.float) * 100.
+                efficiency = np.ma.array(efficiency, mask=total_track_density < minimum_track_density)
 
                 if in_pixel is True:
                     in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
-                    in_pixel_efficiency = total_track_density_with_DUT_hit_projected.astype(np.float) / total_track_density_projected.astype(np.float) * 100.
-
-                efficiency = np.ma.array(efficiency, mask=total_track_density < minimum_track_density)
-
+                    in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float) / total_track_density_projected[total_track_density_projected != 0].astype(np.float) * 100.
+                    in_pixel_efficiency = np.ma.array(in_pixel_efficiency, mask=total_track_density_projected < minimum_track_density)
                 if not np.any(efficiency):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut)
 
