@@ -1596,7 +1596,7 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
     if gui:
         return figs
 
-    return efficiencies, pass_tracks, total_tracks
+    return eff, eff_err_min, eff_err_pl
 
 
 def calculate_purity(input_tracks_file, input_alignment_file, use_prealignment, bin_size, sensor_size, select_duts, output_purity_file=None, pixel_size=None, n_pixels=None, minimum_hit_density=10, cut_distance=None, col_range=None, row_range=None, show_inefficient_events=False, plot=True, chunk_size=1000000):
