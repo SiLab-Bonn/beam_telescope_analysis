@@ -1470,7 +1470,6 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     total_hit_hist += (np.histogram2d(hits_local[:, 0], hits_local[:, 1], bins=(n_bin_x, n_bin_y), range=[[0, dimensions[0]], [0, dimensions[1]]])[0]).astype(np.uint32)
 #                     total_hit_hist += (np.histogram2d(hits_local[:, 0], hits_local[:, 1], bins=(n_bin_x, n_bin_y), range=[[-dimensions[0] / 2., dimensions[0] / 2.], [-dimensions[1] / 2., dimensions[1] / 2.]])[0]).astype(np.uint32)
 
-                    # Calculate efficiency
                     selection = ~np.isnan(hits_local[:, 0])
                     if cut_distance:  # Select intersections where hit is in given distance around track intersection
                         intersection_valid_hit = intersections_local[np.logical_and(selection, distance < cut_distance)]
@@ -1494,18 +1493,26 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                         hits_local_projection = np.column_stack((hit_x_local_projection, hit_y_local_projection))
                         intersections_valid_hit_projection = np.column_stack((intersection_valid_hit_projection_x, intersection_valid_hit_projection_y))
 
-                        total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]).astype(np.uint32)
-                        total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
-                        total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1], bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
+                        total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1],
+                                                                    bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                    range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]).astype(np.uint32)
+                        total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1],
+                                                                        bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                        range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
+                        total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1],
+                                                                                     bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                                     range=[[0, n * pixel_size[actual_dut][0]], [0, n * pixel_size[actual_dut][1]]])[0]
 
                     if np.all(total_track_density == 0):
                         logging.warning('No tracks on DUT%d, cannot calculate efficiency', actual_dut)
                         continue
 
+                # Calculate efficiency
                 efficiency = np.zeros_like(total_track_density_with_DUT_hit)
                 efficiency[total_track_density != 0] = total_track_density_with_DUT_hit[total_track_density != 0].astype(np.float) / total_track_density[total_track_density != 0].astype(np.float) * 100.
                 efficiency = np.ma.array(efficiency, mask=total_track_density < minimum_track_density)
 
+                # Calculate in-pixel-efficiency
                 if in_pixel is True:
                     in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
                     in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float) / total_track_density_projected[total_track_density_projected != 0].astype(np.float) * 100.
@@ -1514,9 +1521,27 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut)
 
                 if in_pixel is True:
-                    plot_utils.efficiency_plots(total_hit_hist, total_track_density, total_track_density_with_DUT_hit, efficiency, actual_dut, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], in_pixel_efficiency=in_pixel_efficiency, plot_range_in_pixel=[0.0, n * pixel_size[actual_dut][0], n * pixel_size[actual_dut][1], 0.0], output_pdf=output_pdf, gui=gui, figs=figs)
+                    plot_utils.efficiency_plots(total_hit_hist,
+                                                total_track_density,
+                                                total_track_density_with_DUT_hit,
+                                                efficiency,
+                                                actual_dut,
+                                                plot_range=[0.0, dimensions[0], dimensions[1], 0.0],
+                                                in_pixel_efficiency=in_pixel_efficiency,
+                                                plot_range_in_pixel=[0.0, n * pixel_size[actual_dut][0], n * pixel_size[actual_dut][1], 0.0],
+                                                output_pdf=output_pdf,
+                                                gui=gui,
+                                                figs=figs)
                 else:
-                    plot_utils.efficiency_plots(total_hit_hist, total_track_density, total_track_density_with_DUT_hit, efficiency, actual_dut, plot_range=[0.0, dimensions[0], dimensions[1], 0.0], output_pdf=output_pdf, gui=gui, figs=figs)
+                    plot_utils.efficiency_plots(total_hit_hist,
+                                                total_track_density,
+                                                total_track_density_with_DUT_hit,
+                                                efficiency,
+                                                actual_dut,
+                                                plot_range=[0.0, dimensions[0], dimensions[1], 0.0],
+                                                output_pdf=output_pdf,
+                                                gui=gui,
+                                                figs=figs)
 
                 # Calculate mean efficiency without any binning
                 eff, eff_err_min, eff_err_pl = analysis_utils.get_mean_efficiency(array_pass=total_track_density_with_DUT_hit,
@@ -1527,12 +1552,25 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
 
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT_%d' % actual_dut)
 
-                out_efficiency = out_file_h5.create_carray(dut_group, name='Efficiency', title='Efficiency map of DUT%d' % actual_dut, atom=tb.Atom.from_dtype(efficiency.dtype), shape=efficiency.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_efficiency_mask = out_file_h5.create_carray(dut_group, name='Efficiency_mask', title='Masked pixel map of DUT%d' % actual_dut, atom=tb.Atom.from_dtype(efficiency.mask.dtype), shape=efficiency.mask.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_efficiency = out_file_h5.create_carray(dut_group, name='Efficiency', title='Efficiency map of DUT%d' % actual_dut,
+                                                           atom=tb.Atom.from_dtype(efficiency.dtype), shape=efficiency.T.shape,
+                                                           filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_efficiency_mask = out_file_h5.create_carray(dut_group, name='Efficiency_mask', title='Masked pixel map of DUT%d' % actual_dut,
+                                                                atom=tb.Atom.from_dtype(efficiency.mask.dtype), shape=efficiency.mask.T.shape,
+                                                                filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+
+                if in_pixel is True:
+                    out_in_pixel_efficiency = out_file_h5.create_carray(dut_group, name='In_Pixel_Efficiency', title='In-Pixel-Efficiency map of DUT%d' % actual_dut,
+                                                                        atom=tb.Atom.from_dtype(in_pixel_efficiency.dtype), shape=in_pixel_efficiency.T.shape,
+                                                                        filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
                 # For correct statistical error calculation the number of detected tracks over total tracks is needed
-                out_pass = out_file_h5.create_carray(dut_group, name='Passing_tracks', title='Passing events of DUT%d' % actual_dut, atom=tb.Atom.from_dtype(total_track_density_with_DUT_hit.dtype), shape=total_track_density_with_DUT_hit.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_total = out_file_h5.create_carray(dut_group, name='Total_tracks', title='Total events of DUT%d' % actual_dut, atom=tb.Atom.from_dtype(total_track_density.dtype), shape=total_track_density.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_pass = out_file_h5.create_carray(dut_group, name='Passing_tracks', title='Passing events of DUT%d' % actual_dut,
+                                                     atom=tb.Atom.from_dtype(total_track_density_with_DUT_hit.dtype), shape=total_track_density_with_DUT_hit.T.shape,
+                                                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_total = out_file_h5.create_carray(dut_group, name='Total_tracks', title='Total events of DUT%d' % actual_dut,
+                                                      atom=tb.Atom.from_dtype(total_track_density.dtype), shape=total_track_density.T.shape,
+                                                      filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
                 pass_tracks.append(total_track_density_with_DUT_hit.sum())
                 total_tracks.append(total_track_density.sum())
@@ -1546,6 +1584,8 @@ def calculate_efficiency(input_tracks_file, input_alignment_file, use_prealignme
                 out_efficiency.attrs.col_range = col_range
                 out_efficiency.attrs.row_range = row_range
                 out_efficiency[:] = efficiency.T
+                if in_pixel is True:
+                    out_in_pixel_efficiency[:] = in_pixel_efficiency.T
                 out_efficiency_mask[:] = efficiency.mask.T
                 out_pass[:] = total_track_density_with_DUT_hit.T
                 out_total[:] = total_track_density.T
