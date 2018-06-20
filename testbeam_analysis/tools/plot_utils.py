@@ -9,13 +9,12 @@ from itertools import cycle
 
 import numpy as np
 import tables as tb
-import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.backends.backend_agg import FigureCanvas
-import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.artist import setp
 from matplotlib.figure import Figure
 from matplotlib import colors, cm
-
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3d plotting although it is shown as not used
 from matplotlib.widgets import Slider, Button
 from scipy.optimize import curve_fit
@@ -93,12 +92,12 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:  # if gui, we dont want to safe empty pdf
         cmap = cm.get_cmap('viridis')
         cmap.set_bad('w')
-        c_max = np.percentile(occupancy, 99)
+        c_max = np.ceil(np.percentile(occupancy, 99))
 
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.set_title('%s' % (dut_name, ))
+        ax.set_title('Occupancy of %s' % (dut_name, ))
         # plot noisy pixels
         if noisy_pixels is not None:
             ax.plot(noisy_pixels[:, 1], noisy_pixels[:, 0], 'ro', mfc='none', mec='c', ms=10, label='Noisy pixels')
@@ -107,11 +106,12 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
         if disabled_pixels is not None:
             ax.plot(disabled_pixels[:, 1], disabled_pixels[:, 0], 'ro', mfc='none', mec='r', ms=10, label='Disabled pixels')
             ax.set_title(ax.get_title() + ',\n%d disabled pixels' % (n_disabled_pixels,))
-        ax.imshow(np.ma.getdata(occupancy), aspect=aspect, cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max))
-        ax.set_xlim(-0.5, occupancy.shape[1] - 0.5)
-        ax.set_ylim(-0.5, occupancy.shape[0] - 0.5)
+        im = ax.imshow(np.ma.getdata(occupancy), aspect=aspect, cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max))
+        ax.set_xlim(0.5, occupancy.shape[1] + 0.5)
+        ax.set_ylim(0.5, occupancy.shape[0] + 0.5)
         ax.set_xlabel("Column")
         ax.set_ylabel("Row")
+        ax.legend()
         if gui:
             leg = ax.legend(numpoints=1, bbox_to_anchor=(1.015, 1.135), loc='upper right')
             leg.get_frame().set_facecolor('none')
@@ -122,13 +122,53 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.set_title('%s\n occupancy' % (dut_name, ))
+        # ax.set_title('Occupancy of %s' % (dut_name, ))
         ax.imshow(occupancy, aspect=aspect, cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max))
     #     np.ma.filled(occupancy, fill_value=0)
-        ax.set_xlim(-0.5, occupancy.shape[1] - 0.5)
-        ax.set_ylim(-0.5, occupancy.shape[0] - 0.5)
+        ax.set_xlim(0.5, occupancy.shape[1] + 0.5)
+        ax.set_ylim(0.5, occupancy.shape[0] + 0.5)
         ax.set_xlabel("Column")
         ax.set_ylabel("Row")
+
+        # create new axes on the right and on the top of the current axes
+        # The first argument of the new_vertical(new_horizontal) method is
+        # the height (width) of the axes to be created in inches.
+        divider = make_axes_locatable(ax)
+        axHistx = divider.append_axes("top", 1.2, pad=0.2, sharex=ax)
+        axHisty = divider.append_axes("right", 1.2, pad=0.2, sharey=ax)
+
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cb = fig.colorbar(im, cax=cax, ticks=np.linspace(start=0, stop=c_max, num=9, endpoint=True))
+        cb.set_label("#")
+        # make some labels invisible
+        setp(axHistx.get_xticklabels() + axHisty.get_yticklabels(), visible=False)
+        hight = np.ma.sum(np.ma.getdata(occupancy), axis=0)
+
+        axHistx.bar(x=range(1, occupancy.shape[1] + 1), height=hight, align='center', linewidth=0)
+        axHistx.set_xlim(+0.5, occupancy.shape[1] + 0.5)
+        if np.ma.getdata(occupancy).all() is np.ma.masked:
+            axHistx.set_ylim((0, 1))
+        else:
+            x_c_max = np.ceil(np.percentile(hight, 99))
+            axHistx.set_ylim(0, x_c_max)
+        axHistx.locator_params(axis='y', nbins=3)
+        axHistx.ticklabel_format(style='sci', scilimits=(0, 4), axis='y')
+        axHistx.set_ylabel('#')
+        width = np.ma.sum(np.ma.getdata(occupancy), axis=1)
+
+        axHisty.barh(y=range(1, occupancy.shape[0] + 1), width=width, align='center', linewidth=0)
+        axHisty.set_ylim(occupancy.shape[0] + 0.5, 0.5)
+        if np.ma.getdata(occupancy).all() is np.ma.masked:
+            axHisty.set_xlim((0, 1))
+        else:
+            y_c_max = np.ceil(np.percentile(width, 99))
+            axHisty.set_xlim(0, y_c_max)
+        axHisty.locator_params(axis='x', nbins=3)
+        axHisty.ticklabel_format(style='sci', scilimits=(0, 4), axis='x')
+        axHisty.set_xlabel('#')
+
+        fig.set_title('Occupancy of %s' % (dut_name, ))
+
         if gui:
             figs.append(fig)
         else:
