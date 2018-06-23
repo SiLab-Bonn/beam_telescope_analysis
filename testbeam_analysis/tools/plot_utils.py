@@ -409,41 +409,47 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                         dut_name = "DUT%d" % actual_dut
 
                 initialize = True  # initialize the histograms
-                n_hits = 0
-                n_clusters = 0
-                for chunk, _ in testbeam_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
+                try:
+                    cluster_size_hist = in_file_h5.root.HistClusterSize[:]
+                    n_clusters = np.sum(cluster_size_hist)
+                    cluster_shapes_hist = in_file_h5.root.HistClusterShape[:]
+                except tb.NoSuchNodeError:
+                    raise ValueError()
+                    n_hits = 0
+                    n_clusters = 0
+                    for chunk, _ in testbeam_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
 
-                    if actual_dut is None:
-                        cluster_n_hits = chunk['n_hits']
-                        cluster_shape = chunk['cluster_shape']
-                    else:
-                        cluster_n_hits = chunk['n_hits_dut_%d' % actual_dut]
-                        cluster_shape = chunk['cluster_shape_dut_%d' % actual_dut]
-
-                    max_cluster_size = np.max(cluster_n_hits)
-                    n_hits += np.sum(cluster_n_hits)
-                    n_clusters += chunk.shape[0]
-                    edges = np.arange(2**16)
-                    if initialize:
-                        initialize = False
-
-                        cluster_size_hist = np.bincount(cluster_n_hits, minlength=max_cluster_size + 1)
-                        cluster_shapes_hist, _ = np.histogram(a=cluster_shape, bins=edges)
-                    else:
-                        if cluster_size_hist.size - 1 < max_cluster_size:
-                            max_cluster_size = np.max(cluster_n_hits)
-                            cluster_size_hist.resize(max_cluster_size + 1)
-                            cluster_size_hist += np.bincount(cluster_n_hits, minlength=max_cluster_size + 1)
+                        if actual_dut is None:
+                            cluster_n_hits = chunk['n_hits']
+                            cluster_shape = chunk['cluster_shape']
                         else:
-                            cluster_size_hist += np.bincount(cluster_n_hits, minlength=cluster_size_hist.size)
-                        cluster_shapes_hist += np.histogram(a=cluster_shape, bins=edges)[0]
+                            cluster_n_hits = chunk['n_hits_dut_%d' % actual_dut]
+                            cluster_shape = chunk['cluster_shape_dut_%d' % actual_dut]
+
+                        max_cluster_size = np.max(cluster_n_hits)
+                        # n_hits += np.sum(cluster_n_hits)
+                        n_clusters += chunk.shape[0]
+                        edges = np.arange(2**16)
+                        if initialize:
+                            initialize = False
+
+                            cluster_size_hist = np.bincount(cluster_n_hits, minlength=max_cluster_size + 1)
+                            cluster_shapes_hist, _ = np.histogram(a=cluster_shape, bins=edges)
+                        else:
+                            if cluster_size_hist.size - 1 < max_cluster_size:
+                                cluster_size_hist.resize(max_cluster_size + 1)
+                                cluster_size_hist += np.bincount(cluster_n_hits, minlength=max_cluster_size + 1)
+                            else:
+                                cluster_size_hist += np.bincount(cluster_n_hits, minlength=cluster_size_hist.size)
+                            cluster_shapes_hist += np.histogram(a=cluster_shape, bins=edges)[0]
 
                 x = np.arange(cluster_size_hist.size)
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.bar(x, cluster_size_hist, align='center')
-                ax.set_title('Cluster sizes%s\n(%i hits in %i clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                # ax.set_title('Cluster sizes%s\n(%d hits in %d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                ax.set_title('Cluster sizes%s\n(%d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_clusters))
                 ax.set_xlabel('Cluster size')
                 ax.set_ylabel('#')
                 ax.grid()
@@ -482,7 +488,8 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                                     u"\u2004\u2596\u2596\u2596",  # 3 hit cluster, horizontal
                                     u"\u2004\u2596\n\u2004\u2596\n\u2004\u2596",  # 3 hit cluster, vertical
                                     u"\u2597\u2009\u2596\n\u259d\u2009\u2598"])  # 4 hit cluster
-                ax.set_title('Cluster shapes%s\n(%i hits in %i clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                # ax.set_title('Cluster shapes%s\n(%d hits in %d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                ax.set_title('Cluster shapes%s\n(%d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_clusters))
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
                 ax.grid()
