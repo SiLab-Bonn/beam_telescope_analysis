@@ -39,15 +39,15 @@ class SMC(object):
 
     def __init__(self, table_file_in, file_out,
                  func, func_kwargs={}, node_desc={}, table=None,
-                 align_at=None, n_cores=None, chunk_size=1000000):
+                 align_at=None, n_cores=None, mode='w', chunk_size=1000000):
         ''' Apply a function to a pytable on multiple cores in chunks.
 
             Parameters
             ----------
             table_file_in : string
-                File name of the file with the table.
+                Filename of the file with the table.
             file_out : string
-                File name with the resulting table/histogram.
+                Filename with the resulting table/histogram.
             func : function
                 Function to be applied on table chunks.
             func_kwargs : dict
@@ -79,7 +79,7 @@ class SMC(object):
 
             Notes:
             ------
-            It follows the split, apply, combine paradigm:
+            It follows the split, map, combine paradigm:
             - split: data is splitted into chunks for multiple processes for
               speed increase
             - map: the function is called on each chunk. If the chunk per core
@@ -97,6 +97,7 @@ class SMC(object):
         self.func = func
         self.node_desc = node_desc
         self.chunk_size = chunk_size
+        self.mode = mode
         self.func_kwargs = func_kwargs
 
         if self.align_at and self.align_at != 'event_number':
@@ -104,7 +105,7 @@ class SMC(object):
                                       'on event_number')
 
         # Get the table node name
-        with tb.open_file(table_file_in) as in_file:
+        with tb.open_file(table_file_in, mode='r') as in_file:
             if not table:  # Find the table node
                 tables = in_file.list_nodes('/', classname='Table')  # get all nodes of type 'table'
                 if len(tables) == 1:  # if there is only one table, take this one
@@ -198,11 +199,11 @@ class SMC(object):
         or a histogram.
         '''
 
-        with tb.open_file(table_file_in, 'r') as in_file:
+        with tb.open_file(table_file_in, mode='r') as in_file:
             node = in_file.get_node(in_file.root, node_name)
 
             output_file = tempfile.NamedTemporaryFile(delete=False, dir=os.getcwd())
-            with tb.open_file(output_file.name, 'w') as out_file:
+            with tb.open_file(output_file.name, mode='w') as out_file:
                 # Create result table with specified data format
                 # From given pytables tables description
                 if 'description' in node_desc:
@@ -280,53 +281,51 @@ class SMC(object):
                 data_type = 'array'
 
         if data_type == 'table':
-            # Use first tmp file as result file
-            shutil.move(self.tmp_files[0], self.file_out)
-
-            with tb.open_file(self.file_out, 'r+') as out_file:
-                node = out_file.get_node(out_file.root, node_name)
-                for f in self.tmp_files[1:]:
-                    with tb.open_file(f) as in_file:
+            with tb.open_file(self.file_out, mode=self.mode) as out_file:
+                for index, tmp_file in enumerate(self.tmp_files):
+                    with tb.open_file(tmp_file, mode="r") as in_file:
                         tmp_node = in_file.get_node(in_file.root, node_name)
-                        for i in range(0, tmp_node.shape[0], self.chunk_size):
-                            node.append(tmp_node[i: i + self.chunk_size])
-                    os.remove(f)
+                        # Copy node from first result file to output file
+                        if index == 0:
+                            out_file.copy_node(tmp_node, out_file.root, overwrite=True, recursive=True)
+                            node = out_file.get_node(out_file.root, node_name)
+                        else:
+                            for i in range(0, tmp_node.shape[0], self.chunk_size):
+                                node.append(tmp_node[i: i + self.chunk_size])
+                    os.remove(tmp_file)
         else:  # TODO: solution without having all hists in RAM
-            # Only one file, merging not needed
-            if len(self.tmp_files) == 1:
-                shutil.move(self.tmp_files[0], self.file_out)
-            else:  # Several files, merge them by adding up
-                with tb.open_file(self.file_out, 'w') as out_file:
-                    hist_data = None
-                    for f in self.tmp_files:
-                        with tb.open_file(f) as in_file:
-                            tmp_data = in_file.get_node(in_file.root, node_name)[:]
-                            if hist_data is None:
-                                # Copy needed for reshape
-                                hist_data = tmp_data.copy()
-                            else:
-                                # Check if array needs to be enlarged
-                                shape = []
-                                # Loop over dimension
-                                for i in range(len(hist_data.shape)):
-                                    if hist_data.shape[i] < tmp_data.shape[i]:
-                                        shape.append(tmp_data.shape[i])
-                                    else:
-                                        shape.append(hist_data.shape[i])
+            # Merge arrays from several temprary files,
+            # merge them by adding up array data and resizing shape if necessary
+            with tb.open_file(self.file_out, mode=self.mode) as out_file:
+                for index, tmp_file in enumerate(self.tmp_files):
+                    with tb.open_file(tmp_file, mode='r') as in_file:
+                        tmp_data = in_file.get_node(in_file.root, node_name)[:]
+                        if index == 0:
+                            # Copy needed for reshape
+                            hist_data = tmp_data.copy()
+                        else:
+                            # Check if array needs to be enlarged
+                            shape = []
+                            # Loop over dimension
+                            for i in range(len(hist_data.shape)):
+                                if hist_data.shape[i] < tmp_data.shape[i]:
+                                    shape.append(tmp_data.shape[i])
+                                else:
+                                    shape.append(hist_data.shape[i])
 
-                                hist_data.resize(shape)
+                            hist_data.resize(shape)
 
-                                # Add array, ignore size
-                                tmp_data.resize(hist_data.shape)
-                                hist_data += tmp_data
-                        os.remove(f)
+                            # Add array, ignore size
+                            tmp_data.resize(hist_data.shape)
+                            hist_data += tmp_data
+                    os.remove(tmp_file)
 
-                    dt = hist_data.dtype
-                    out = out_file.create_carray(out_file.root,
-                                                 atom=tb.Atom.from_dtype(dt),
-                                                 shape=hist_data.shape,
-                                                 **self.node_desc)
-                    out[:] = hist_data
+                dt = hist_data.dtype
+                out = out_file.create_carray(out_file.root,
+                                             atom=tb.Atom.from_dtype(dt),
+                                             shape=hist_data.shape,
+                                             **self.node_desc)
+                out[:] = hist_data
 
     def _get_split_indeces(self):
         ''' Calculates the data range for each core.
@@ -359,7 +358,7 @@ class SMC(object):
 
         next_indeces = []
         for index in indeces[1:]:
-            with tb.open_file(self.table_file_in) as in_file:
+            with tb.open_file(self.table_file_in, mode='r') as in_file:
                 node = in_file.get_node(in_file.root, self.node_name)
                 values = node[index:index + self.chunk_size][self.align_at]
                 value = values[0]
