@@ -114,7 +114,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     # the cluster position errors which depends on cluster size
     pixel_resolution = pixel_size / np.sqrt(12)
 
-    # measurements: (x, y, z, xerr, yerr), data is taken from measurement
+    # measurements: (x, y, z, x_err, y_err), data is taken from measurement
     measurements = np.array([[[-1229.22372954, 2828.19616302, 0., pixel_resolution[0][0], pixel_resolution[0][1], 0.],
                               [-1254.51224282, 2827.4291421, 29900., pixel_resolution[1][0], pixel_resolution[1][1], 0.],
                               [-1285.6117892, 2822.34536687, 60300., pixel_resolution[2][0], pixel_resolution[2][1], 0.],

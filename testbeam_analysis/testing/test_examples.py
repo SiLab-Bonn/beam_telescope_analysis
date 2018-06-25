@@ -141,8 +141,8 @@ class TestExamples(unittest.TestCase):
         simulated_data.run_analysis(1000)
         with tb.open_file('simulation/Efficiency.h5') as in_file_h5:
             for i in range(5):  # Loop over DUT index
-                eff = in_file_h5.get_node('/DUT_%d/Efficiency' % i)[:]
-                mask = in_file_h5.get_node('/DUT_%d/Efficiency_mask' % i)[:]
+                eff = in_file_h5.get_node('/DUT%d/Efficiency' % i)[:]
+                mask = in_file_h5.get_node('/DUT%d/Efficiency_mask' % i)[:]
                 self.assertAlmostEqual(eff[~mask].mean(), 100., delta=0.0001)
 
 

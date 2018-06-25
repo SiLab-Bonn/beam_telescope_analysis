@@ -40,13 +40,14 @@ def analyze_raw_data(input_file, trigger_data_format):  # FE-I4 raw data analysi
         analyze_raw_data.create_service_record_hist = True
         analyze_raw_data.create_occupancy_hist = True
         analyze_raw_data.create_tot_hist = False
+        analyze_raw_data.align_at_trigger = True
+        analyze_raw_data.fei4b = False
+        analyze_raw_data.create_empty_event_hits = True
 #         analyze_raw_data.n_bcid = 16
 #         analyze_raw_data.max_tot_value = 13
         analyze_raw_data.interpreter.create_empty_event_hits(False)
-#         analyze_raw_data.interpreter.set_debug_output(False)
-#         analyze_raw_data.interpreter.set_info_output(False)
         analyze_raw_data.interpreter.set_warning_output(False)
-#         analyze_raw_data.interpreter.debug_events(0, 1, True)
+        #analyze_raw_data.interpreter.debug_events(0, 5, True)
         analyze_raw_data.interpret_word_table()
         analyze_raw_data.interpreter.print_summary()
         analyze_raw_data.plot_histograms()
@@ -93,62 +94,62 @@ def align_events(input_file, output_file, fix_event_number=True, fix_trigger_num
     '''
     logging.info('Align events to trigger number in %s' % input_file)
 
-    with tb.open_file(input_file, 'r') as in_file_h5:
+    with tb.open_file(input_file, mode='r') as in_file_h5:
         hit_table = in_file_h5.root.Hits
         jumps = []  # variable to determine the jumps in the event-number to trigger-number offset
         n_fixed_hits = 0  # events that were fixed
-    
-        with tb.open_file(output_file, 'w') as out_file_h5:
+
+        with tb.open_file(output_file, mode='w') as out_file_h5:
             hit_table_description = data_struct.HitInfoTable().columns.copy()
             hit_table_out = out_file_h5.create_table(out_file_h5.root, name='Hits', description=hit_table_description, title='Selected hits for test beam analysis', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False), chunkshape=(chunk_size,))
- 
+
             # Correct hit event number
             for hits, _ in analysis_utils.data_aligned_at_events(hit_table, chunk_size=chunk_size):
- 
+
                 if not np.all(np.diff(hits['event_number']) >= 0):
                     raise RuntimeError('The event number does not always increase. This data cannot be used like this!')
- 
+
                 if fix_trigger_number is True:
                     selection = np.logical_or((hits['trigger_status'] & 0b00000001) == 0b00000001,
                                               (hits['event_status'] & 0b0000000000000010) == 0b0000000000000010)
                     selected_te_hits = np.where(selection)[0]  # select both events with and without hit that have trigger error flag set
- 
+
 #                     assert selected_te_hits[0] > 0
                     tmp_trigger_number = hits['trigger_number'].astype(np.int32)
- 
+
                     # save trigger and event number for plotting correlation between trigger number and event number
                     event_number, trigger_number = hits['event_number'].copy(), hits['trigger_number'].copy()
- 
+
                     hits['trigger_number'][0] = 0
- 
+
                     offset = (hits['trigger_number'][selected_te_hits] - hits['trigger_number'][selected_te_hits - 1] - hits['event_number'][selected_te_hits] + hits['event_number'][selected_te_hits - 1]).astype(np.int32)  # save jumps in trigger number
                     offset_tot = np.cumsum(offset)
- 
+
                     offset_tot[offset_tot > 32768] = np.mod(offset_tot[offset_tot > 32768], 32768)
                     offset_tot[offset_tot < -32768] = np.mod(offset_tot[offset_tot < -32768], 32768)
- 
+
                     for start_hit_index in range(len(selected_te_hits)):
                         start_hit = selected_te_hits[start_hit_index]
                         stop_hit = selected_te_hits[start_hit_index + 1] if start_hit_index < (len(selected_te_hits) - 1) else None
                         tmp_trigger_number[start_hit:stop_hit] -= offset_tot[start_hit_index]
- 
+
                     tmp_trigger_number[tmp_trigger_number >= 32768] = np.mod(tmp_trigger_number[tmp_trigger_number >= 32768], 32768)
                     tmp_trigger_number[tmp_trigger_number < 0] = 32768 - np.mod(np.abs(tmp_trigger_number[tmp_trigger_number < 0]), 32768)
- 
+
                     hits['trigger_number'] = tmp_trigger_number
- 
+
                 selected_hits = hits[(hits['event_status'] & 0b0000100000000000) == 0b0000000000000000]  # select not empty events
- 
+
                 if fix_event_number is True:
                     selector = (selected_hits['event_number'] != (np.divide(selected_hits['event_number'] + 1, 32768) * 32768 + selected_hits['trigger_number'] - 1))
                     n_fixed_hits += np.count_nonzero(selector)
                     selector = selected_hits['event_number'] > selected_hits['trigger_number']
                     selected_hits['event_number'] = np.divide(selected_hits['event_number'] + 1, 32768) * 32768 + selected_hits['trigger_number'] - 1
                     selected_hits['event_number'][selector] = np.divide(selected_hits['event_number'][selector] + 1, 32768) * 32768 + 32768 + selected_hits['trigger_number'][selector] - 1
- 
+
 #                 FIX FOR DIAMOND:
 #                 selected_hits['event_number'] -= 1  # FIX FOR DIAMOND EVENT OFFSET
- 
+
                 hit_table_out.append(selected_hits)
 
         jumps = np.unique(np.array(jumps))
@@ -168,10 +169,10 @@ def format_hit_table(input_file, output_file):
     '''
 
     logging.info('Format hit table in %s', input_file)
-    with tb.open_file(input_file, 'r') as in_file_h5:
+    with tb.open_file(input_file, mode='r') as in_file_h5:
         hits = in_file_h5.root.Hits[:]
-        hits_formatted = np.zeros((hits.shape[0], ), dtype=[('event_number', np.int64), ('frame', np.uint8), ('column', np.uint16), ('row', np.uint16), ('charge', np.uint16)])
-        with tb.open_file(output_file, 'w') as out_file_h5:
+        hits_formatted = np.zeros((hits.shape[0], ), dtype=[('event_number', np.int64), ('frame', np.uint32), ('column', np.uint16), ('row', np.uint16), ('charge', np.uint16)])
+        with tb.open_file(output_file, mode='w') as out_file_h5:
             hit_table_out = out_file_h5.create_table(out_file_h5.root, name='Hits', description=hits_formatted.dtype, title='Selected FE-I4 hits for test beam analysis', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
             hits_formatted['event_number'] = hits['event_number']
             hits_formatted['frame'] = hits['relative_BCID']

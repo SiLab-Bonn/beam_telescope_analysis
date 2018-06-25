@@ -602,7 +602,7 @@ class AnalysisWindow(QtWidgets.QMainWindow):
             session_calls = {'calls': calls}
 
             # Safe session in yaml-file
-            with open(session_path, 'w') as f_write:
+            with open(session_path, mode='w') as f_write:
                 yaml.safe_dump(session, f_write, default_flow_style=False)
                 yaml.dump(session_calls, f_write, default_flow_style=False)
 
@@ -640,7 +640,7 @@ class AnalysisWindow(QtWidgets.QMainWindow):
 
         # Load session from file
         try:
-            with open(session_path, 'r') as f_read:
+            with open(session_path, mode='r') as f_read:
                 session = yaml.load(f_read)
         except IOError:
             d, f = os.path.split(session_path)

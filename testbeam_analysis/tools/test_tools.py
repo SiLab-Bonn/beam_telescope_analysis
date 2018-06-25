@@ -220,8 +220,8 @@ def compare_h5_files(first_file, second_file, node_names=None, detailed_comparis
         raise ValueError("Parameter node_names must be list or tuple")
     checks_passed = True
     error_msg = ""
-    with tb.open_file(first_file, 'r') as first_h5_file:
-        with tb.open_file(second_file, 'r') as second_h5_file:
+    with tb.open_file(first_file, mode='r') as first_h5_file:
+        with tb.open_file(second_file, mode='r') as second_h5_file:
 
             def walk_nodes(f, n, g="/"):
                 for item in f.get_node(f.root, g):
@@ -344,15 +344,17 @@ def create_fixture(function, **kwargs):
 
     # Store function return values in compressed pytable array
     data = np.array(data)
-    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'w') as out_file_h5:
-        data_array = out_file_h5.create_carray(out_file_h5.root,
-                                               name='Data',
-                                               title='%s return values' % function.__name__,
-                                               atom=tb.Atom.from_dtype(data.dtype),
-                                               shape=data.shape,
-                                               filters=tb.Filters(complib='blosc',
-                                                                  complevel=5,
-                                                                  fletcher32=False))
+    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), mode='w') as out_file_h5:
+        data_array = out_file_h5.create_carray(
+            where=out_file_h5.root,
+            name='Data',
+            title='%s return values' % function.__name__,
+            atom=tb.Atom.from_dtype(data.dtype),
+            shape=data.shape,
+            filters=tb.Filters(
+                complib='blosc',
+                complevel=5,
+                fletcher32=False))
         data_array[:] = data
 
 
@@ -363,7 +365,7 @@ def check_with_fixture(function, **kwargs):
     function calls.
     '''
 
-    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), 'r') as in_file_h5:
+    with tb.open_file(os.path.join(FIXTURE_FOLDER, '%s.h5' % str(function.__name__)), mode='r') as in_file_h5:
         data_fixture = in_file_h5.root.Data[:]
 
     data = _call_function_with_args(function, **kwargs)

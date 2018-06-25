@@ -5,8 +5,7 @@ from __future__ import division
 import logging
 import os
 import errno
-import requests
-import progressbar
+
 import numpy as np
 import numexpr as ne
 import tables as tb
@@ -19,8 +18,10 @@ from scipy.optimize import curve_fit
 from scipy.integrate import quad
 from scipy.sparse import csr_matrix
 
+import requests
+import progressbar
+
 from testbeam_analysis import analysis_functions
-import testbeam_analysis.tools.plot_utils
 from testbeam_analysis.cpp import data_struct
 
 # A public secret representing public, read only owncloud folder
@@ -91,7 +92,7 @@ def merge_on_event_number(data_1, data_2):
 
 
 @njit
-def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x_index, ref_y_index, dut_x_index, dut_y_index, x_corr_hist, y_corr_hist):
+def correlate_position_on_event_number(ref_event_numbers, dut_event_numbers, ref_x_indices, ref_y_indices, dut_x_indices, dut_y_indices, x_corr_hist, y_corr_hist):
     """Correlating the hit/cluster positions on event basis including all permutations.
     The hit/cluster positions are used to fill the X and Y correlation histograms.
 
@@ -104,17 +105,17 @@ def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x
 
     Parameters
     ----------
-    ref_event_number: array
+    ref_event_numbers: array
         Event number array of the reference DUT.
-    dut_event_number: array
+    dut_event_numbers: array
         Event number array of the second DUT.
-    ref_x_index: array
+    ref_x_indices: array
         X position indices of the refernce DUT.
-    ref_y_index: array
+    ref_y_indices: array
         Y position indices of the refernce DUT.
-    dut_x_index: array
+    dut_x_indices: array
         X position indices of the second DUT.
-    dut_y_index: array
+    dut_y_indices: array
         Y position indices of the second DUT.
     x_corr_hist: array
         X correlation array (2D).
@@ -124,17 +125,17 @@ def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x
     dut_index = 0
 
     # Loop to determine the needed result array size.astype(np.uint32)
-    for ref_index in range(ref_event_number.shape[0]):
+    for ref_index in range(ref_event_numbers.shape[0]):
 
-        while dut_index < dut_event_number.shape[0] and dut_event_number[dut_index] < ref_event_number[ref_index]:  # Catch up with outer loop
+        while dut_index < dut_event_numbers.shape[0] and dut_event_numbers[dut_index] < ref_event_numbers[ref_index]:  # Catch up with outer loop
             dut_index += 1
 
-        for curr_dut_index in range(dut_index, dut_event_number.shape[0]):
-            if ref_event_number[ref_index] == dut_event_number[curr_dut_index]:
-                x_index_ref = ref_x_index[ref_index]
-                y_index_ref = ref_y_index[ref_index]
-                x_index_dut = dut_x_index[curr_dut_index]
-                y_index_dut = dut_y_index[curr_dut_index]
+        for curr_dut_index in range(dut_index, dut_event_numbers.shape[0]):
+            if ref_event_numbers[ref_index] == dut_event_numbers[curr_dut_index]:
+                x_index_ref = ref_x_indices[ref_index]
+                y_index_ref = ref_y_indices[ref_index]
+                x_index_dut = dut_x_indices[curr_dut_index]
+                y_index_dut = dut_y_indices[curr_dut_index]
 
                 # Add correlation to histogram
                 x_corr_hist[x_index_dut, x_index_ref] += 1
@@ -143,41 +144,44 @@ def correlate_position_on_event_number(ref_event_number, dut_event_number, ref_x
                 break
 
 
-@njit
-def correlate_hits_on_event_range(hits, column_corr_hist, row_corr_hist,
-                                  event_range):
+@njit(locals={'curr_event_number': numba.int64, 'last_event_number': numba.int64, 'curr_index': numba.int64, 'corr_index': numba.int64})
+def correlate_hits_on_event_range(event_numbers, x_indices, y_indices, x_corr_hist, y_corr_hist, event_range):
     """Correlating the hit indices of different events in a certain range.
     For unambiguous event building no correlation should be seen.
 
 
     Parameters
     ----------
-    hits: np.recarray
-        Hit array. Must have event_number / column / row columns.
-    column_corr_hist, row_corr_hist: np.array
-        2D correlation array containing the correlation data. Has to be of
-        sufficient size.
-    event_range : integer
-        The number of events to use for correlation
-        E.g.: event_range = 2 correlates to predecessing event hits.
+    event_numbers: array
+        Event number array.
+    x_indices: array
+        X position indices.
+    y_indices: array
+        Y position indices.
+    x_corr_hist: array
+        X correlation array (2D).
+    y_corr_hist: array
+        Y correlation array (2D).
+    event_range : uint
+        The number of events to use for correlation,
+        e.g., event_range = 1 correlates to predecessing event hits with the current event hits.
     """
-    index_2 = 0
-
+    last_event_number = -1
     # Loop over hits, outer loop
-    for index in range(hits.shape[0]):
-
-        hit = hits[index]
-        event = hit['event_number']
-
-        # Max event of inner loop
-        max_event = event - event_range
-
-        # Catch up with outer loop
-        while index_2 < index and hits[index_2]['event_number'] <= max_event:
-            other_hit = hits[index_2]
-            column_corr_hist[other_hit['column'] - 1, hit['column'] - 1] += 1
-            row_corr_hist[other_hit['row'] - 1, hit['row'] - 1] += 1
-            index_2 += 1
+    for curr_index in range(event_numbers.shape[0]):
+        curr_event_number = event_numbers[curr_index]
+        # calculate new start index for inner loop if new event occurs
+        if curr_event_number != last_event_number:
+            corr_start_event_number = curr_event_number - event_range
+            corr_start_index = np.searchsorted(event_numbers, corr_start_event_number)
+        # set correlation index
+        corr_index = corr_start_index
+        # Iterate until current event number
+        while event_numbers[corr_index] < curr_event_number:
+            x_corr_hist[x_indices[corr_index], x_indices[curr_index]] += 1
+            y_corr_hist[y_indices[corr_index], y_indices[curr_index]] += 1
+            corr_index += 1
+        last_event_number = curr_event_number
 
 
 def in1d_events(ar1, ar2):
@@ -203,39 +207,40 @@ def get_max_events_in_both_arrays(events_one, events_two):
     return event_result[:count]
 
 
-def map_cluster(events, cluster):
-    """
+@njit()
+def map_cluster(event_numbers, clusters, mapped_clusters):
+    '''
     Maps the cluster hits on events. Not existing cluster in events have all values set to 0 and column/row/charge set to nan.
     Too many cluster per event for the event number are omitted and lost!
 
     Parameters
     ----------
-    events : numpy array
+    event_numbers : numpy array
         One dimensional event number array with increasing event numbers.
-    cluster : np.recarray
+    clusters : np.recarray
         Recarray with cluster info. The event number is increasing.
+    mapped_clusters : np.recarray
+        Recarray of the same length as event_numbers and same dtype as clusters with values initialized to NaN/0.
 
     Example
     -------
-    event = [ 0  1  1  2  3  3 ]
-    cluster.event_number = [ 0  1  2  2  3  4 ]
+    event_numbers = [ 0  1  1  2  3  3 ]
+    clusters.event_number = [ 0  1  2  2  3  4 ]
 
-    gives mapped_cluster.event_number = [ 0  1  0  2  3  0 ]
+    gives mapped_clusters.event_number = [ 0  1  0  2  3  0 ]
+    '''
+    j = 0
+    for i in range(event_numbers.shape[0]):
+        # Find first Hit with a fitting event number
+        while j < clusters.shape[0] and clusters['event_number'][j] < event_numbers[i]:  # Catch up to actual event number events[i]
+            j += 1
 
-    Returns
-    -------
-    Cluster array with given length of the events array.
-
-    """
-    cluster = np.ascontiguousarray(cluster)
-    events = np.ascontiguousarray(events)
-    mapped_cluster = np.zeros((events.shape[0],), dtype=tb.dtype_from_descr(data_struct.ClusterInfoTable))
-    mapped_cluster['mean_column'] = np.nan
-    mapped_cluster['mean_row'] = np.nan
-    mapped_cluster['charge'] = np.nan
-    mapped_cluster = np.ascontiguousarray(mapped_cluster)
-    analysis_functions.map_cluster(events, cluster, mapped_cluster)
-    return mapped_cluster
+        if j < clusters.shape[0]:
+            if clusters['event_number'][j] == event_numbers[i]:
+                mapped_clusters[i] = clusters[j]
+                j += 1
+        else:
+            return
 
 
 def get_events_in_both_arrays(events_one, events_two):
@@ -746,7 +751,7 @@ def get_mean_efficiency(array_pass, array_total, interval=0.68):
 
     k = array_pass.sum()
     N = array_total.sum()
-    eff = k.astype(np.float) / N
+    eff = k.astype(np.float32) / N
 
     lim_e_m, lim_e_p = find_inter(k, N, interval)
 
@@ -811,26 +816,26 @@ def fit_residuals(hist, edges):
     return fit, cov
 
 
-def fit_residuals_vs_position(hist, xedges, yedges, mean, count, fit_limit=None):
+def fit_residuals_vs_position(hist, xedges, yedges, mean, count, limit=None):
     xcenter = (xedges[1:] + xedges[:-1]) / 2.0
     select = (count > 0)
 
-    if fit_limit is None:
-        n_hits_threshold = np.percentile(count[select], 100-68)
+    if limit is None:
+        n_hits_threshold = np.percentile(count[select], 100.0 - 68.0)
         select &= (count > n_hits_threshold)
     else:
-        fit_limit_left = fit_limit[0]
-        fit_limit_right = fit_limit[1]
-        if np.isfinite(fit_limit_left):
+        limit_left = limit[0]
+        limit_right = limit[1]
+        if np.isfinite(limit_left):
             try:
-                select_left = np.where(xcenter >= fit_limit_left)[0][0]
+                select_left = np.where(xcenter >= limit_left)[0][0]
             except IndexError:
                 select_left = 0
         else:
             select_left = 0
-        if np.isfinite(fit_limit_right):
+        if np.isfinite(limit_right):
             try:
-                select_right = np.where(xcenter <= fit_limit_right)[0][-1] + 1
+                select_right = np.where(xcenter <= limit_right)[0][-1] + 1
             except IndexError:
                 select_right = select.shape[0]
         else:

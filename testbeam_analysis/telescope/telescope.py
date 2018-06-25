@@ -14,7 +14,7 @@ def open_configuation(configuation):
     elif isinstance(configuation, basestring):  # parse the first YAML document in a stream
         if os.path.isfile(os.path.abspath(configuation)):
             logging.info('Loading configuration from file %s', os.path.abspath(configuation))
-            with open(os.path.abspath(configuation), 'r') as f:
+            with open(os.path.abspath(configuation), mode='r') as f:
                 configuration_dict.update(safe_load(f))
         else:  # YAML string
             configuration_dict.update(safe_load(configuation))
@@ -29,8 +29,16 @@ def open_configuation(configuation):
 
 
 class Telescope(object):
-    def __init__(self, configuration_file=None):
+    telescope_attributes = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
+
+    def __init__(self, configuration_file=None, translation_x=0.0, translation_y=0.0, translation_z=0.0, rotation_alpha=0.0, rotation_beta=0.0, rotation_gamma=0.0):
         self.dut = {}
+        self.translation_x = translation_x
+        self.translation_y = translation_y
+        self.translation_z = translation_z
+        self.rotation_alpha = rotation_alpha
+        self.rotation_beta = rotation_beta
+        self.rotation_gamma = rotation_gamma
         if configuration_file is not None:
             self.load_configuration(configuration_file)
 
@@ -50,6 +58,7 @@ class Telescope(object):
             if string:
                 string += '\n'
             string += str(item)
+        string += "\nTelescope: %s:" % ", ".join([(name + ": " + str(getattr(self, name))) for name in self.telescope_attributes])
         return string
 
     @property
@@ -64,6 +73,54 @@ class Telescope(object):
     def n_pixels(self):
         return [(item.n_columns, item.n_rows) for item in self]
 
+    @property
+    def translation_x(self):
+        return self._translation_x
+
+    @translation_x.setter
+    def translation_x(self, translation_x):
+        self._translation_x = float(translation_x)
+
+    @property
+    def translation_y(self):
+        return self._translation_y
+
+    @translation_y.setter
+    def translation_y(self, translation_y):
+        self._translation_y = float(translation_y)
+
+    @property
+    def translation_z(self):
+        return self._translation_z
+
+    @translation_z.setter
+    def translation_z(self, translation_z):
+        self._translation_z = float(translation_z)
+
+    @property
+    def rotation_alpha(self):
+        return self._rotation_alpha
+
+    @rotation_alpha.setter
+    def rotation_alpha(self, rotation_alpha):
+        self._rotation_alpha = float(rotation_alpha)
+
+    @property
+    def rotation_beta(self):
+        return self._rotation_beta
+
+    @rotation_beta.setter
+    def rotation_beta(self, rotation_beta):
+        self._rotation_beta = float(rotation_beta)
+
+    @property
+    def rotation_gamma(self):
+        return self._rotation_gamma
+
+    @rotation_gamma.setter
+    def rotation_gamma(self, rotation_gamma):
+        self._rotation_gamma = float(rotation_gamma)
+
     def load_configuration(self, configuration_file=None):
         if configuration_file:
             self.configuration_file = configuration_file
@@ -72,7 +129,7 @@ class Telescope(object):
 
         configuration = None
         if configuration_file and os.path.isfile(os.path.abspath(configuration_file)):
-            with open(os.path.abspath(configuration_file), 'r') as f:
+            with open(os.path.abspath(configuration_file), mode='r') as f:
                 configuration = safe_load(f)
         else:
             raise ValueError("No valid configuration file given.")
@@ -82,6 +139,9 @@ class Telescope(object):
                 for dut_id, dut_configuration in configuration["TELESCOPE"]["DUT"].items():
                     dut_type = dut_configuration.pop("dut_type", "RectangularPixelDut")
                     self.add_dut(dut_type=dut_type, dut_id=dut_id, **dut_configuration)
+            for key, value in configuration["TELESCOPE"].items():
+                if key in self.telescope_attributes:
+                    setattr(self, key, value)
 
     def save_configuration(self, configuration_file=None, keep_others=False):
         if configuration_file:
@@ -91,12 +151,15 @@ class Telescope(object):
 
         if configuration_file:
             if keep_others and os.path.isfile(os.path.abspath(configuration_file)):
-                with open(os.path.abspath(configuration_file), 'r') as f:
+                with open(os.path.abspath(configuration_file), mode='r') as f:
                     configuration = safe_load(f)
             else:
                 configuration = {}
+            # create Telescope configuration
             if 'TELESCOPE' not in configuration:
                 configuration["TELESCOPE"] = {}
+            for name in self.telescope_attributes:
+                configuration["TELESCOPE"][name] = getattr(self, name)
             # overwrite all existing DUTs
             configuration["TELESCOPE"]["DUT"] = {}
             for dut_id, dut in self.dut.items():
@@ -105,7 +168,7 @@ class Telescope(object):
                 configuration["TELESCOPE"]["DUT"][dut_id] = dut_configuration
             if not configuration["TELESCOPE"]["DUT"]:
                 configuration["TELESCOPE"]["DUT"] = {}
-            with open(configuration_file, 'w') as f:
+            with open(configuration_file, mode='w') as f:
                 safe_dump(configuration, f, default_flow_style=False)
         else:
             raise ValueError("No valid configuration file given.")

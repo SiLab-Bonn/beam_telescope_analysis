@@ -229,29 +229,6 @@ void histogram_3d(int*& x, int*& y, int*& z, const unsigned int& rSize, const un
 	}
 }
 
-
-// Fast mapping of cluster hits to event numbers
-void mapCluster(int64_t*& rEventArray, const unsigned int& rEventArraySize, ClusterInfo*& rClusterInfo, const unsigned int& rClusterInfoSize, ClusterInfo*& rMappedClusterInfo)
-{
-	unsigned int j = 0;
-	for (unsigned int i = 0; i < rEventArraySize; ++i) {
-		// Find first Hit with a fitting event number
-		while ((j < rClusterInfoSize) && (rClusterInfo[j].eventNumber < rEventArray[i])) {  // Catch up to actual event number rEventArray[i]
-			++j;
-		}
-
-		if (j < rClusterInfoSize){
-			if (rClusterInfo[j].eventNumber == rEventArray[i]){
-				rMappedClusterInfo[i] = rClusterInfo[j];
-				++j;
-			}
-		}
-		else
-			return;  // Speed up
-	}
-}
-
-
 // loop over the refHit, Hit arrays and compare the hits of same event number. If they are similar (within an error) correlation is assumed. If more than nBadEvents are not correlated, broken correlation is assumed.
 // True/False is returned for correlated/not correlated data. The iRefHit index is the index of the first not correlated hit.
 bool _checkForNoCorrelation(unsigned int& iRefHit, unsigned int& iHit, const int64_t*& rEventArray, const double*& rRefCol, double*& rCol, const double*& rRefRow, double*& rRow, uint8_t*& rCorrelated, const unsigned int& nHits, const double& rError, const unsigned int& nBadEvents)

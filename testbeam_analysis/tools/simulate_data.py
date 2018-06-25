@@ -417,7 +417,7 @@ class SimulateData(object):
         self.digitization_pixel_discretization = True
 
         # Internals
-        self._hit_dtype = np.dtype([('event_number', np.int64), ('frame', np.uint8), (
+        self._hit_dtype = np.dtype([('event_number', np.int64), ('frame', np.uint32), (
             'column', np.uint16), ('row', np.uint16), ('charge', np.uint16)])
 
     def reset(self):
@@ -438,7 +438,7 @@ class SimulateData(object):
         hit_tables = []
         for dut_index in range(self._n_duts):
             output_files.append(
-                tb.open_file(base_file_name + '_DUT%d.h5' % dut_index, 'w'))
+                tb.open_file(base_file_name + '_DUT%d.h5' % dut_index, mode='w'))
             hit_tables.append(output_files[dut_index].create_table(output_files[dut_index].root,
                                                                    name='Hits',
                                                                    description=self._hit_dtype,

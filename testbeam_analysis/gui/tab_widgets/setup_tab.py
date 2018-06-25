@@ -67,7 +67,7 @@ class SetupTab(QtWidgets.QWidget):
 
         # Load predefined dut types from file
         try:
-            with open(self._types_yaml, 'r') as f_read:
+            with open(self._types_yaml, mode='r') as f_read:
                 self._dut_types = yaml.load(f_read)
         except IOError:
             pass
@@ -616,7 +616,7 @@ class SetupTab(QtWidgets.QWidget):
                         setup_path += '.yaml'
 
                     # Safe session in yaml-file
-                    with open(setup_path, 'w') as f_write:
+                    with open(setup_path, mode='w') as f_write:
                         yaml.safe_dump(self.data, f_write, default_flow_style=False)
 
                     d, f = os.path.split(setup_path)
@@ -657,9 +657,9 @@ class SetupTab(QtWidgets.QWidget):
 
             # Safe updated self._dut_types dict to file and reload
             try:
-                with open(self._types_yaml, 'w') as f_write:
+                with open(self._types_yaml, mode='w') as f_write:
                     yaml.safe_dump(self._dut_types, f_write, default_flow_style=False)
-                with open(self._types_yaml, 'r') as f_read:
+                with open(self._types_yaml, mode='r') as f_read:
                     self._dut_types = yaml.load(f_read)
                 if remove:
                     message = 'Successfully removed DUT type "%s" from predefined DUT types' % custom
@@ -919,7 +919,7 @@ class SetupTab(QtWidgets.QWidget):
             if setup_path:
 
                 # Safe session in yaml-file
-                with open(setup_path, 'r') as f_read:
+                with open(setup_path, mode='r') as f_read:
                     setup = yaml.safe_load(f_read)
 
                 d, f = os.path.split(setup_path)

@@ -294,7 +294,7 @@ class ExceptionWindow(QtWidgets.QMainWindow):
             if 'txt' not in trcbck_path.split('.'):
                 trcbck_path += '.txt'
 
-            with open(trcbck_path, 'w') as f_write:
+            with open(trcbck_path, mode='w') as f_write:
                 f_write.write('{}'.format(self.traceback))
 
         else:

@@ -3,7 +3,7 @@ import tables as tb
 
 class HitInfoTable(tb.IsDescription):
     event_number = tb.Int64Col(pos=0)
-    frame = tb.UInt8Col(pos=1)
+    frame = tb.UInt32Col(pos=1)
     column = tb.UInt16Col(pos=2)
     row = tb.UInt16Col(pos=3)
     charge = tb.UInt16Col(pos=4)  # TODO:
@@ -17,7 +17,7 @@ class MetaInfoEventTable(tb.IsDescription):
 
 class ClusterHitInfoTable(tb.IsDescription):
     event_number = tb.Int64Col(pos=0)
-    frame = tb.UInt8Col(pos=1)
+    frame = tb.UInt32Col(pos=1)
     column = tb.UInt16Col(pos=2)
     row = tb.UInt16Col(pos=3)
     charge = tb.UInt16Col(pos=4)  # TODO:

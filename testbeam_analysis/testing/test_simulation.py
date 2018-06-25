@@ -48,7 +48,7 @@ class TestHitAnalysis(unittest.TestCase):
             # Extract results
             mean_column, mean_row = [], []
             for dut_index in range(self.simulate_data.n_duts):
-                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, 'r') as in_file_h5:
+                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, mode='r') as in_file_h5:
                     mean_column.append((in_file_h5.root.Hits[:][
                                        'column'].mean() - 1) * self.simulate_data.dut_pixel_size[dut_index][0])
                     mean_row.append((in_file_h5.root.Hits[:][
@@ -101,7 +101,7 @@ class TestHitAnalysis(unittest.TestCase):
                     return y
 
                 # Check result with calculated expectation
-                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, 'r') as in_file_h5:
+                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, mode='r') as in_file_h5:
                     charge = in_file_h5.root.Hits[:][
                         'charge'] * 10.  # 1 LSB corresponds to 10 electrons
                     charge_hist, edges = np.histogram(
@@ -174,7 +174,7 @@ class TestHitAnalysis(unittest.TestCase):
             # Extract results
             mean_column, mean_row = [], []
             for dut_index in range(self.simulate_data.n_duts):
-                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, 'r') as in_file_h5:
+                with tb.open_file('simulated_data_DUT%d.h5' % dut_index, mode='r') as in_file_h5:
                     mean_column.append((in_file_h5.root.Hits[:][
                                        'column'].mean() - 1) * self.simulate_data.dut_pixel_size[dut_index][0])
                     mean_row.append((in_file_h5.root.Hits[:][
@@ -266,13 +266,13 @@ class TestHitAnalysis(unittest.TestCase):
                 self.simulate_data.dut_material_budget[0], charge_number=1) * 1000
 
             # Extract theta from simulation results by using the hit positions
-            with tb.open_file('simulated_data_DUT0.h5', 'r') as in_file_h5:
+            with tb.open_file('simulated_data_DUT0.h5', mode='r') as in_file_h5:
                 dut0_x = (in_file_h5.root.Hits[:][
                           'column'] - 1) * self.simulate_data.dut_pixel_size[0][0]
                 dut0_y = (
                     in_file_h5.root.Hits[:]['row'] - 1) * self.simulate_data.dut_pixel_size[0][1]
 
-            with tb.open_file('simulated_data_DUT1.h5', 'r') as in_file_h5:
+            with tb.open_file('simulated_data_DUT1.h5', mode='r') as in_file_h5:
                 dut1_x = (in_file_h5.root.Hits[:][
                           'column'] - 1) * self.simulate_data.dut_pixel_size[1][0]
                 dut1_y = (
@@ -379,8 +379,8 @@ class TestHitAnalysis(unittest.TestCase):
         def check_rotations():
             def line(x, c0, c1):  # Correlation line fit
                 return c1 * x + c0
-            with tb.open_file('simulated_data_DUT0.h5', 'r') as in_file_1_h5:
-                with tb.open_file('simulated_data_DUT1.h5', 'r') as in_file_2_h5:
+            with tb.open_file('simulated_data_DUT0.h5', mode='r') as in_file_1_h5:
+                with tb.open_file('simulated_data_DUT1.h5', mode='r') as in_file_2_h5:
                     # Merge data on event basis for correlation, since one
                     # cannot assume that every plane is always hit
                     hits_0, hits_1 = analysis_utils.merge_on_event_number(

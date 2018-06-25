@@ -23,7 +23,6 @@ cdef extern from "AnalysisFunctions.h":
     void histogram_1d(int * & x, const unsigned int & rSize, const unsigned int & rNbinsX, uint32_t * & rResult) except +
     void histogram_2d(int * & x, int * & y, const unsigned int & rSize, const unsigned int & rNbinsX, const unsigned int & rNbinsY, uint32_t * & rResult) except +
     void histogram_3d(int * & x, int * & y, int * & z, const unsigned int & rSize, const unsigned int & rNbinsX, const unsigned int & rNbinsY, const unsigned int & rNbinsZ, uint16_t * & rResult) except +
-    void mapCluster(int64_t * & rEventArray, const unsigned int & rEventArraySize, ClusterInfo * & rClusterInfo, const unsigned int & rClusterInfoSize, ClusterInfo * & rMappedClusterInfo) except +
     unsigned int fixEventAlignment(const int64_t * & rEventArray, const double * & rRefCol, double * & rCol, const double * & rRefRow, double * & rRow, const uint16_t * & rRefCharge, uint16_t * & rCharge, uint8_t * & rCorrelated, const unsigned int & nHits, const double & rError, const unsigned int & nBadEvents, const unsigned int & correltationSearchRange, const unsigned int & nGoodEvents, const unsigned int & goodEventsSearchRange) except +
 
 
@@ -54,10 +53,6 @@ def hist_2d(cnp.ndarray[cnp.int32_t, ndim=1] x, cnp.ndarray[cnp.int32_t, ndim=1]
 
 def hist_3d(cnp.ndarray[cnp.int32_t, ndim=1] x, cnp.ndarray[cnp.int32_t, ndim=1] y, cnp.ndarray[cnp.int32_t, ndim=1] z, const unsigned int & n_x, const unsigned int & n_y, const unsigned int & n_z, cnp.ndarray[cnp.uint16_t, ndim=1] array_result, throw_exception=True):
     histogram_3d( < int*& > x.data, < int*& > y.data, < int*& > z.data, < const unsigned int&> x.shape[0], < const unsigned int&> n_x, < const unsigned int&> n_y, < const unsigned int&> n_z, < uint16_t*& > array_result.data)
-
-
-def map_cluster(cnp.ndarray[cnp.int64_t, ndim=1] event_array, cnp.ndarray[numpy_cluster_info, ndim=1] cluster_hit_info, cnp.ndarray[numpy_cluster_info, ndim=1] mapped_cluster_hit_info):
-    mapCluster(< int64_t*& > event_array.data, < const unsigned int&> event_array.shape[0], < ClusterInfo * & > cluster_hit_info.data, < const unsigned int & > cluster_hit_info.shape[0], < ClusterInfo * & > mapped_cluster_hit_info.data)
 
 
 def fix_event_alignment(cnp.ndarray[cnp.int64_t, ndim=1] event_array, cnp.ndarray[cnp.float_t, ndim=1] ref_column, cnp.ndarray[cnp.float_t, ndim=1] column, cnp.ndarray[cnp.float_t, ndim=1] ref_row, cnp.ndarray[cnp.float_t, ndim=1] row, cnp.ndarray[cnp.uint16_t, ndim=1] ref_charge, cnp.ndarray[cnp.uint16_t, ndim=1] charge, cnp.ndarray[cnp.uint8_t, ndim=1] correlated, const double & error, const unsigned int & n_bad_events, const unsigned int & correlation_search_range, const unsigned int & n_good_events, const unsigned int & good_events_search_range):

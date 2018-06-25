@@ -275,7 +275,7 @@ class SMC(object):
 
         # Check data type to decide on combine procedure
         data_type = 'table'
-        with tb.open_file(self.tmp_files[0], 'r') as in_file:
+        with tb.open_file(self.tmp_files[0], mode='r') as in_file:
             node = in_file.get_node(in_file.root, node_name)
             if type(node) is tb.carray.CArray:
                 data_type = 'array'
