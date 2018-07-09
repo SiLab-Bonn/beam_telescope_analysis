@@ -898,7 +898,7 @@ def plot_residuals(histogram, edges, fit, cov, xlabel, title, output_pdf=None, g
             output_pdf.savefig(fig)
 
 
-def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, res_mean=None, select=None, fit=None, cov=None, limit=None, output_pdf=None, gui=False, figs=None):
+def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, residuals_mean=None, select=None, fit=None, cov=None, limit=None, output_pdf=None, gui=False, figs=None):
     '''Plot the residuals as a function of the position.
     '''
     if not output_pdf and not gui:
@@ -912,12 +912,12 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, res_
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.imshow(np.ma.masked_equal(hist, 0).T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='auto', interpolation='none')
-    if res_mean is not None:
+    if residuals_mean is not None:
         res_pos = (xedges[1:] + xedges[:-1]) / 2.0
         if select is None:
             select = np.full_like(res_pos, True, dtype=np.bool)
-        ax.scatter(res_pos[select], res_mean[select], color="blue", marker='o', label='Mean residual')
-        ax.scatter(res_pos[~select], res_mean[~select], color="darkblue", marker='o')
+        ax.scatter(res_pos[select], residuals_mean[select], color="blue", marker='o', label='Mean residual')
+        ax.scatter(res_pos[~select], residuals_mean[~select], color="darkblue", marker='o')
     if fit is not None:
         x_lim = np.array(ax.get_xlim(), dtype=np.float32)
         ax.plot(x_lim, testbeam_analysis.tools.analysis_utils.linear(x_lim, *fit), linestyle='-', color="darkorange", linewidth=2, label='Mean residual fit\n%.2e + %.2e x' % (fit[0], fit[1]))

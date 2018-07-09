@@ -183,7 +183,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                             nbins = 200
                             width = actual_dut.column_size * np.ceil(plot_n_pixels * fwhm_x_local / actual_dut.column_size)
                             local_x_range = (center_x_local - width, center_x_local + width)
-                        local_x_res_hist, local_x_res_hist_edges = np.histogram(difference_local_limit_xy[:, 0], range=local_x_range, bins=nbins)
+                        local_x_residuals_hist, local_x_residuals_hist_edges = np.histogram(difference_local_limit_xy[:, 0], range=local_x_range, bins=nbins)
 
                         if npixels_per_bin is not None:
                             min_intersection, max_intersection = np.min(intersection_x_local), np.max(intersection_x_local)
@@ -206,7 +206,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                             nbins = 200
                             width = actual_dut.row_size * np.ceil(plot_n_pixels * fwhm_y_local / actual_dut.row_size)
                             local_y_range = (center_y_local - width, center_y_local + width)
-                        local_y_res_hist, local_y_res_hist_edges = np.histogram(difference_local_limit_xy[:, 1], range=local_y_range, bins=nbins)
+                        local_y_residuals_hist, local_y_residuals_hist_edges = np.histogram(difference_local_limit_xy[:, 1], range=local_y_range, bins=nbins)
 
                         if npixels_per_bin is not None:
                             min_intersection, max_intersection = np.min(intersection_y_local), np.max(intersection_y_local)
@@ -217,122 +217,122 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
 
                         dut_x_size = actual_dut.x_extent()
                         dut_y_size = actual_dut.y_extent()
-                        hist_2d_res_x_edges = np.linspace(dut_x_size[0], dut_x_size[1], actual_dut.n_columns + 1, endpoint=True)
-                        hist_2d_res_y_edges = np.linspace(dut_y_size[0], dut_y_size[1], actual_dut.n_rows + 1, endpoint=True)
-                        hist_2d_edges = [hist_2d_res_x_edges, hist_2d_res_y_edges]
+                        hist_2d_residuals_x_edges = np.linspace(dut_x_size[0], dut_x_size[1], actual_dut.n_columns + 1, endpoint=True)
+                        hist_2d_residuals_y_edges = np.linspace(dut_y_size[0], dut_y_size[1], actual_dut.n_rows + 1, endpoint=True)
+                        hist_2d_edges = [hist_2d_residuals_x_edges, hist_2d_residuals_y_edges]
 
                         # local X residual against X position
-                        local_x_res_x_pos_hist, _, _ = np.histogram2d(
+                        local_x_residuals_x_pos_hist, _, _ = np.histogram2d(
                             intersection_x_local_limit_y,
                             difference_local_limit_y[:, 0],
-                            bins=(x_pos_hist_edges, local_x_res_hist_edges))
-                        stat_local_x_res_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='mean', bins=x_pos_hist_edges)
-                        stat_local_x_res_x_pos_hist = np.nan_to_num(stat_local_x_res_x_pos_hist)
-                        count_local_x_res_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='count', bins=x_pos_hist_edges)
+                            bins=(x_pos_hist_edges, local_x_residuals_hist_edges))
+                        stat_local_x_residuals_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='mean', bins=x_pos_hist_edges)
+                        stat_local_x_residuals_x_pos_hist = np.nan_to_num(stat_local_x_residuals_x_pos_hist)
+                        count_local_x_residuals_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='count', bins=x_pos_hist_edges)
 
                         # local Y residual against Y position
-                        local_y_res_y_pos_hist, _, _ = np.histogram2d(
+                        local_y_residuals_y_pos_hist, _, _ = np.histogram2d(
                             intersection_y_local_limit_x,
                             difference_local_limit_x[:, 1],
-                            bins=(y_pos_hist_edges, local_y_res_hist_edges))
-                        stat_local_y_res_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='mean', bins=y_pos_hist_edges)
-                        stat_local_y_res_y_pos_hist = np.nan_to_num(stat_local_y_res_y_pos_hist)
-                        count_local_y_res_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='count', bins=y_pos_hist_edges)
+                            bins=(y_pos_hist_edges, local_y_residuals_hist_edges))
+                        stat_local_y_residuals_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='mean', bins=y_pos_hist_edges)
+                        stat_local_y_residuals_y_pos_hist = np.nan_to_num(stat_local_y_residuals_y_pos_hist)
+                        count_local_y_residuals_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='count', bins=y_pos_hist_edges)
 
                         # local Y residual against X position
-                        local_y_res_x_pos_hist, _, _ = np.histogram2d(
+                        local_y_residuals_x_pos_hist, _, _ = np.histogram2d(
                             intersection_x_local_limit_y,
                             difference_local_limit_y[:, 1],
-                            bins=(x_pos_hist_edges, local_y_res_hist_edges))
-                        stat_local_y_res_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='mean', bins=x_pos_hist_edges)
-                        stat_local_y_res_x_pos_hist = np.nan_to_num(stat_local_y_res_x_pos_hist)
-                        count_local_y_res_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='count', bins=x_pos_hist_edges)
+                            bins=(x_pos_hist_edges, local_y_residuals_hist_edges))
+                        stat_local_y_residuals_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='mean', bins=x_pos_hist_edges)
+                        stat_local_y_residuals_x_pos_hist = np.nan_to_num(stat_local_y_residuals_x_pos_hist)
+                        count_local_y_residuals_x_pos_hist, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='count', bins=x_pos_hist_edges)
 
                         # local X residual against Y position
-                        local_x_res_y_pos_hist, _, _ = np.histogram2d(
+                        local_x_residuals_y_pos_hist, _, _ = np.histogram2d(
                             intersection_y_local_limit_x,
                             difference_local_limit_x[:, 0],
-                            bins=(y_pos_hist_edges, local_x_res_hist_edges))
-                        stat_local_x_res_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='mean', bins=y_pos_hist_edges)
-                        stat_local_x_res_y_pos_hist = np.nan_to_num(stat_local_x_res_y_pos_hist)
-                        count_local_x_res_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='count', bins=y_pos_hist_edges)
+                            bins=(y_pos_hist_edges, local_x_residuals_hist_edges))
+                        stat_local_x_residuals_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='mean', bins=y_pos_hist_edges)
+                        stat_local_x_residuals_y_pos_hist = np.nan_to_num(stat_local_x_residuals_y_pos_hist)
+                        count_local_x_residuals_y_pos_hist, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='count', bins=y_pos_hist_edges)
 
                         # 2D residuals
-                        stat_2d_res_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='mean', bins=hist_2d_edges)
-                        stat_2d_res_hist = np.nan_to_num(stat_2d_res_hist)
-                        count_2d_res_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='count', bins=hist_2d_edges)
+                        stat_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='mean', bins=hist_2d_edges)
+                        stat_2d_residuals_hist = np.nan_to_num(stat_2d_residuals_hist)
+                        count_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='count', bins=hist_2d_edges)
 
                         # 2D hits
                         count_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)
 
                     else:  # adding data to existing histograms
-                        local_x_res_hist += np.histogram(difference_local_limit_xy[:, 0], bins=local_x_res_hist_edges)[0]
-                        local_y_res_hist += np.histogram(difference_local_limit_xy[:, 1], bins=local_y_res_hist_edges)[0]
+                        local_x_residuals_hist += np.histogram(difference_local_limit_xy[:, 0], bins=local_x_residuals_hist_edges)[0]
+                        local_y_residuals_hist += np.histogram(difference_local_limit_xy[:, 1], bins=local_y_residuals_hist_edges)[0]
 
                         # local X residual against X position
-                        local_x_res_x_pos_hist += np.histogram2d(
+                        local_x_residuals_x_pos_hist += np.histogram2d(
                             intersection_x_local_limit_y,
                             difference_local_limit_y[:, 0],
-                            bins=(x_pos_hist_edges, local_x_res_hist_edges))[0]
-                        stat_local_x_res_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='mean', bins=x_pos_hist_edges)
-                        stat_local_x_res_x_pos_hist_tmp = np.nan_to_num(stat_local_x_res_x_pos_hist_tmp)
-                        count_local_x_res_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='count', bins=x_pos_hist_edges)
-                        stat_local_x_res_x_pos_hist, count_local_x_res_x_pos_hist = np.ma.average(a=np.stack([stat_local_x_res_x_pos_hist, stat_local_x_res_x_pos_hist_tmp]), axis=0, weights=np.stack([count_local_x_res_x_pos_hist, count_local_x_res_x_pos_hist_tmp]), returned=True)
+                            bins=(x_pos_hist_edges, local_x_residuals_hist_edges))[0]
+                        stat_local_x_residuals_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='mean', bins=x_pos_hist_edges)
+                        stat_local_x_residuals_x_pos_hist_tmp = np.nan_to_num(stat_local_x_residuals_x_pos_hist_tmp)
+                        count_local_x_residuals_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 0], statistic='count', bins=x_pos_hist_edges)
+                        stat_local_x_residuals_x_pos_hist, count_local_x_residuals_x_pos_hist = np.ma.average(a=np.stack([stat_local_x_residuals_x_pos_hist, stat_local_x_residuals_x_pos_hist_tmp]), axis=0, weights=np.stack([count_local_x_residuals_x_pos_hist, count_local_x_residuals_x_pos_hist_tmp]), returned=True)
 
                         # local Y residual against Y position
-                        local_y_res_y_pos_hist += np.histogram2d(
+                        local_y_residuals_y_pos_hist += np.histogram2d(
                             intersection_y_local_limit_x,
                             difference_local_limit_x[:, 1],
-                            bins=(y_pos_hist_edges, local_y_res_hist_edges))[0]
-                        stat_local_y_res_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='mean', bins=y_pos_hist_edges)
-                        stat_local_y_res_y_pos_hist_tmp = np.nan_to_num(stat_local_y_res_y_pos_hist_tmp)
-                        count_local_y_res_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='count', bins=y_pos_hist_edges)
-                        stat_local_y_res_y_pos_hist, count_local_y_res_y_pos_hist = np.ma.average(a=np.stack([stat_local_y_res_y_pos_hist, stat_local_y_res_y_pos_hist_tmp]), axis=0, weights=np.stack([count_local_y_res_y_pos_hist, count_local_y_res_y_pos_hist_tmp]), returned=True)
+                            bins=(y_pos_hist_edges, local_y_residuals_hist_edges))[0]
+                        stat_local_y_residuals_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='mean', bins=y_pos_hist_edges)
+                        stat_local_y_residuals_y_pos_hist_tmp = np.nan_to_num(stat_local_y_residuals_y_pos_hist_tmp)
+                        count_local_y_residuals_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 1], statistic='count', bins=y_pos_hist_edges)
+                        stat_local_y_residuals_y_pos_hist, count_local_y_residuals_y_pos_hist = np.ma.average(a=np.stack([stat_local_y_residuals_y_pos_hist, stat_local_y_residuals_y_pos_hist_tmp]), axis=0, weights=np.stack([count_local_y_residuals_y_pos_hist, count_local_y_residuals_y_pos_hist_tmp]), returned=True)
 
                         # local Y residual against X position
-                        local_y_res_x_pos_hist += np.histogram2d(
+                        local_y_residuals_x_pos_hist += np.histogram2d(
                             intersection_x_local_limit_y,
                             difference_local_limit_y[:, 1],
-                            bins=(x_pos_hist_edges, local_y_res_hist_edges))[0]
-                        stat_local_y_res_x_pos_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='mean', bins=x_pos_hist_edges)
-                        stat_local_y_res_x_pos_tmp = np.nan_to_num(stat_local_y_res_x_pos_tmp)
-                        count_local_y_res_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='count', bins=x_pos_hist_edges)
-                        stat_local_y_res_x_pos_hist, count_local_y_res_x_pos_hist = np.ma.average(a=np.stack([stat_local_y_res_x_pos_hist, stat_local_y_res_x_pos_tmp]), axis=0, weights=np.stack([count_local_y_res_x_pos_hist, count_local_y_res_x_pos_hist_tmp]), returned=True)
+                            bins=(x_pos_hist_edges, local_y_residuals_hist_edges))[0]
+                        stat_local_y_residuals_x_pos_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='mean', bins=x_pos_hist_edges)
+                        stat_local_y_residuals_x_pos_tmp = np.nan_to_num(stat_local_y_residuals_x_pos_tmp)
+                        count_local_y_residuals_x_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_x_local_limit_y, values=difference_local_limit_y[:, 1], statistic='count', bins=x_pos_hist_edges)
+                        stat_local_y_residuals_x_pos_hist, count_local_y_residuals_x_pos_hist = np.ma.average(a=np.stack([stat_local_y_residuals_x_pos_hist, stat_local_y_residuals_x_pos_tmp]), axis=0, weights=np.stack([count_local_y_residuals_x_pos_hist, count_local_y_residuals_x_pos_hist_tmp]), returned=True)
 
                         # local X residual against Y position
-                        local_x_res_y_pos_hist += np.histogram2d(
+                        local_x_residuals_y_pos_hist += np.histogram2d(
                             intersection_y_local_limit_x,
                             difference_local_limit_x[:, 0],
-                            bins=(y_pos_hist_edges, local_x_res_hist_edges))[0]
-                        stat_local_x_res_y_pos_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='mean', bins=y_pos_hist_edges)
-                        stat_local_x_res_y_pos_tmp = np.nan_to_num(stat_local_x_res_y_pos_tmp)
-                        count_local_x_res_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='count', bins=y_pos_hist_edges)
-                        stat_local_x_res_y_pos_hist, count_local_x_res_y_pos_hist = np.ma.average(a=np.stack([stat_local_x_res_y_pos_hist, stat_local_x_res_y_pos_tmp]), axis=0, weights=np.stack([count_local_x_res_y_pos_hist, count_local_x_res_y_pos_hist_tmp]), returned=True)
+                            bins=(y_pos_hist_edges, local_x_residuals_hist_edges))[0]
+                        stat_local_x_residuals_y_pos_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='mean', bins=y_pos_hist_edges)
+                        stat_local_x_residuals_y_pos_tmp = np.nan_to_num(stat_local_x_residuals_y_pos_tmp)
+                        count_local_x_residuals_y_pos_hist_tmp, _, _ = stats.binned_statistic(x=intersection_y_local_limit_x, values=difference_local_limit_x[:, 0], statistic='count', bins=y_pos_hist_edges)
+                        stat_local_x_residuals_y_pos_hist, count_local_x_residuals_y_pos_hist = np.ma.average(a=np.stack([stat_local_x_residuals_y_pos_hist, stat_local_x_residuals_y_pos_tmp]), axis=0, weights=np.stack([count_local_x_residuals_y_pos_hist, count_local_x_residuals_y_pos_hist_tmp]), returned=True)
 
                         # 2D residuals
-                        stat_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='mean', bins=hist_2d_edges)
-                        stat_2d_res_hist_tmp = np.nan_to_num(stat_2d_res_hist_tmp)
-                        count_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='count', bins=hist_2d_edges)
-                        stat_2d_res_hist, count_2d_res_hist = np.ma.average(a=np.stack([stat_2d_res_hist, stat_2d_res_hist_tmp]), axis=0, weights=np.stack([count_2d_res_hist, count_2d_res_hist_tmp]), returned=True)
+                        stat_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='mean', bins=hist_2d_edges)
+                        stat_2d_residuals_hist_tmp = np.nan_to_num(stat_2d_residuals_hist_tmp)
+                        count_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=distance_local, statistic='count', bins=hist_2d_edges)
+                        stat_2d_residuals_hist, count_2d_residuals_hist = np.ma.average(a=np.stack([stat_2d_residuals_hist, stat_2d_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_residuals_hist, count_2d_residuals_hist_tmp]), returned=True)
 
                         # 2D hits
                         count_2d_hist += stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
 
                 logging.debug('Storing residual histograms...')
 
-                stat_local_x_res_x_pos_hist[count_local_x_res_x_pos_hist == 0] = np.nan
-                stat_local_y_res_y_pos_hist[count_local_y_res_y_pos_hist == 0] = np.nan
-                stat_local_y_res_x_pos_hist[count_local_y_res_x_pos_hist == 0] = np.nan
-                stat_local_x_res_y_pos_hist[count_local_x_res_y_pos_hist == 0] = np.nan
+                stat_local_x_residuals_x_pos_hist[count_local_x_residuals_x_pos_hist == 0] = np.nan
+                stat_local_y_residuals_y_pos_hist[count_local_y_residuals_y_pos_hist == 0] = np.nan
+                stat_local_y_residuals_x_pos_hist[count_local_y_residuals_x_pos_hist == 0] = np.nan
+                stat_local_x_residuals_y_pos_hist[count_local_x_residuals_y_pos_hist == 0] = np.nan
 
                 # Plotting local residuals
                 fit_local_x_res, cov_local_x_res = analysis_utils.fit_residuals(
-                    hist=local_x_res_hist,
-                    edges=local_x_res_hist_edges,
+                    hist=local_x_residuals_hist,
+                    edges=local_x_residuals_hist_edges,
                 )
                 plot_utils.plot_residuals(
-                    histogram=local_x_res_hist,
-                    edges=local_x_res_hist_edges,
+                    histogram=local_x_residuals_hist,
+                    edges=local_x_residuals_hist_edges,
                     fit=fit_local_x_res,
                     cov=cov_local_x_res,
                     xlabel='X residual [$\mathrm{\mu}$m]',
@@ -343,23 +343,23 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 )
                 out_local_x_res = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_x_res_DUT%d' % (actual_dut_index),
+                    name='local_x_residuals_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_x_res_hist.dtype),
-                    shape=local_x_res_hist.shape,
+                    atom=tb.Atom.from_dtype(local_x_residuals_hist.dtype),
+                    shape=local_x_residuals_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_x_res.attrs.xedges = local_x_res_hist_edges
+                out_local_x_res.attrs.xedges = local_x_residuals_hist_edges
                 out_local_x_res.attrs.fit_coeff = fit_local_x_res
                 out_local_x_res.attrs.fit_cov = cov_local_x_res
-                out_local_x_res[:] = local_x_res_hist
+                out_local_x_res[:] = local_x_residuals_hist
 
                 fit_local_y_res, cov_local_y_res = analysis_utils.fit_residuals(
-                    hist=local_y_res_hist,
-                    edges=local_y_res_hist_edges,
+                    hist=local_y_residuals_hist,
+                    edges=local_y_residuals_hist_edges,
                 )
                 plot_utils.plot_residuals(
-                    histogram=local_y_res_hist,
-                    edges=local_y_res_hist_edges,
+                    histogram=local_y_residuals_hist,
+                    edges=local_y_residuals_hist_edges,
                     fit=fit_local_y_res,
                     cov=cov_local_y_res,
                     xlabel='Y residual [$\mathrm{\mu}$m]',
@@ -370,170 +370,170 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 )
                 out_local_y_res = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_y_res_DUT%d' % (actual_dut_index),
+                    name='local_y_residuals_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in Y direction for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_y_res_hist.dtype),
-                    shape=local_y_res_hist.shape,
+                    atom=tb.Atom.from_dtype(local_y_residuals_hist.dtype),
+                    shape=local_y_residuals_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_y_res.attrs.yedges = local_y_res_hist_edges
+                out_local_y_res.attrs.yedges = local_y_residuals_hist_edges
                 out_local_y_res.attrs.fit_coeff = fit_local_y_res
                 out_local_y_res.attrs.fit_cov = cov_local_y_res
-                out_local_y_res[:] = local_y_res_hist
+                out_local_y_res[:] = local_y_residuals_hist
 
-                fit_local_x_res_x_pos, cov_local_x_res_x_pos, select = analysis_utils.fit_residuals_vs_position(
-                    hist=local_x_res_x_pos_hist,
+                fit_local_x_residuals_x_pos, cov_local_x_residuals_x_pos, select = analysis_utils.fit_residuals_vs_position(
+                    hist=local_x_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
-                    yedges=local_x_res_hist_edges,
-                    mean=stat_local_x_res_x_pos_hist,
-                    count=count_local_x_res_x_pos_hist,
+                    yedges=local_x_residuals_hist_edges,
+                    mean=stat_local_x_residuals_x_pos_hist,
+                    count=count_local_x_residuals_x_pos_hist,
                     limit=limit_x_local
                 )
                 plot_utils.plot_residuals_vs_position(
-                    hist=local_x_res_x_pos_hist,
+                    hist=local_x_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
-                    yedges=local_x_res_hist_edges,
+                    yedges=local_x_residuals_hist_edges,
                     xlabel='X [$\mathrm{\mu}$m]',
                     ylabel='X residual [$\mathrm{\mu}$m]',
                     title='Local X residuals vs. X positions for %s' % actual_dut.name,
-                    res_mean=stat_local_x_res_x_pos_hist,
+                    residuals_mean=stat_local_x_residuals_x_pos_hist,
                     select=select,
-                    fit=fit_local_x_res_x_pos,
-                    cov=cov_local_x_res_x_pos,
+                    fit=fit_local_x_residuals_x_pos,
+                    cov=cov_local_x_residuals_x_pos,
                     limit=limit_x_local,
                     output_pdf=output_pdf,
                     gui=gui,
                     figs=figs
                 )
-                out_local_x_res_x_pos = out_file_h5.create_carray(
+                out_local_x_residuals_x_pos = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_x_res_x_pos_DUT%d' % (actual_dut_index),
+                    name='local_x_residuals_x_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the X position for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_x_res_x_pos_hist.dtype),
-                    shape=local_x_res_x_pos_hist.shape,
+                    atom=tb.Atom.from_dtype(local_x_residuals_x_pos_hist.dtype),
+                    shape=local_x_residuals_x_pos_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_x_res_x_pos.attrs.xedges = x_pos_hist_edges
-                out_local_x_res_x_pos.attrs.yedges = local_x_res_hist_edges
-                out_local_x_res_x_pos.attrs.fit_coeff = fit_local_x_res_x_pos
-                out_local_x_res_x_pos.attrs.fit_cov = cov_local_x_res_x_pos
-                out_local_x_res_x_pos[:] = local_x_res_x_pos_hist
+                out_local_x_residuals_x_pos.attrs.xedges = x_pos_hist_edges
+                out_local_x_residuals_x_pos.attrs.yedges = local_x_residuals_hist_edges
+                out_local_x_residuals_x_pos.attrs.fit_coeff = fit_local_x_residuals_x_pos
+                out_local_x_residuals_x_pos.attrs.fit_cov = cov_local_x_residuals_x_pos
+                out_local_x_residuals_x_pos[:] = local_x_residuals_x_pos_hist
 
-                fit_local_y_res_y_pos, cov_local_y_res_y_pos, select = analysis_utils.fit_residuals_vs_position(
-                    hist=local_y_res_y_pos_hist,
+                fit_local_y_residuals_y_pos, cov_local_y_residuals_y_pos, select = analysis_utils.fit_residuals_vs_position(
+                    hist=local_y_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
-                    yedges=local_y_res_hist_edges,
-                    mean=stat_local_y_res_y_pos_hist,
-                    count=count_local_y_res_y_pos_hist,
+                    yedges=local_y_residuals_hist_edges,
+                    mean=stat_local_y_residuals_y_pos_hist,
+                    count=count_local_y_residuals_y_pos_hist,
                     limit=limit_y_local
                 )
                 plot_utils.plot_residuals_vs_position(
-                    hist=local_y_res_y_pos_hist,
+                    hist=local_y_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
-                    yedges=local_y_res_hist_edges,
+                    yedges=local_y_residuals_hist_edges,
                     xlabel='Y [$\mathrm{\mu}$m]',
                     ylabel='Y residual [$\mathrm{\mu}$m]',
                     title='Local Y residuals vs. Y positions for %s' % actual_dut.name,
-                    res_mean=stat_local_y_res_y_pos_hist,
+                    residuals_mean=stat_local_y_residuals_y_pos_hist,
                     select=select,
-                    fit=fit_local_y_res_y_pos,
-                    cov=cov_local_y_res_y_pos,
+                    fit=fit_local_y_residuals_y_pos,
+                    cov=cov_local_y_residuals_y_pos,
                     limit=limit_y_local,
                     output_pdf=output_pdf,
                     gui=gui,
                     figs=figs
                 )
-                out_local_y_res_y_pos = out_file_h5.create_carray(
+                out_local_y_residuals_y_pos = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_y_res_y_pos_DUT%d' % (actual_dut_index),
+                    name='local_y_residuals_y_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in Y direction as a function of the Y position for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_y_res_y_pos_hist.dtype),
-                    shape=local_y_res_y_pos_hist.shape,
+                    atom=tb.Atom.from_dtype(local_y_residuals_y_pos_hist.dtype),
+                    shape=local_y_residuals_y_pos_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_y_res_y_pos.attrs.xedges = y_pos_hist_edges
-                out_local_y_res_y_pos.attrs.yedges = local_y_res_hist_edges
-                out_local_y_res_y_pos.attrs.fit_coeff = fit_local_y_res_y_pos
-                out_local_y_res_y_pos.attrs.fit_cov = cov_local_y_res_y_pos
-                out_local_y_res_y_pos[:] = local_y_res_y_pos_hist
+                out_local_y_residuals_y_pos.attrs.xedges = y_pos_hist_edges
+                out_local_y_residuals_y_pos.attrs.yedges = local_y_residuals_hist_edges
+                out_local_y_residuals_y_pos.attrs.fit_coeff = fit_local_y_residuals_y_pos
+                out_local_y_residuals_y_pos.attrs.fit_cov = cov_local_y_residuals_y_pos
+                out_local_y_residuals_y_pos[:] = local_y_residuals_y_pos_hist
 
-                fit_local_y_res_x_pos, cov_local_y_res_x_pos, select = analysis_utils.fit_residuals_vs_position(
-                    hist=local_y_res_x_pos_hist,
+                fit_local_y_residuals_x_pos, cov_local_y_residuals_x_pos, select = analysis_utils.fit_residuals_vs_position(
+                    hist=local_y_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
-                    yedges=local_y_res_hist_edges,
-                    mean=stat_local_y_res_x_pos_hist,
-                    count=count_local_y_res_x_pos_hist,
+                    yedges=local_y_residuals_hist_edges,
+                    mean=stat_local_y_residuals_x_pos_hist,
+                    count=count_local_y_residuals_x_pos_hist,
                     limit=limit_x_local
                 )
                 plot_utils.plot_residuals_vs_position(
-                    hist=local_y_res_x_pos_hist,
+                    hist=local_y_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
-                    yedges=local_y_res_hist_edges,
+                    yedges=local_y_residuals_hist_edges,
                     xlabel='X [$\mathrm{\mu}$m]',
                     ylabel='Y residual [$\mathrm{\mu}$m]',
                     title='Local Y residuals for vs. X positions %s' % actual_dut.name,
-                    res_mean=stat_local_y_res_x_pos_hist,
+                    residuals_mean=stat_local_y_residuals_x_pos_hist,
                     select=select,
-                    fit=fit_local_y_res_x_pos,
-                    cov=cov_local_y_res_x_pos,
+                    fit=fit_local_y_residuals_x_pos,
+                    cov=cov_local_y_residuals_x_pos,
                     limit=limit_x_local,
                     output_pdf=output_pdf,
                     gui=gui,
                     figs=figs
                 )
-                out_local_x_res_y_pos_pos = out_file_h5.create_carray(
+                out_local_x_residuals_y_pos_pos = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_y_res_x_pos_DUT%d' % (actual_dut_index),
+                    name='local_y_residuals_x_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the Y position for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_y_res_x_pos_hist.dtype),
-                    shape=local_y_res_x_pos_hist.shape,
+                    atom=tb.Atom.from_dtype(local_y_residuals_x_pos_hist.dtype),
+                    shape=local_y_residuals_x_pos_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_x_res_y_pos_pos.attrs.xedges = x_pos_hist_edges
-                out_local_x_res_y_pos_pos.attrs.yedges = local_y_res_hist_edges
-                out_local_x_res_y_pos_pos.attrs.fit_coeff = fit_local_y_res_x_pos
-                out_local_x_res_y_pos_pos.attrs.fit_cov = cov_local_y_res_x_pos
-                out_local_x_res_y_pos_pos[:] = local_y_res_x_pos_hist
+                out_local_x_residuals_y_pos_pos.attrs.xedges = x_pos_hist_edges
+                out_local_x_residuals_y_pos_pos.attrs.yedges = local_y_residuals_hist_edges
+                out_local_x_residuals_y_pos_pos.attrs.fit_coeff = fit_local_y_residuals_x_pos
+                out_local_x_residuals_y_pos_pos.attrs.fit_cov = cov_local_y_residuals_x_pos
+                out_local_x_residuals_y_pos_pos[:] = local_y_residuals_x_pos_hist
 
-                fit_local_x_res_y_pos, cov_local_x_res_y_pos, select = analysis_utils.fit_residuals_vs_position(
-                    hist=local_x_res_y_pos_hist,
+                fit_local_x_residuals_y_pos, cov_local_x_residuals_y_pos, select = analysis_utils.fit_residuals_vs_position(
+                    hist=local_x_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
-                    yedges=local_x_res_hist_edges,
-                    mean=stat_local_x_res_y_pos_hist,
-                    count=count_local_x_res_y_pos_hist,
+                    yedges=local_x_residuals_hist_edges,
+                    mean=stat_local_x_residuals_y_pos_hist,
+                    count=count_local_x_residuals_y_pos_hist,
                     limit=limit_y_local
                 )
                 plot_utils.plot_residuals_vs_position(
-                    hist=local_x_res_y_pos_hist,
+                    hist=local_x_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
-                    yedges=local_x_res_hist_edges,
+                    yedges=local_x_residuals_hist_edges,
                     xlabel='Y [$\mathrm{\mu}$m]',
                     ylabel='X residual [$\mathrm{\mu}$m]',
                     title='Local X residuals vs. Y positions for %s' % actual_dut.name,
-                    res_mean=stat_local_x_res_y_pos_hist,
+                    residuals_mean=stat_local_x_residuals_y_pos_hist,
                     select=select,
-                    fit=fit_local_x_res_y_pos,
-                    cov=cov_local_x_res_y_pos,
+                    fit=fit_local_x_residuals_y_pos,
+                    cov=cov_local_x_residuals_y_pos,
                     limit=limit_y_local,
                     output_pdf=output_pdf,
                     gui=gui,
                     figs=figs
                 )
-                out_local_x_res_y_pos = out_file_h5.create_carray(
+                out_local_x_residuals_y_pos = out_file_h5.create_carray(
                     out_file_h5.root,
-                    name='local_x_res_y_pos_DUT%d' % (actual_dut_index),
+                    name='local_x_residuals_y_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the Y position for %s' % (actual_dut.name),
-                    atom=tb.Atom.from_dtype(local_x_res_y_pos_hist.dtype),
-                    shape=local_x_res_y_pos_hist.shape,
+                    atom=tb.Atom.from_dtype(local_x_residuals_y_pos_hist.dtype),
+                    shape=local_x_residuals_y_pos_hist.shape,
                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_local_x_res_y_pos.attrs.xedges = y_pos_hist_edges
-                out_local_x_res_y_pos.attrs.yedges = local_x_res_hist_edges
-                out_local_x_res_y_pos.attrs.fit_coeff = fit_local_x_res_y_pos
-                out_local_x_res_y_pos.attrs.fit_cov = cov_local_x_res_y_pos
-                out_local_x_res_y_pos[:] = local_x_res_y_pos_hist
+                out_local_x_residuals_y_pos.attrs.xedges = y_pos_hist_edges
+                out_local_x_residuals_y_pos.attrs.yedges = local_x_residuals_hist_edges
+                out_local_x_residuals_y_pos.attrs.fit_coeff = fit_local_x_residuals_y_pos
+                out_local_x_residuals_y_pos.attrs.fit_cov = cov_local_x_residuals_y_pos
+                out_local_x_residuals_y_pos[:] = local_x_residuals_y_pos_hist
 
                 # 2D residual plot
-                stat_2d_res_hist_masked = np.ma.masked_equal(stat_2d_res_hist, 0)
-                z_min = max(0, np.ceil(np.ma.median(stat_2d_res_hist_masked) - 3 * np.ma.std(stat_2d_res_hist_masked)))
-                z_max = np.ceil(np.ma.median(stat_2d_res_hist_masked) + 3 * np.ma.std(stat_2d_res_hist_masked) + 1)
+                stat_2d_residuals_hist_masked = np.ma.masked_equal(stat_2d_residuals_hist, 0)
+                z_min = max(0, np.ceil(np.ma.median(stat_2d_residuals_hist_masked) - 3 * np.ma.std(stat_2d_residuals_hist_masked)))
+                z_max = np.ceil(np.ma.median(stat_2d_residuals_hist_masked) + 3 * np.ma.std(stat_2d_residuals_hist_masked) + 1)
                 plot_utils.plot_2d_map(
-                    hist2d=stat_2d_res_hist_masked.T,
+                    hist2d=stat_2d_residuals_hist_masked.T,
                     plot_range=[dut_x_size[0], dut_x_size[1], dut_y_size[1], dut_y_size[0]],
                     title='2D average residuals for %s' % actual_dut.name,
                     x_axis_title='X [$\mathrm{\mu}$m]',
@@ -1014,9 +1014,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     if initialize:
                         initialize = False
                         # 2D residuals
-                        stat_2d_res_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
-                        stat_2d_res_hist = np.nan_to_num(stat_2d_res_hist)
-                        count_2d_res_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        stat_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_residuals_hist = np.nan_to_num(stat_2d_residuals_hist)
+                        count_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='count', bins=hist_2d_edges)
                         # 2D hits
                         count_hits_2d_hist, _, _, _ = stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
                         # 2D tracks
@@ -1031,10 +1031,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_1d_charge_hist = np.bincount(charge[select_valid_hit].astype(np.int))
                     else:
                         # 2D residuals
-                        stat_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
-                        stat_2d_res_hist_tmp = np.nan_to_num(stat_2d_res_hist_tmp)
-                        count_2d_res_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='count', bins=hist_2d_edges)
-                        stat_2d_res_hist, count_2d_res_hist = np.ma.average(a=np.stack([stat_2d_res_hist, stat_2d_res_hist_tmp]), axis=0, weights=np.stack([count_2d_res_hist, count_2d_res_hist_tmp]), returned=True)
+                        stat_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_residuals_hist_tmp = np.nan_to_num(stat_2d_residuals_hist_tmp)
+                        count_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        stat_2d_residuals_hist, count_2d_residuals_hist = np.ma.average(a=np.stack([stat_2d_residuals_hist, stat_2d_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_residuals_hist, count_2d_residuals_hist_tmp]), returned=True)
                         # 2D hits
                         count_hits_2d_hist += stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D tracks
@@ -1045,7 +1045,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_charge_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=charge[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_charge_hist = np.nan_to_num(stat_2d_charge_hist)
                         count_2d_charge_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=charge[select_valid_hit], statistic='count', bins=hist_2d_edges)
-                        stat_2d_res_hist, count_2d_charge_hist = np.ma.average(a=np.stack([stat_2d_res_hist, stat_2d_charge_hist]), axis=0, weights=np.stack([count_2d_charge_hist, count_2d_charge_hist_tmp]), returned=True)
+                        stat_2d_residuals_hist, count_2d_charge_hist = np.ma.average(a=np.stack([stat_2d_residuals_hist, stat_2d_charge_hist]), axis=0, weights=np.stack([count_2d_charge_hist, count_2d_charge_hist_tmp]), returned=True)
                         # 1D charge
                         count_1d_charge_hist_tmp = np.bincount(charge[select_valid_hit].astype(np.int))
                         if count_1d_charge_hist_tmp.size > count_1d_charge_hist.size:
@@ -1858,14 +1858,14 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                             select_valid[:next_event_index] = 0
                             # fast binned statistic
                             x_res = analysis_utils.binned_statistic(np.absolute(diff_x[select_valid]), difference_x_local_limit_xy[select_valid], func=func, nbins=plot_n_bins[index][0], range=(0, stop[0]))
-                            x_res_arr = np.full((np.max([arr.shape[0] for arr in x_res]), len(x_res)), fill_value=np.nan)
+                            x_residuals_arr = np.full((np.max([arr.shape[0] for arr in x_res]), len(x_res)), fill_value=np.nan)
                             for index, arr in enumerate(x_res):
-                                #                                 assert np.array_equal(x_res[index], x_res_alternative[index])
-                                x_res_arr[:arr.shape[0], index] = arr
-                            x_residuals_earray.append(x_res_arr)
+                                #                                 assert np.array_equal(x_res[index], x_residuals_alternative[index])
+                                x_residuals_arr[:arr.shape[0], index] = arr
+                            x_residuals_earray.append(x_residuals_arr)
                             x_residuals_earray.flush()
-                            ref_x_res_arr = np.full(x_res_arr.shape[0], fill_value=ref_difference_x_local_limit_xy[ref_index])
-                            ref_x_residuals_earray.append(ref_x_res_arr)
+                            ref_x_residuals_arr = np.full(x_residuals_arr.shape[0], fill_value=ref_difference_x_local_limit_xy[ref_index])
+                            ref_x_residuals_earray.append(ref_x_residuals_arr)
                             ref_x_residuals_earray.flush()
                             # in y direction
 #                             for index, actual_range in enumerate(np.column_stack([y_edges[:-1], y_edges[1:]])):
@@ -1878,13 +1878,13 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                             select_valid[:next_event_index] = 0
                             # fast binned statistic
                             y_res = analysis_utils.binned_statistic(np.absolute(diff_y[select_valid]), difference_y_local_limit_xy[select_valid], func=func, nbins=plot_n_bins[index][1], range=(0, stop[1]))
-                            y_res_arr = np.full((np.max([arr.shape[0] for arr in y_res]), len(y_res)), fill_value=np.nan)
+                            y_residuals_arr = np.full((np.max([arr.shape[0] for arr in y_res]), len(y_res)), fill_value=np.nan)
                             for index, arr in enumerate(y_res):
-                                y_res_arr[:arr.shape[0], index] = arr
-                            y_residuals_earray.append(y_res_arr)
+                                y_residuals_arr[:arr.shape[0], index] = arr
+                            y_residuals_earray.append(y_residuals_arr)
                             y_residuals_earray.flush()
-                            ref_y_res_arr = np.full(y_res_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
-                            ref_y_residuals_earray.append(ref_y_res_arr)
+                            ref_y_residuals_arr = np.full(y_residuals_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
+                            ref_y_residuals_earray.append(ref_y_residuals_arr)
                             ref_y_residuals_earray.flush()
                             progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)))
                         correlate_index_last = curr_correlate_index
