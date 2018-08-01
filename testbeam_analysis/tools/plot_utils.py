@@ -165,7 +165,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
                 axHistx.set_ylim((0, 1))
             else:
                 x_c_max = np.ceil(np.percentile(hight, 99))
-                axHistx.set_ylim(0, x_c_max)
+                axHistx.set_ylim(0, max(1, x_c_max))
             axHistx.locator_params(axis='y', nbins=3)
             axHistx.ticklabel_format(style='sci', scilimits=(0, 4), axis='y')
             axHistx.set_ylabel('#')
@@ -177,7 +177,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
                 axHisty.set_xlim((0, 1))
             else:
                 y_c_max = np.ceil(np.percentile(width, 99))
-                axHisty.set_xlim(0, y_c_max)
+                axHisty.set_xlim(0, max(1, y_c_max))
             axHisty.locator_params(axis='x', nbins=3)
             axHisty.ticklabel_format(style='sci', scilimits=(0, 4), axis='x')
             axHisty.set_xlabel('#')
