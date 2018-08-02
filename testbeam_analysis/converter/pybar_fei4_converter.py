@@ -7,9 +7,13 @@ An installation of pyBAR is required: https://silab-redmine.physik.uni-bonn.de/p
 """
 
 import logging
+import os
+from multiprocessing import Pool
+
 import numpy as np
 import tables as tb
-from multiprocessing import Pool
+
+from tqdm import tqdm
 
 from pybar.analysis import analysis_utils
 from pybar.analysis.analyze_raw_data import AnalyzeRawData
@@ -18,18 +22,64 @@ from pybar_fei4_interpreter import data_struct
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
+testbeam_analysis_dtype = np.dtype([
+    ('event_number', np.int64),
+    ('frame', np.uint32),
+    ('column', np.uint16),
+    ('row', np.uint16),
+    ('charge', np.uint16)])
 
-def analyze_raw_data(input_file, trigger_data_format):  # FE-I4 raw data analysis
+
+def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_corrections=False):
+    ''' Process and format raw data.
+
+    Parameters
+    ----------
+    raw_data_file : string or list of strings
+        Filename(s) of the raw data file(s).
+    output_filename : string
+        Filename of the output interpreted and formatted data file.
+    trigger_data_format : int
+        Trigger/TLU FSM data mode.
+
+    Returns
+    -------
+    output_filename : string
+        Filename of the output interpreted and formatted data file.
+    '''
+    if do_corrections is True:
+        fix_trigger_number, fix_event_number = False, True
+    else:
+        fix_trigger_number, fix_event_number = False, False
+    analyze_raw_data(input_filename=raw_data_file, trigger_data_format=trigger_data_format)
+    if isinstance(raw_data_file, (list, tuple, set)):
+        raw_data_filename = os.path.splitext(sorted(raw_data_file)[0])[0]  # get filename with the lowest index
+    else:  # string
+        raw_data_filename = os.path.splitext(raw_data_file)[0]
+    if do_corrections:
+        align_events(
+            input_filename=raw_data_filename + '_interpreted.h5',
+            output_filename=raw_data_filename + '_event_aligned.h5',
+            fix_trigger_number=fix_trigger_number,
+            fix_event_number=fix_event_number)
+        output_filename = format_hit_table(input_filename=raw_data_filename + '_event_aligned.h5', output_filename=output_filename)
+    else:
+        output_filename = format_hit_table(input_filename=raw_data_filename + '_interpreted.h5', output_filename=output_filename)
+    return output_filename
+
+
+def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0):  # FE-I4 raw data analysis
     '''Std. raw data analysis of FE-I4 data. A hit table is created for further analysis.
 
     Parameters
     ----------
-    input_file : pytables file
-    output_file_hits : pytables file
+    input_filename : string
+        Filename of the input raw data file.
+    output_filename : string
+        Filename of the output interpreted data file.
     '''
-    with AnalyzeRawData(raw_data_file=input_file, create_pdf=True) as analyze_raw_data:
-        #analyze_raw_data.align_at_trigger_number = True  # if trigger number is at the beginning of each event activate this for event alignment
-        analyze_raw_data.use_trigger_time_stamp = False  # the trigger number is a time stamp
+    with AnalyzeRawData(raw_data_file=input_filename, analyzed_data_file=output_filename, create_pdf=True) as analyze_raw_data:
+        # analyze_raw_data.align_at_trigger_number = True  # if trigger number is at the beginning of each event activate this for event alignment
         analyze_raw_data.trigger_data_format = trigger_data_format
         analyze_raw_data.use_tdc_word = False
         analyze_raw_data.create_hit_table = True
@@ -42,44 +92,16 @@ def analyze_raw_data(input_file, trigger_data_format):  # FE-I4 raw data analysi
         analyze_raw_data.create_tot_hist = False
         analyze_raw_data.align_at_trigger = True
         analyze_raw_data.fei4b = False
-        analyze_raw_data.create_empty_event_hits = True
-#         analyze_raw_data.n_bcid = 16
-#         analyze_raw_data.max_tot_value = 13
-        analyze_raw_data.interpreter.create_empty_event_hits(False)
+        analyze_raw_data.create_empty_event_hits = False
+        # analyze_raw_data.n_bcid = 16
+        # analyze_raw_data.max_tot_value = 13
         analyze_raw_data.interpreter.set_warning_output(False)
-        #analyze_raw_data.interpreter.debug_events(0, 5, True)
         analyze_raw_data.interpret_word_table()
         analyze_raw_data.interpreter.print_summary()
         analyze_raw_data.plot_histograms()
 
 
-def process_dut(raw_data_file, trigger_data_format=0, do_corrections=False):
-    ''' Process and format raw data.
-    Parameters
-    ----------
-    raw_data_file : string
-        file with raw data
-    fix_trigger_number : bool
-        activate trigger number fixing
-
-    Returns
-    -------
-    Tuple: (event_number, trigger_number, hits['trigger_number'])
-    or None if not fix_trigger_number
-    '''
-
-    if do_corrections is True:
-        fix_trigger_number, fix_event_number = False, True
-    else:
-        fix_trigger_number, fix_event_number = False, False
-
-    analyze_raw_data(raw_data_file, trigger_data_format=trigger_data_format)
-    ret_value = align_events(raw_data_file[:-3] + '_interpreted.h5', raw_data_file[:-3] + '_event_aligned.h5', fix_trigger_number=fix_trigger_number, fix_event_number=fix_event_number)
-    format_hit_table(raw_data_file[:-3] + '_event_aligned.h5', raw_data_file[:-3] + '_aligned.h5')
-    return ret_value
-
-
-def align_events(input_file, output_file, fix_event_number=True, fix_trigger_number=True, chunk_size=20000000):
+def align_events(input_filename, output_filename, fix_event_number=True, fix_trigger_number=True, chunk_size=1000000):
     ''' Selects only hits from good events and checks the distance between event number and trigger number for each hit.
     If the FE data allowed a successful event recognition the distance is always constant (besides the fact that the trigger number overflows).
     Otherwise the event number is corrected by the trigger number. How often an inconsistency occurs is counted as well as the number of events that had to be corrected.
@@ -87,21 +109,30 @@ def align_events(input_file, output_file, fix_event_number=True, fix_trigger_num
 
     Parameters
     ----------
-    input_file : pytables file
-    output_file : pytables file
-    chunk_size :  int
-        How many events are read at once into RAM for correction.
+    input_filename : string
+        Filename of the input interpreted data file.
+    output_filename : string
+        Filename of the output interpreted data file.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
     '''
-    logging.info('Align events to trigger number in %s' % input_file)
+    logging.info('Align events to trigger number in %s' % input_filename)
 
-    with tb.open_file(input_file, mode='r') as in_file_h5:
+    with tb.open_file(filename=input_filename, mode='r') as in_file_h5:
         hit_table = in_file_h5.root.Hits
         jumps = []  # variable to determine the jumps in the event-number to trigger-number offset
         n_fixed_hits = 0  # events that were fixed
 
-        with tb.open_file(output_file, mode='w') as out_file_h5:
+        with tb.open_file(filename=output_filename, mode='w') as out_file_h5:
             hit_table_description = data_struct.HitInfoTable().columns.copy()
-            hit_table_out = out_file_h5.create_table(out_file_h5.root, name='Hits', description=hit_table_description, title='Selected hits for test beam analysis', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False), chunkshape=(chunk_size,))
+            hit_table_out = out_file_h5.create_table(
+                where=out_file_h5.root,
+                name='Hits',
+                description=hit_table_description, title='Selected hits for test beam analysis',
+                filters=tb.Filters(
+                    complib='blosc',
+                    complevel=5,
+                    fletcher32=False))
 
             # Correct hit event number
             for hits, _ in analysis_utils.data_aligned_at_events(hit_table, chunk_size=chunk_size):
@@ -156,49 +187,73 @@ def align_events(input_file, output_file, fix_event_number=True, fix_trigger_num
         logging.info('Corrected %d inconsistencies in the event number. %d hits corrected.' % (jumps[jumps != 0].shape[0], n_fixed_hits))
 
         if fix_trigger_number is True:
-            return (output_file, event_number, trigger_number, hits['trigger_number'])
+            return (output_filename, event_number, trigger_number, hits['trigger_number'])
 
 
-def format_hit_table(input_file, output_file):
+def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
     ''' Selects and renames important columns for test beam analysis and stores them into a new file.
 
     Parameters
     ----------
-    input_file : pytables file
-    output_file : pytables file
-    '''
+    input_filename : string
+        Filename of the input interpreted data file.
+    output_filename : string
+        Filename of the output interpreted and formatted data file.
+        If None, the filename will be generated.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
 
-    logging.info('Format hit table in %s', input_file)
-    with tb.open_file(input_file, mode='r') as in_file_h5:
-        hits = in_file_h5.root.Hits[:]
-        hits_formatted = np.zeros((hits.shape[0], ), dtype=[('event_number', np.int64), ('frame', np.uint32), ('column', np.uint16), ('row', np.uint16), ('charge', np.uint16)])
-        with tb.open_file(output_file, mode='w') as out_file_h5:
-            hit_table_out = out_file_h5.create_table(out_file_h5.root, name='Hits', description=hits_formatted.dtype, title='Selected FE-I4 hits for test beam analysis', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-            hits_formatted['event_number'] = hits['event_number']
-            hits_formatted['frame'] = hits['relative_BCID']
-            hits_formatted['column'] = hits['column']
-            hits_formatted['row'] = hits['row']
-            hits_formatted['charge'] = hits['tot']
-            if not np.all(np.diff(hits_formatted['event_number']) >= 0):
-                raise RuntimeError('The event number does not always increase. This data cannot be used like this!')
-            hit_table_out.append(hits_formatted)
+    Returns
+    -------
+    output_filename : string
+        Filename of the output interpreted and formatted data file.
+    '''
+    if output_filename is None:
+        output_filename = os.path.splitext(input_filename)[0] + '_formatted_fei4.h5'
+
+    logging.info('Format hit table in %s', input_filename)
+    with tb.open_file(filename=input_filename, mode='r') as in_file_h5:
+        last_event_number = np.zeros(shape=1, dtype=np.int64)
+        input_hits_table = in_file_h5.root.Hits
+        with tb.open_file(filename=output_filename, mode='w') as out_file_h5:
+            output_hits_table = out_file_h5.create_table(
+                where=out_file_h5.root,
+                name='Hits',
+                description=testbeam_analysis_dtype,
+                title='Hits for test beam analysis',
+                filters=tb.Filters(
+                    complib='blosc',
+                    complevel=5,
+                    fletcher32=False))
+            for read_index in tqdm(range(0, input_hits_table.nrows, chunk_size)):
+                hits_chunk = input_hits_table.read(read_index, read_index + chunk_size)
+                if np.any(np.diff(np.concatenate((last_event_number, hits_chunk['event_number']))) < 0):
+                    raise RuntimeError('The event number does not increase.')
+                last_event_number = hits_chunk['event_number'][-1:]
+                hits_data_formatted = np.zeros(shape=hits_chunk.shape[0], dtype=testbeam_analysis_dtype)
+                hits_data_formatted['event_number'] = hits_chunk['event_number']
+                hits_data_formatted['frame'] = hits_chunk['relative_BCID']
+                hits_data_formatted['column'] = hits_chunk['column']
+                hits_data_formatted['row'] = hits_chunk['row']
+                hits_data_formatted['charge'] = hits_chunk['tot']
+                output_hits_table.append(hits_data_formatted)
+                output_hits_table.flush()
+
+    return output_filename
 
 
 if __name__ == "__main__":
-
-    # Input raw data file names
-#     raw_data_files = [r'C:\Users\DavidLP\Desktop\TB\RUN_20\Raw_Data\138_proto_9_ext_trigger_scan.h5',  # the first DUT is the master reference DUT
-#                       r'C:\Users\DavidLP\Desktop\TB\RUN_20\Raw_Data\64_lfcmos_3_ext_trigger_scan.h5',
-#                       r'C:\Users\DavidLP\Desktop\TB\RUN_20\Raw_Data\102_scc_167_ext_trigger_scan.h5'
-#                       ]
-    raw_data_files = [r'C:\Users\DavidLP\Desktop\TB\RUN_30\Raw_Data\160_proto_9_ext_trigger_scan.h5',  # the first DUT is the master reference DUT
-                      r'C:\Users\DavidLP\Desktop\TB\RUN_30\Raw_Data\7_lfcmos_3_ext_trigger_scan.h5',
-                      r'C:\Users\DavidLP\Desktop\TB\RUN_30\Raw_Data\124_scc_167_ext_trigger_scan.h5'
-                      ]
-    # Do separate DUT data processing in parallel. The output is a formatted hit table.
+    # Multi file processing
+    # Input raw data filenames
+    raw_data_files = ['pybar_raw_data.h5']
+    trigger_data_format = 0
+    # Simultaneous the processing of the files. The output is a formatted hit table.
     pool = Pool()
-    results = pool.map(process_dut, raw_data_files)
+    results = [pool.apply_async(process_dut, kwds={'raw_data_file': raw_data_file, 'trigger_data_format': trigger_data_format}) for raw_data_file in raw_data_files]
+    [result.get()[0] for result in results]
     pool.close()
     pool.join()
-
-#     process_dut(raw_data_files[0])
+    # Single file processing
+    # Input raw data filename
+    # raw_data_file = 'pybar_raw_data.h5'
+    # process_dut(input_file=raw_data_file, trigger_data_format=trigger_data_format)
