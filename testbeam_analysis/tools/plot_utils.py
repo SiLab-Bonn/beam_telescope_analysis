@@ -1143,7 +1143,7 @@ def plot_charge_distribution(telescope_configuration, input_tracks_file, select_
                     figs=figs if gui else None)
 
 
-def efficiency_plots(telescope, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf and not gui:
         return
@@ -1328,6 +1328,29 @@ def efficiency_plots(telescope, count_hits_2d_hist, count_tracks_2d_hist, count_
             figs.append(fig)
         else:
             output_pdf.savefig(fig)
+
+        from scipy.spatial import cKDTree
+        x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+        y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+        bin_center_col_row_pair_data = np.array(np.meshgrid(x_mesh, y_mesh)).T.reshape(-1, 2)
+        grain_center_col_row_pair_dist, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
+        pixel_efficiencies = []
+        for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
+            bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
+            bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data[bin_center_col_row_pair_data_indices]
+            x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+            y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
+            index_0 = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+            index_1 = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+            pixel_indices = np.column_stack((index_0, index_1)).T
+            tracks = np.sum(count_tracks_2d_hist[pixel_indices])
+            if tracks == 0:
+                continue
+                # pixel_efficiency = 0.0
+            else:
+                pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[pixel_indices].astype(np.float32)) / np.sum(count_tracks_2d_hist[pixel_indices].astype(np.float32)) * 100.0
+            pixel_efficiencies.append(pixel_efficiency)
+
     else:
         logging.warning('Cannot create stat_2d_efficiency_hist plots, all pixels are masked')
 

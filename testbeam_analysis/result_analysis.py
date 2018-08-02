@@ -778,6 +778,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 if in_pixel is True:
                     plot_utils.efficiency_plots(
                         telescope=telescope,
+                        hist_2d_edges=hist_2d_edges,
                         count_hits_2d_hist=count_hits_2d_hist,
                         count_tracks_2d_hist=count_tracks_2d_hist,
                         count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
@@ -799,6 +800,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 else:
                     plot_utils.efficiency_plots(
                         telescope=telescope,
+                        hist_2d_edges=hist_2d_edges,
                         count_hits_2d_hist=count_hits_2d_hist,
                         count_tracks_2d_hist=count_tracks_2d_hist,
                         count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
