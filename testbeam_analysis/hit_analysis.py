@@ -1020,7 +1020,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     return output_cluster_file
 
 
-def correlate(telescope_configuration, input_files, output_correlation_file=None, resolution=(100.0, 100.0), ref_index=0, plot=True, chunk_size=100000):
+def correlate(telescope_configuration, input_files, output_correlation_file=None, resolution=(100.0, 100.0), select_duts=None, select_reference_duts=0, plot=True, chunk_size=100000):
     '''"Calculates the correlation histograms from the hit/cluster indices.
     The 2D correlation array of pairs of two different devices are created on event basis.
     All permutations are considered (all hits/clusters of the first device are correlated with all hits/clusters of the second device).
@@ -1035,8 +1035,8 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
         Filename of the output correlation file.
     resolution : tuple
         Resolution of the correlation histogram in x and y direction (in um).
-    ref_index : uint
-        DUT index of the reference plane. Default is DUT 0. If None, generate correlation histograms of all DUT pairs.
+    select_reference_duts : uint, list
+        DUT indices of the reference plane. Default is DUT 0. If None, generate correlation histograms of all DUT pairs.
     plot : bool
         If True, create additional output plots.
     chunk_size : uint
@@ -1049,18 +1049,30 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
     '''
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
-    logging.info('=== Correlating %d DUTs ===', n_duts)
+    if select_duts is None:
+        select_duts = range(len(telescope))
+    if not isinstance(select_duts, (list, tuple, set)):
+        raise ValueError('Parameter "select_duts" is not a list.')
+    if max(select_duts) > n_duts or min(select_duts) < 0:
+        raise ValueError('Parameter "select_duts" contains ivalid values.')
+    logging.info('=== Correlating %d DUTs ===', len(select_duts))
+
+    if len(select_duts) != len(input_files):
+        raise ValueError('Parameter "input_files" has wrong length.')
 
     if output_correlation_file is None:
         output_correlation_file = os.path.join(os.path.dirname(input_files[0]), 'Correlated.h5')
 
-    if ref_index is None:
-        ref_duts = range(n_duts)
+    if select_reference_duts is None:
+        ref_duts = select_duts
+    elif isinstance(select_reference_duts, (list, tuple, set)):
+        ref_duts = select_reference_duts
     else:
-        ref_duts = [ref_index]
+        ref_duts = [select_reference_duts]  # make list
 
     with tb.open_file(output_correlation_file, mode="w") as out_file_h5:
         for ref_index in ref_duts:
+            ref_file_index = np.where(ref_index == np.array(select_duts))[0][0]
             ref_dut = telescope[ref_index]
             # Result arrays to be filled
             x_correlations = []
@@ -1072,9 +1084,10 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
             dut_hist_y_extent = []
 
             # remove reference DUT from list of DUTs
-            select_duts = list(set(range(n_duts)) - set([ref_index]))
-            logging.info('== Correlating reference %s with %d other DUTs ==' % (ref_dut.name, len(select_duts)))
-            for dut_index in select_duts:
+            select_duts_removed = list(set(select_duts) - set([ref_index]))
+            logging.info('== Correlating reference %s with %d other DUTs ==' % (ref_dut.name, len(select_duts_removed)))
+            for dut_index in select_duts_removed:
+                dut_file_index = np.where(dut_index == np.array(select_duts))[0][0]
                 # Reference size
                 ref_x_extent = telescope[ref_index].x_extent(global_position=True)
                 ref_x_size = ref_x_extent[1] - ref_x_extent[0]
@@ -1105,7 +1118,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                 # Store the loop indices for speed up
                 start_indices.append(None)
 
-            with tb.open_file(input_files[ref_index], mode='r') as in_file_h5:  # Open DUT0 hit/cluster file
+            with tb.open_file(input_files[ref_file_index], mode='r') as in_file_h5:  # Open reference hit/cluster file
                 # Check for whether hits or clusters are used
                 try:
                     ref_node = in_file_h5.root.Clusters
@@ -1135,14 +1148,15 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                     # Create correlation histograms to the reference device for all other devices
                     dut_results = []
                     # Loop over other DUTs
-                    for index, dut_index in enumerate(select_duts):
+                    for index, dut_index in enumerate(select_duts_removed):
+                        dut_file_index = np.where(dut_index == np.array(select_duts))[0][0]
                         dut_results.append(pool.apply_async(_correlate_position, kwds={
                             'ref': telescope[ref_index],
                             'dut': telescope[dut_index],
                             'ref_use_clusters': ref_use_clusters,
                             'ref_use_positions': ref_use_positions,
                             'ref_data': ref_data_chunk,
-                            'dut_input_file': input_files[dut_index],
+                            'dut_input_file': input_files[dut_file_index],
                             'start_index': start_indices[index],
                             'start_event_number': actual_event_numbers[0],
                             'stop_event_number': actual_event_numbers[-1] + 1,
@@ -1164,7 +1178,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                 pool.join()
 
             # Store the correlation histograms
-            for index, dut_index in enumerate(select_duts):
+            for index, dut_index in enumerate(select_duts_removed):
                 # x
                 out_x = out_file_h5.create_carray(
                     where=out_file_h5.root,

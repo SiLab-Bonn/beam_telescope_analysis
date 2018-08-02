@@ -154,7 +154,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
     return output_file
 
 
-def prealign(telescope_configuration, input_correlation_file, output_telescope_configuration=None, ref_index=0, reduce_background=True, use_location=False, plot=True, gui=False):
+def prealign(telescope_configuration, input_correlation_file, output_telescope_configuration=None, select_reference_dut=0, reduce_background=True, use_location=False, plot=True, gui=False):
     '''Deduce a pre-alignment from the correlations, by fitting the correlations with a straight line (gives offset, slope, but no tild angles).
        The user can define cuts on the fit error and straight line offset in an interactive way.
 
@@ -166,7 +166,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
         Filename of the input correlation file.
     output_telescope_configuration : string
         Filename of the output telescope configuration file.
-    ref_index : uint
+    select_reference_dut : uint
         DUT index of the reference plane. Default is DUT 0.
     reduce_background : bool
         If True, use correlation histograms with reduced background (by applying SVD method to the correlation matrix).
@@ -191,7 +191,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
 
     with tb.open_file(input_correlation_file, mode="r") as in_file_h5:
         # remove reference DUT from list of DUTs
-        select_duts = list(set(range(n_duts)) - set([ref_index]))
+        select_duts = list(set(range(n_duts)) - set([select_reference_dut]))
 
         for dut_index in select_duts:
             x_global_pixel, y_global_pixel, z_global_pixel = [], [], []
@@ -204,11 +204,11 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                 z_global_pixel = np.hstack([z_global_pixel, global_positions[2]])
             for x_direction in [True, False]:
                 if reduce_background:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d_reduced_background' % ('x' if x_direction else 'y', ref_index, dut_index))
+                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d_reduced_background' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
                 else:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % ('x' if x_direction else 'y', ref_index, dut_index))
+                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
                 dut_name = telescope[dut_index].name
-                ref_name = telescope[ref_index].name
+                ref_name = telescope[select_reference_dut].name
                 logging.info('Pre-aligning data from %s', node.name)
                 bin_size = node.attrs.resolution
                 ref_hist_extent = node.attrs.ref_hist_extent
@@ -254,7 +254,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     if np.isclose(slope, 1.0, rtol=0.0, atol=0.1) or np.isclose(slope, -1.0, rtol=0.0, atol=0.1):
                         break
                 else:
-                    raise RuntimeError('Cannot find %s correlation between %s and %s' % ("X" if x_direction else "Y", telescope[ref_index].name, telescope[dut_index].name))
+                    raise RuntimeError('Cannot find %s correlation between %s and %s' % ("X" if x_direction else "Y", telescope[select_reference_dut].name, telescope[dut_index].name))
                 # offset in the center of the pixel matrix
                 offset_center = offset + slope * (0.5 * dut_hist_size - 0.5 * bin_size)
                 offset_plot = offset - slope * dut_pos[0]
