@@ -20,6 +20,7 @@ from mpl_toolkits.mplot3d import Axes3D  # needed for 3d plotting
 from scipy.optimize import curve_fit
 from scipy import stats
 from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy.spatial import cKDTree
 
 from testbeam_analysis.telescope.telescope import Telescope
 import testbeam_analysis.tools.analysis_utils
@@ -1294,7 +1295,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         z_min = 0.0
-        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s (%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
         vor = Voronoi(pixel_center_col_row_pair_data)
         vor_fig = voronoi_plot_2d(vor=vor, ax=ax, show_points=True, show_vertices=False, line_width=mesh_line_width, line_alpha=mesh_alpha, point_size=mesh_point_size)
         vor_children = vor_fig.get_children()[1]
@@ -1318,23 +1319,23 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.grid()
-        ax.set_title('Efficiency per pixel for %s: %1.2f (+%1.2f/%1.2f)' % (actual_dut.name, efficiency[0], efficiency[1], efficiency[2]))
+        ax.set_title('Efficiency per bin for %s: %1.2f (+%1.2f/%1.2f)%%' % (actual_dut.name, efficiency[0], efficiency[1], efficiency[2]))
         ax.set_xlabel('Efficiency [%]')
         ax.set_ylabel('#')
         ax.set_yscale('log')
-        ax.set_xlim([-0.5, 101.5])
-        ax.hist(stat_2d_efficiency_hist.ravel()[stat_2d_efficiency_hist.ravel().mask != 1], bins=101, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
+        ax.set_xlim([-0.5, 100.5])
+        ax.hist(stat_2d_efficiency_hist.ravel()[stat_2d_efficiency_hist.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
         if gui:
             figs.append(fig)
         else:
             output_pdf.savefig(fig)
 
-        from scipy.spatial import cKDTree
         x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
         y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
         bin_center_col_row_pair_data = np.array(np.meshgrid(x_mesh, y_mesh)).T.reshape(-1, 2)
         grain_center_col_row_pair_dist, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
         pixel_efficiencies = []
+        pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
         for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
             bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
             bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data[bin_center_col_row_pair_data_indices]
@@ -1342,14 +1343,48 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
             index_0 = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
             index_1 = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-            pixel_indices = np.column_stack((index_0, index_1)).T
-            tracks = np.sum(count_tracks_2d_hist[pixel_indices])
+            tracks = np.sum(count_tracks_2d_hist[index_0, index_1])
             if tracks == 0:
                 continue
-                # pixel_efficiency = 0.0
             else:
-                pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[pixel_indices].astype(np.float32)) / np.sum(count_tracks_2d_hist[pixel_indices].astype(np.float32)) * 100.0
+                pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[index_0, index_1].astype(np.float32)) / np.sum(count_tracks_2d_hist[index_0, index_1].astype(np.float32)) * 100.0
             pixel_efficiencies.append(pixel_efficiency)
+            pixel_efficiencies_bins[index_0, index_1] = pixel_efficiency
+
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+        z_min = 0.0
+        plot_2d_pixel_hist(fig, ax, pixel_efficiencies_bins.T, hist_extent, title='Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+        ax.add_patch(rect)
+        ax.set_xlim(plot_range[0])
+        ax.set_ylim(plot_range[1])
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
+
+        logging.info("Efficient pixels (>=97%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 97.0))
+        logging.info("Efficient pixels (>=95%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 95.0))
+        logging.info("Efficient pixels (>=80%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 80.0))
+        logging.info("Efficient pixels (>=50%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 50.0))
+
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        ax.grid()
+        ax.set_title('Efficiency per pixel for %s' % (actual_dut.name,))
+        ax.set_xlabel('Efficiency [%]')
+        ax.set_ylabel('#')
+        ax.set_yscale('log')
+        ax.set_xlim([-0.5, 100.5])
+        ax.hist(pixel_efficiencies, bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
 
     else:
         logging.warning('Cannot create stat_2d_efficiency_hist plots, all pixels are masked')
@@ -1409,12 +1444,12 @@ def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actu
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.grid()
-        ax.set_title('Purity per pixel for %s: %1.4f +- %1.4f' % (actual_dut.name, np.ma.mean(purity), np.ma.std(purity)))
+        ax.set_title('Purity per pixel for %s: %1.4f +- %1.4f%%' % (actual_dut.name, np.ma.mean(purity), np.ma.std(purity)))
         ax.set_xlabel('Purity [%]')
         ax.set_ylabel('#')
         ax.set_yscale('log')
-        ax.set_xlim([-0.5, 101.5])
-        ax.hist(purity.ravel()[purity.ravel().mask != 1], bins=101, range=(0, 100))  # Histogram not masked pixel purity
+        ax.set_xlim([-0.5, 100.5])
+        ax.hist(purity.ravel()[purity.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel purity
         if gui:
             figs.append(fig)
         else:
@@ -1424,12 +1459,12 @@ def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actu
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.grid()
-        ax.set_title('Sensor Purity for %s: %1.4f +- %1.4f' % (actual_dut.name, np.ma.mean(purity_sensor), np.ma.std(purity_sensor)))
+        ax.set_title('Sensor Purity for %s: %1.4f +- %1.4f%%' % (actual_dut.name, np.ma.mean(purity_sensor), np.ma.std(purity_sensor)))
         ax.set_xlabel('Purity [%]')
         ax.set_ylabel('#')
         ax.set_yscale('log')
-        ax.set_xlim([-0.5, 101.5])
-        ax.hist(purity_sensor.ravel()[purity_sensor.ravel().mask != 1], bins=101, range=(0, 100))  # Histogram not masked pixel purity
+        ax.set_xlim([-0.5, 100.5])
+        ax.hist(purity_sensor.ravel()[purity_sensor.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel purity
         if gui:
             figs.append(fig)
         else:

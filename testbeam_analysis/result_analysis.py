@@ -764,7 +764,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     array_pass=count_tracks_with_hit_2d_hist,
                     array_total=count_tracks_2d_hist)
 
-                logging.info('Efficiency =  %.4f (+%.4f/%.4f)', eff, eff_err_pl, eff_err_min)
+                logging.info('Efficiency =  %.4f (+%.4f/%.4f)%%' % (eff, eff_err_pl, eff_err_min))
                 efficiencies.append(np.ma.mean(stat_2d_efficiency_hist))
 
                 # Calculate in-pixel-efficiency
@@ -1009,7 +1009,7 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
                     cut_distance=cut_distance,
                     output_pdf=output_pdf)
 
-                logging.info('Purity =  %1.4f +- %1.4f', np.ma.mean(purity), np.ma.std(purity))
+                logging.info('Purity =  %1.4f +- %1.4f%%' % np.ma.mean(purity), np.ma.std(purity))
                 purities.append(np.ma.mean(purity))
                 purities_sensor_mean.append(np.ma.mean(purity_sensor))
 
@@ -1024,7 +1024,7 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
 
                 pure_hits.append(total_pure_hit_hist.sum())
                 total_hits.append(total_hit_hist.sum())
-                logging.info('Pure hits / total hits: %d / %d, Purity = %.2f', total_pure_hit_hist.sum(), total_hit_hist.sum(), total_pure_hit_hist.sum() / total_hit_hist.sum() * 100)
+                logging.info('Pure hits / total hits: %d / %d, Purity = %.2f%%' % (total_pure_hit_hist.sum(), total_hit_hist.sum(), total_pure_hit_hist.sum() / total_hit_hist.sum() * 100))
 
                 # Store parameters used for purity calculation
                 out_purity.attrs.bin_size = bin_size
