@@ -15,11 +15,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.artist import setp
 from matplotlib.figure import Figure
 import matplotlib.patches
+from matplotlib.collections import LineCollection
 from matplotlib import colors, cm
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3d plotting
 from scipy.optimize import curve_fit
 from scipy import stats
-from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy.spatial import cKDTree
 
 from testbeam_analysis.telescope.telescope import Telescope
@@ -1144,6 +1144,27 @@ def plot_charge_distribution(telescope_configuration, input_tracks_file, select_
                     figs=figs if gui else None)
 
 
+def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False, line_width=1.0, line_alpha=1.0, line_style='solid', line_color='k', point_size=1.0, point_marker='.', point_color='k'):
+    '''
+    Returns
+    -------
+    fig : matplotlib.figure.Figure instance
+        Figure for the plot
+    '''
+    if show_points:
+        ax.plot(points[:, 0], points[:, 1], linestyle='None', markersize=point_size, marker=point_marker, color=point_color)
+    ridge_vertices = np.array(ridge_vertices)
+    select = np.all(ridge_vertices >= 0, axis=1)
+    ax.add_collection(
+        LineCollection(
+            vertices[ridge_vertices[select]],
+            colors=line_color,
+            linewidth=line_width,
+            alpha=line_alpha,
+            linestyle=line_style))
+    return ax.figure
+
+
 def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf and not gui:
@@ -1173,16 +1194,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color='r')
-    vor = Voronoi(pixel_center_col_row_pair_data)
-    vor_fig = voronoi_plot_2d(vor=vor, ax=ax, show_points=True, show_vertices=False, line_width=mesh_line_width, line_alpha=mesh_alpha, point_size=mesh_point_size)
-    vor_children = vor_fig.get_children()[1]
-    vor_dot = vor_children.get_children()[2]
-    vor_dot.set_color(mesh_color)
-    vor_dot.set_alpha(mesh_alpha)
-    vor_line = vor_children.get_children()[0]
-    vor_line.set_color(mesh_color)
-    vor_line_out = vor_children.get_children()[1]
-    vor_line_out.set_color(mesh_color)
+    _, _, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
+    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_color=mesh_color)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1296,16 +1309,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax = fig.add_subplot(111)
         z_min = 0.0
         plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
-        vor = Voronoi(pixel_center_col_row_pair_data)
-        vor_fig = voronoi_plot_2d(vor=vor, ax=ax, show_points=True, show_vertices=False, line_width=mesh_line_width, line_alpha=mesh_alpha, point_size=mesh_point_size)
-        vor_children = vor_fig.get_children()[1]
-        vor_dot = vor_children.get_children()[2]
-        vor_dot.set_color(mesh_color)
-        vor_dot.set_alpha(mesh_alpha)
-        vor_line = vor_children.get_children()[0]
-        vor_line.set_color(mesh_color)
-        vor_line_out = vor_children.get_children()[1]
-        vor_line_out.set_color(mesh_color)
+        _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
         ax.set_xlim(plot_range[0])

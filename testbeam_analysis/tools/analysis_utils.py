@@ -17,6 +17,7 @@ from scipy import optimize
 from scipy.optimize import curve_fit
 from scipy.integrate import quad
 from scipy.sparse import csr_matrix
+from scipy.spatial import Voronoi
 
 import requests
 import progressbar
@@ -1024,6 +1025,86 @@ def calculate_cluster_array(cluster_shape):
             cluster_array[x, y] = 1
             cluster_shape -= val
     return cluster_array
+
+
+def voronoi_finite_polygons_2d(points, dut_extent=None):
+    """
+    Reconstruct infinite voronoi regions in a 2D diagram to finite
+    regions.
+
+    Useful links:
+    - https://stackoverflow.com/questions/34968838/python-finite-boundary-voronoi-cells
+    - https://stackoverflow.com/questions/20515554/colorize-voronoi-diagram
+
+    Parameters
+    ----------
+    points : ndarray of floats
+        Coordinates of points to construct a convex hull from.
+    dut_extent : list
+        Boundary of the Voronoi diagram.
+        If None, remove all Voronoi infinite regions.
+
+    Returns
+    -------
+    points : ndarray of floats
+        Coordinates of points to construct a convex hull from (including mirrored points).
+    regions : list of list of ints
+        Indices of vertices in each revised Voronoi regions.
+    ridge_vetices : list of list of ints
+        Indices of vertices in each revised Voronoi.
+    vertices : ndarray of doubles
+        Coordinates for revised Voronoi vertices.
+    """
+    if len(points.shape) != 2 or points.shape[1] != 2:
+        raise ValueError("Requires 2D voronoi data")
+    vor = Voronoi(points, incremental=True)
+    n_points = vor.points.shape[0]
+    # select Voronoi regions with invalid ("infinite") vetices and vertices outside the boundary
+    vertices_outside_sel = ((vor.vertices[:, 0] >= max(dut_extent[:2])) & ~np.isclose(vor.vertices[:, 0], max(dut_extent[:2])))
+    vertices_outside_sel |= ((vor.vertices[:, 0] <= min(dut_extent[:2])) & ~np.isclose(vor.vertices[:, 0], min(dut_extent[:2])))
+    vertices_outside_sel |= ((vor.vertices[:, 1] <= min(dut_extent[2:])) & ~np.isclose(vor.vertices[:, 1], min(dut_extent[2:])))
+    vertices_outside_sel |= ((vor.vertices[:, 1] >= max(dut_extent[2:])) & ~np.isclose(vor.vertices[:, 1], max(dut_extent[2:])))
+    vertices_indices_outside = np.where(vertices_outside_sel)
+    length = len(sorted(vor.regions, key=len, reverse=True)[0])
+    vor_regions = np.array([arr + [vor.vertices.shape[0]] * (length - len(arr)) for arr in vor.regions])
+    regions_with_vertex_outside_sel = np.any(vor_regions == -1, axis=1)
+    regions_with_vertex_outside_sel |= np.any(np.isin(vor_regions, vertices_indices_outside), axis=1)
+    regions_indices_with_vertex_outside = np.where(regions_with_vertex_outside_sel)[0]
+    points_indices_with_vertex_outside = np.in1d(vor.point_region, regions_indices_with_vertex_outside)
+    points_with_vertex_outside = vor.points[points_indices_with_vertex_outside]
+    # generate mirrored points at the boundary
+    points_left = points_with_vertex_outside.copy()
+    points_left[:, 0] -= (max(dut_extent[:2]) + min(dut_extent[:2])) / 2.0
+    points_left[:, 0] *= -1
+    points_left[:, 0] += (max(dut_extent[:2]) + min(dut_extent[:2])) / 2.0 - np.ptp(dut_extent[:2])
+    points_right = points_with_vertex_outside.copy()
+    points_right[:, 0] -= (max(dut_extent[:2]) + min(dut_extent[:2])) / 2.0
+    points_right[:, 0] *= -1
+    points_right[:, 0] += (max(dut_extent[:2]) + min(dut_extent[:2])) / 2.0 + np.ptp(dut_extent[:2])
+    points_up = points_with_vertex_outside.copy()
+    points_up[:, 1] -= (max(dut_extent[2:]) + min(dut_extent[2:])) / 2.0
+    points_up[:, 1] *= -1
+    points_up[:, 1] += (max(dut_extent[2:]) + min(dut_extent[2:])) / 2.0 + np.ptp(dut_extent[2:])
+    points_down = points_with_vertex_outside.copy()
+    points_down[:, 1] -= (max(dut_extent[2:]) + min(dut_extent[2:])) / 2.0
+    points_down[:, 1] *= -1
+    points_down[:, 1] += (max(dut_extent[2:]) + min(dut_extent[2:])) / 2.0 - np.ptp(dut_extent[2:])
+    # adding the points and generate new Voronoi regions
+    mirrored_points = np.concatenate((points_up, points_down, points_left, points_right))
+    vor.add_points(mirrored_points)
+    new_regions_indices = vor.point_region[:n_points]
+    # select Voronoi regions with valid vetices and vertices inside the boundary
+    vertices_inside_sel = ((vor.vertices[:, 0] <= max(dut_extent[:2])) | np.isclose(vor.vertices[:, 0], max(dut_extent[:2])))
+    vertices_inside_sel &= ((vor.vertices[:, 0] >= min(dut_extent[:2])) | np.isclose(vor.vertices[:, 0], min(dut_extent[:2])))
+    vertices_inside_sel &= ((vor.vertices[:, 1] >= min(dut_extent[2:])) | np.isclose(vor.vertices[:, 1], min(dut_extent[2:])))
+    vertices_inside_sel &= ((vor.vertices[:, 1] <= max(dut_extent[2:])) | np.isclose(vor.vertices[:, 1], max(dut_extent[2:])))
+    vertices_indices_inside = np.where(vertices_inside_sel)
+    vor_ridge_vertices = np.array(vor.ridge_vertices)
+    ridge_vertices_with_vertex_inside_sel = np.all(vor_ridge_vertices != -1.0, axis=1)
+    ridge_vertices_with_vertex_inside_sel &= np.all(np.isin(vor_ridge_vertices, vertices_indices_inside), axis=1)
+    ridge_vertices_indices_with_vertex_inside = np.where(ridge_vertices_with_vertex_inside_sel)[0]
+    # TODO: remove not used vertices and update indices lists
+    return vor.points, np.array(vor.regions)[new_regions_indices].tolist(), vor_ridge_vertices[ridge_vertices_indices_with_vertex_inside].tolist(), vor.vertices
 
 
 def get_data(path, output=None, fail_on_overwrite=False):
