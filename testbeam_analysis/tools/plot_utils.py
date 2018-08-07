@@ -1332,13 +1332,23 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
 
         x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
         y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+        # select = x_mesh >= min(dut_extent[:2]) & x_mesh <= max(dut_extent[:2])
+        # select &= y_mesh >= min(dut_extent[2:]) & y_mesh <= max(dut_extent[2:])
         bin_center_col_row_pair_data = np.array(np.meshgrid(x_mesh, y_mesh)).T.reshape(-1, 2)
-        grain_center_col_row_pair_dist, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
+        select = bin_center_col_row_pair_data[:, 0] >= min(dut_extent[:2])
+        select &= bin_center_col_row_pair_data[:, 0] <= max(dut_extent[:2])
+        select &= bin_center_col_row_pair_data[:, 1] >= min(dut_extent[2:])
+        select &= bin_center_col_row_pair_data[:, 1] <= max(dut_extent[2:])
+        bin_center_col_row_pair_dut = bin_center_col_row_pair_data[select]
+        _, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
         pixel_efficiencies = []
         pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
         for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
             bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
-            bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data[bin_center_col_row_pair_data_indices]
+            bin_center_col_row_pair_data_positions = bin_center_col_row_pair_dut[bin_center_col_row_pair_data_indices]
+            # print bin_center_col_row_pair_data_positions
+            # select = bin_center_col_row_pair_data_positions[:, 0] >= min(dut_extent[:2]) & bin_center_col_row_pair_data_positions[:, 0] <= max(dut_extent[:2])
+            # select &= bin_center_col_row_pair_data_positions[:, 1] >= min(dut_extent[2:]) & bin_center_col_row_pair_data_positions[:, 1] <= max(dut_extent[2:])
             x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
             y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
             index_0 = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
