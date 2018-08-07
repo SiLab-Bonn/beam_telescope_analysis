@@ -15,7 +15,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.artist import setp
 from matplotlib.figure import Figure
 import matplotlib.patches
-from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib import colors, cm
 from mpl_toolkits.mplot3d import Axes3D  # needed for 3d plotting
 from scipy.optimize import curve_fit
@@ -44,7 +44,7 @@ def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=
 
 def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None):
     if z_max is None:
-        if hist2d.all() is np.ma.masked:  # check if masked array is fully masked
+        if hist2d.all() is np.ma.masked or np.allclose(0, hist2d):  # check if masked array is fully masked
             z_max = 1
         else:
             z_max = ceil(hist2d.max())
@@ -1157,7 +1157,7 @@ def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False
     select = np.all(ridge_vertices >= 0, axis=1)
     ax.add_collection(
         LineCollection(
-            vertices[ridge_vertices[select]],
+            segments=vertices[ridge_vertices[select]],
             colors=line_color,
             linewidth=line_width,
             alpha=line_alpha,
@@ -1165,7 +1165,36 @@ def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
+    '''
+    Returns
+    -------
+    fig : matplotlib.figure.Figure instance
+        Figure for the plot
+    '''
+    if z_max is None:
+        if values.all() is np.ma.masked or np.allclose(0, values):  # check if masked array is fully masked
+            z_max = 1
+        else:
+            z_max = ceil(values.max())
+    verts = []
+    for region in regions:
+        if -1 not in region:
+            vert = vertices[region]
+            verts.append(vert)
+    cmap = cm.get_cmap('viridis')
+    cmap.set_bad('w')
+    p = PolyCollection(
+        verts=verts,
+        cmap=cmap)
+    p.set_array(values)
+    ax.add_collection(p)
+    bounds = np.linspace(start=z_min, stop=z_max, num=255, endpoint=True)
+    fig.colorbar(p, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
+    return ax.figure
+
+
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf and not gui:
         return
@@ -1183,18 +1212,18 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     local_x, local_y, _ = actual_dut.index_to_local_position(
         column=indices[0],
         row=indices[1])
+    pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
 
     mesh_color = 'red'
     mesh_line_width = 0.5
     mesh_point_size = 0.75
     mesh_alpha = 0.7
 
-    pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color='r')
-    _, _, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
+    _, regions, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_color=mesh_color)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
@@ -1334,45 +1363,60 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         else:
             output_pdf.savefig(fig)
 
-        x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
-        y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
-        # select = x_mesh >= min(dut_extent[:2]) & x_mesh <= max(dut_extent[:2])
-        # select &= y_mesh >= min(dut_extent[2:]) & y_mesh <= max(dut_extent[2:])
-        bin_center_col_row_pair_data = np.array(np.meshgrid(x_mesh, y_mesh)).T.reshape(-1, 2)
-        select = bin_center_col_row_pair_data[:, 0] >= min(dut_extent[:2])
-        select &= bin_center_col_row_pair_data[:, 0] <= max(dut_extent[:2])
-        select &= bin_center_col_row_pair_data[:, 1] >= min(dut_extent[2:])
-        select &= bin_center_col_row_pair_data[:, 1] <= max(dut_extent[2:])
-        bin_center_col_row_pair_dut = bin_center_col_row_pair_data[select]
-        _, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
-        pixel_efficiencies = []
-        pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
-        for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
-            bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
-            bin_center_col_row_pair_data_positions = bin_center_col_row_pair_dut[bin_center_col_row_pair_data_indices]
-            # print bin_center_col_row_pair_data_positions
-            # select = bin_center_col_row_pair_data_positions[:, 0] >= min(dut_extent[:2]) & bin_center_col_row_pair_data_positions[:, 0] <= max(dut_extent[:2])
-            # select &= bin_center_col_row_pair_data_positions[:, 1] >= min(dut_extent[2:]) & bin_center_col_row_pair_data_positions[:, 1] <= max(dut_extent[2:])
-            x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
-            y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
-            index_0 = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
-            index_1 = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-            tracks = np.sum(count_tracks_2d_hist[index_0, index_1])
-            if tracks == 0:
-                continue
-            else:
-                pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[index_0, index_1].astype(np.float32)) / np.sum(count_tracks_2d_hist[index_0, index_1].astype(np.float32)) * 100.0
-            pixel_efficiencies.append(pixel_efficiency)
-            pixel_efficiencies_bins[index_0, index_1] = pixel_efficiency
+        # x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+        # y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+        # # select = x_mesh >= min(dut_extent[:2]) & x_mesh <= max(dut_extent[:2])
+        # # select &= y_mesh >= min(dut_extent[2:]) & y_mesh <= max(dut_extent[2:])
+        # bin_center_col_row_pair_data = np.array(np.meshgrid(x_mesh, y_mesh)).T.reshape(-1, 2)
+        # select = bin_center_col_row_pair_data[:, 0] >= min(dut_extent[:2])
+        # select &= bin_center_col_row_pair_data[:, 0] <= max(dut_extent[:2])
+        # select &= bin_center_col_row_pair_data[:, 1] >= min(dut_extent[2:])
+        # select &= bin_center_col_row_pair_data[:, 1] <= max(dut_extent[2:])
+        # bin_center_col_row_pair_dut = bin_center_col_row_pair_data[select]
+        # _, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
+        # pixel_efficiencies = []
+        # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
+        # for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
+        #     bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
+        #     bin_center_col_row_pair_data_positions = bin_center_col_row_pair_dut[bin_center_col_row_pair_data_indices]
+        #     # print bin_center_col_row_pair_data_positions
+        #     # select = bin_center_col_row_pair_data_positions[:, 0] >= min(dut_extent[:2]) & bin_center_col_row_pair_data_positions[:, 0] <= max(dut_extent[:2])
+        #     # select &= bin_center_col_row_pair_data_positions[:, 1] >= min(dut_extent[2:]) & bin_center_col_row_pair_data_positions[:, 1] <= max(dut_extent[2:])
+        #     x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+        #     y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
+        #     index_0 = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+        #     index_1 = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+        #     tracks = np.sum(count_tracks_2d_hist[index_0, index_1])
+        #     if tracks == 0:
+        #         continue
+        #     else:
+        #         pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[index_0, index_1].astype(np.float32)) / np.sum(count_tracks_2d_hist[index_0, index_1].astype(np.float32)) * 100.0
+        #     pixel_efficiencies.append(pixel_efficiency)
+        #     pixel_efficiencies_bins[index_0, index_1] = pixel_efficiency
+
+        # fig = Figure()
+        # _ = FigureCanvas(fig)
+        # ax = fig.add_subplot(111)
+        # # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+        # z_min = 0.0
+        # plot_2d_pixel_hist(fig, ax, pixel_efficiencies_bins.T, hist_extent, title='Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        # rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+        # ax.add_patch(rect)
+        # ax.set_xlim(plot_range[0])
+        # ax.set_ylim(plot_range[1])
+        # if gui:
+        #     figs.append(fig)
+        # else:
+        #     output_pdf.savefig(fig)
 
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-        z_min = 0.0
-        plot_2d_pixel_hist(fig, ax, pixel_efficiencies_bins.T, hist_extent, title='Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
-        rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
-        ax.add_patch(rect)
+        _ = pixels_plot_2d(fig=fig, ax=ax, regions=regions, vertices=vertices, values=stat_pixel_efficiency_hist, z_max=100.0)
+        ax.set_title('Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks))
+        ax.set_xlabel("column [$\mathrm{\mu}$m]")
+        ax.set_ylabel("row [$\mathrm{\mu}$m]")
         ax.set_xlim(plot_range[0])
         ax.set_ylim(plot_range[1])
         if gui:
@@ -1380,10 +1424,10 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         else:
             output_pdf.savefig(fig)
 
-        logging.info("Efficient pixels (>=97%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 97.0))
-        logging.info("Efficient pixels (>=95%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 95.0))
-        logging.info("Efficient pixels (>=80%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 80.0))
-        logging.info("Efficient pixels (>=50%%): %d" % np.count_nonzero(np.array(pixel_efficiencies) >= 50.0))
+        logging.info("Efficient pixels (>=97%%): %d" % np.count_nonzero(stat_pixel_efficiency_hist.compressed() >= 97.0))
+        logging.info("Efficient pixels (>=95%%): %d" % np.count_nonzero(stat_pixel_efficiency_hist.compressed() >= 95.0))
+        logging.info("Efficient pixels (>=80%%): %d" % np.count_nonzero(stat_pixel_efficiency_hist.compressed() >= 80.0))
+        logging.info("Efficient pixels (>=50%%): %d" % np.count_nonzero(stat_pixel_efficiency_hist.compressed() >= 50.0))
 
         fig = Figure()
         _ = FigureCanvas(fig)
@@ -1394,7 +1438,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_ylabel('#')
         ax.set_yscale('log')
         ax.set_xlim([-0.5, 100.5])
-        ax.hist(pixel_efficiencies, bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
+        ax.hist(stat_pixel_efficiency_hist.compressed(), bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
         if gui:
             figs.append(fig)
         else:

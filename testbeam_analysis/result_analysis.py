@@ -13,6 +13,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.optimize import curve_fit
 from scipy import stats
 from scipy.signal import hilbert
+from scipy.spatial import cKDTree
 
 from testbeam_analysis.telescope.telescope import Telescope
 from testbeam_analysis.tools import plot_utils
@@ -630,6 +631,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_x_size = dut_x_extent[1] - dut_x_extent[0]
                 dut_y_extent = telescope[actual_dut_index].y_extent(global_position=False)
                 dut_y_size = dut_y_extent[1] - dut_y_extent[0]
+                dut_extent = [dut_x_extent[0], dut_x_extent[1], dut_y_extent[0], dut_y_extent[1]]
                 # DUT hist size
                 dut_x_center = 0.0
                 dut_hist_x_size = math.ceil(dut_x_size / resolution[0]) * resolution[0]
@@ -666,6 +668,22 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 #     total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
                 #     total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
 
+                indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1) + 1
+                local_x, local_y, _ = actual_dut.index_to_local_position(
+                    column=indices[0],
+                    row=indices[1])
+                pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
+                points, regions, ridge_vertices, vertices = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
+                kd_tree = cKDTree(points)
+                count_tracks_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
+                count_tracks_with_hit_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
+                # print points, points.shape
+                # sel = points[:, 0] > max(dut_extent[:2])
+                # sel |= points[:, 0] < min(dut_extent[:2])
+                # sel |= points[:, 1] > max(dut_extent[2:])
+                # sel |= points[:, 1] < min(dut_extent[2:])
+                # print np.where(sel)
+
                 initialize = True
                 for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     # Transform the hits and track intersections into the local coordinate system
@@ -682,6 +700,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # Select data where distance between the hit and track is smaller than the given value
                         # Suppress numpy warning with nan_to_num
                         select_valid_hit &= (np.nan_to_num(distance_local) <= cut_distances[index])
+
+                    # Pixel tracks
+                    _, closest_indices = kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
+                    count_tracks_pixel_hist += np.bincount(closest_indices)[:pixel_center_col_row_pair_data.shape[0]]
+                    # Pixel tracks with valid hit
+                    _, closest_indices = kd_tree.query(np.column_stack((intersection_x_local[select_valid_hit], intersection_y_local[select_valid_hit])))
+                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices)[:pixel_center_col_row_pair_data.shape[0]]
 
                     if initialize:
                         initialize = False
@@ -759,6 +784,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_efficiency_hist[count_tracks_2d_hist != 0] = count_tracks_with_hit_2d_hist[count_tracks_2d_hist != 0].astype(np.float32) / count_tracks_2d_hist[count_tracks_2d_hist != 0].astype(np.float32) * 100.0
                 stat_2d_efficiency_hist = np.ma.array(stat_2d_efficiency_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
+                stat_pixel_efficiency_hist = np.full_like(count_tracks_pixel_hist, fill_value=np.nan, dtype=np.float)
+                stat_pixel_efficiency_hist[count_tracks_pixel_hist != 0] = count_tracks_with_hit_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float32) / count_tracks_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float32) * 100.0
+                stat_pixel_efficiency_hist = np.ma.array(stat_pixel_efficiency_hist, mask=count_tracks_pixel_hist < minimum_track_density)
+
                 # Calculate mean efficiency without any binning
                 eff, eff_err_min, eff_err_pl = analysis_utils.get_mean_efficiency(
                     array_pass=count_tracks_with_hit_2d_hist,
@@ -786,9 +815,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
+                        stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                         efficiency=[eff, eff_err_pl, eff_err_min],
                         actual_dut_index=actual_dut_index,
-                        dut_extent=[dut_x_extent[0], dut_x_extent[1], dut_y_extent[0], dut_y_extent[1]],
+                        dut_extent=dut_extent,
                         hist_extent=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
                         plot_range=plot_range,
                         in_pixel_efficiency=in_pixel_efficiency,
@@ -808,9 +838,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
+                        stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                         efficiency=[eff, eff_err_pl, eff_err_min],
                         actual_dut_index=actual_dut_index,
-                        dut_extent=[dut_x_extent[0], dut_x_extent[1], dut_y_extent[0], dut_y_extent[1]],
+                        dut_extent=dut_extent,
                         hist_extent=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
                         plot_range=plot_range,
                         in_pixel_efficiency=None,
