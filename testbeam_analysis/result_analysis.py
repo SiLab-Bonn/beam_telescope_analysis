@@ -693,7 +693,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     charge = tracks_chunk['charge_dut_%d' % actual_dut_index]
 
                     # Calculate distance between track intersection and DUT hit location
-                    distance_local = np.sqrt(np.square(hit_x_local - intersection_x_local) + np.square(hit_y_local - intersection_y_local))
+                    x_residuals = hit_x_local - intersection_x_local
+                    y_residuals = hit_y_local - intersection_y_local
+                    distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
 
                     select_valid_hit = ~np.isnan(hit_x_local)
                     if cut_distances is not None and cut_distances[index] is not None:
@@ -716,6 +718,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_tracks_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)
                         # 2D tracks with valid hit
                         count_tracks_with_hit_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        # 2D x residuals
+                        stat_2d_x_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_x_residuals_hist = np.nan_to_num(stat_2d_x_residuals_hist)
+                        count_2d_x_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        # 2D y residuals
+                        stat_2d_y_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_y_residuals_hist = np.nan_to_num(stat_2d_y_residuals_hist)
+                        count_2d_y_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='count', bins=hist_2d_edges)
                         # 2D residuals
                         stat_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_residuals_hist = np.nan_to_num(stat_2d_residuals_hist)
@@ -733,6 +743,16 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_tracks_2d_hist += stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D tracks with valid hit
                         count_tracks_with_hit_2d_hist += stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
+                        # 2D x residuals
+                        stat_2d_x_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_x_residuals_hist_tmp = np.nan_to_num(stat_2d_x_residuals_hist_tmp)
+                        count_2d_x_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        stat_2d_x_residuals_hist, count_2d_x_residuals_hist = np.ma.average(a=np.stack([stat_2d_x_residuals_hist, stat_2d_x_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_x_residuals_hist, count_2d_x_residuals_hist_tmp]), returned=True)
+                        # 2D y residuals
+                        stat_2d_y_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_y_residuals_hist_tmp = np.nan_to_num(stat_2d_y_residuals_hist_tmp)
+                        count_2d_y_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        stat_2d_y_residuals_hist, count_2d_y_residuals_hist = np.ma.average(a=np.stack([stat_2d_y_residuals_hist, stat_2d_y_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_y_residuals_hist, count_2d_y_residuals_hist_tmp]), returned=True)
                         # 2D residuals
                         stat_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_residuals_hist_tmp = np.nan_to_num(stat_2d_residuals_hist_tmp)
@@ -811,6 +831,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_hits_2d_hist=count_hits_2d_hist,
                         count_tracks_2d_hist=count_tracks_2d_hist,
                         count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
+                        stat_2d_x_residuals_hist=stat_2d_x_residuals_hist,
+                        stat_2d_y_residuals_hist=stat_2d_y_residuals_hist,
                         stat_2d_residuals_hist=stat_2d_residuals_hist,
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,
@@ -834,6 +856,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_hits_2d_hist=count_hits_2d_hist,
                         count_tracks_2d_hist=count_tracks_2d_hist,
                         count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
+                        stat_2d_x_residuals_hist=stat_2d_x_residuals_hist,
+                        stat_2d_y_residuals_hist=stat_2d_y_residuals_hist,
                         stat_2d_residuals_hist=stat_2d_residuals_hist,
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,

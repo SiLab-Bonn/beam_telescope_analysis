@@ -1194,7 +1194,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf and not gui:
         return
@@ -1270,6 +1270,36 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     plot_2d_pixel_hist(fig, ax, count_tracks_with_hit_2d_hist_masked.T, hist_extent, title='Track density with associated hit for %s\n(%d Tracks)' % (actual_dut.name, n_tracks_with_hit), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]")
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    if gui:
+        figs.append(fig)
+    else:
+        output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+    y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+    x, y = np.meshgrid(x_mesh, y_mesh)
+    x = x.T
+    y = y.T
+    sel = np.zeros(x.shape, dtype=np.bool)
+    # reduce number of arrows
+    sel[::4, ::4] = 1
+    # speed up plotting
+    sel &= x >= min(plot_range[0])
+    sel &= x <= max(plot_range[0])
+    sel &= y >= min(plot_range[1])
+    sel &= y <= max(plot_range[1])
+    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_color=mesh_color)
+    ax.quiver(x[sel], y[sel], np.nan_to_num(stat_2d_x_residuals_hist[sel]), np.nan_to_num(stat_2d_y_residuals_hist[sel]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_title('Residuals of %s' % actual_dut.name)
+    ax.set_xlabel("column [$\mathrm{\mu}$m]")
+    ax.set_ylabel("row [$\mathrm{\mu}$m]")
     ax.set_xlim(plot_range[0])
     ax.set_ylim(plot_range[1])
     if gui:
