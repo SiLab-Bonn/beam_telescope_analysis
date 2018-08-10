@@ -29,27 +29,29 @@ import testbeam_analysis.tools.geometry_utils
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")  # Plot backend error not important
 
 
-def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, output_pdf=None, gui=False, figs=None):
+def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, cmap='viridis', show_colorbar=True, output_pdf=None, gui=False, figs=None):
     if not output_pdf and not gui:
         return
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    plot_2d_pixel_hist(fig=fig, ax=ax, hist2d=hist2d, plot_range=plot_range, title=title, x_axis_title=x_axis_title, y_axis_title=y_axis_title, z_min=z_min, z_max=z_max)
+    plot_2d_pixel_hist(fig=fig, ax=ax, hist2d=hist2d, plot_range=plot_range, title=title, x_axis_title=x_axis_title, y_axis_title=y_axis_title, z_min=z_min, z_max=z_max, cmap=cmap, show_colorbar=show_colorbar)
     if gui:
         figs.append(fig)
     else:
         output_pdf.savefig(fig)
 
 
-def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None):
+def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, cmap='viridis', show_colorbar=True):
     if z_max is None:
         if hist2d.all() is np.ma.masked or np.allclose(0, hist2d):  # check if masked array is fully masked
             z_max = 1
         else:
             z_max = ceil(hist2d.max())
-    bounds = np.linspace(start=z_min, stop=z_max, num=255, endpoint=True)
-    cmap = cm.get_cmap('viridis')
+    if isinstance(cmap, basestring):
+        cmap = cm.get_cmap(cmap)
+    else:
+        cmap = cmap
     cmap.set_bad('w')
     im = ax.imshow(hist2d, interpolation='none', origin='lower', aspect="auto", extent=plot_range, cmap=cmap, clim=(0, z_max))
     if title is not None:
@@ -58,7 +60,9 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
         ax.set_xlabel(x_axis_title)
     if y_axis_title is not None:
         ax.set_ylabel(y_axis_title)
-    fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
+    if show_colorbar:
+        bounds = np.linspace(start=z_min, stop=z_max, num=256, endpoint=True)
+        fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
 
 
 def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_pdf_file=None, gui=False):
@@ -1144,7 +1148,7 @@ def plot_charge_distribution(telescope_configuration, input_tracks_file, select_
                     figs=figs if gui else None)
 
 
-def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False, line_width=1.0, line_alpha=1.0, line_style='solid', line_color='k', point_size=1.0, point_marker='.', point_color='k'):
+def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False, line_width=1.0, line_alpha=1.0, line_style='solid', line_color='k', point_size=1.0, point_alpha=1.0, point_marker='.', point_color='k'):
     '''
     Returns
     -------
@@ -1152,7 +1156,7 @@ def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False
         Figure for the plot
     '''
     if show_points:
-        ax.plot(points[:, 0], points[:, 1], linestyle='None', markersize=point_size, marker=point_marker, color=point_color)
+        ax.plot(points[:, 0], points[:, 1], linestyle='None', markersize=point_size, alpha=point_alpha, marker=point_marker, color=point_color)
     ridge_vertices = np.array(ridge_vertices)
     select = np.all(ridge_vertices >= 0, axis=1)
     ax.add_collection(
@@ -1217,14 +1221,14 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     mesh_color = 'red'
     mesh_line_width = 0.5
     mesh_point_size = 0.75
-    mesh_alpha = 0.7
+    mesh_alpha = 0.5
 
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color='r')
     _, regions, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
-    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_color=mesh_color)
+    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=1.0, line_color=mesh_color, point_size=mesh_point_size, point_alpha=1.0, point_color=mesh_color)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1293,7 +1297,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     sel &= x <= max(plot_range[0])
     sel &= y >= min(plot_range[1])
     sel &= y <= max(plot_range[1])
-    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_color=mesh_color)
+    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
     ax.quiver(x[sel], y[sel], np.nan_to_num(stat_2d_x_residuals_hist[sel]), np.nan_to_num(stat_2d_y_residuals_hist[sel]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
