@@ -1314,6 +1314,72 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
+    sel = (count_tracks_with_hit_2d_hist > 0)
+    residual_vetors_x = x[sel] + stat_2d_x_residuals_hist[sel]
+    residual_vetors_y = y[sel] + stat_2d_y_residuals_hist[sel]
+    residual_vetors = np.column_stack((np.ravel(residual_vetors_x), np.ravel(residual_vetors_y)))
+    bin_center_col_row_pair_data = np.column_stack((np.ravel(x[sel]), np.ravel(y[sel])))
+    kd_tree = cKDTree(pixel_center_col_row_pair_data)
+    _, res_center_col_row_pair_index = kd_tree.query(residual_vetors)
+    _, grain_center_col_row_pair_index = kd_tree.query(bin_center_col_row_pair_data)
+    effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+    colors = np.linspace(0.0, 1.0, num=100)
+    cmap = cm.get_cmap('tab20')
+    rgb_colors = np.array([cmap(color) for color in colors])
+    valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
+    num_colors = len(valid_color_indices)
+    # select and reorder colors
+    colors = colors[valid_color_indices]
+    colors[::2] = np.roll(colors[::2], int(num_colors / 4))
+    rgb_colors = rgb_colors[valid_color_indices]
+    rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
+    color_index_array = np.full(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int8, fill_value=-1)
+    color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+    color_index = 0
+    for pixel_index, pixel_position in enumerate(pixel_center_col_row_pair_data):
+        res_center_col_row_pair_data_indices = np.where(res_center_col_row_pair_index == pixel_index)[0]
+        res_center_col_row_pair_data_positions = bin_center_col_row_pair_data[res_center_col_row_pair_data_indices]
+        if res_center_col_row_pair_data_positions.shape[0] == 0:
+            continue
+        # TODO: add border (convex hull) to every area
+        x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+        y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
+        bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
+        bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data[bin_center_col_row_pair_data_indices]
+        index_0_pixel = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+        index_1_pixel = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+        pixel_color_indices = color_index_2d[index_0_pixel, index_1_pixel]
+        # change color if same color is already occurring inside pixel region
+        num_repeats = 0
+        while color_index % num_colors in pixel_color_indices and num_repeats < num_colors - 1:
+            color_index += 1
+            num_repeats += 1
+        index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+        index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+        color = colors[color_index % num_colors]
+        rgb_color = rgb_colors[color_index % num_colors]
+        color_index_array[pixel_index] = color_index % num_colors
+        color_index_2d[index_0, index_1] = color_index % num_colors
+        effective_pixels_2d[index_0, index_1] = color
+        ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_color, markeredgecolor='k', markeredgewidth=0.1)  # , markerfacecolor='k', markeredgecolor='k'
+        color_index += 1
+    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+    plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel sizes for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_title('Effective pixel sizes %s' % actual_dut.name)
+    ax.set_xlabel("column [$\mathrm{\mu}$m]")
+    ax.set_ylabel("row [$\mathrm{\mu}$m]")
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    if gui:
+        figs.append(fig)
+    else:
+        output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
     plot_2d_pixel_hist(fig, ax, stat_2d_residuals_hist.T, hist_extent, title='Mean 2D residuals for %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]")
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
