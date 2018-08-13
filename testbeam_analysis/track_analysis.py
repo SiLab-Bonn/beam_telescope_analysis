@@ -661,7 +661,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     with tb.open_file(input_track_candidates_file, mode='r') as in_file_h5:
         with tb.open_file(output_tracks_file, mode='w') as out_file_h5:
             for fit_dut_index, actual_fit_dut in enumerate(select_duts):  # Loop over the DUTs where tracks shall be fitted for
-                logging.info('Fit tracks for DUT%d', actual_fit_dut)
+                logging.info('= Fit tracks for %s =', telescope[actual_fit_dut].name)
 
                 try:  # Check if table already exists, then append data
                     out_file_h5.remove_node(out_file_h5.root, name='Tracks_DUT%d' % actual_fit_dut)
