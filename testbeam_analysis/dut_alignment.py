@@ -183,7 +183,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
         output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_prealigned.yaml'
 
     if plot is True and not gui:
-        output_pdf = PdfPages(os.path.splitext(input_correlation_file)[0] + '.pdf', keep_empty=False)
+        output_pdf = PdfPages(os.path.splitext(input_correlation_file)[0] + '_prealigned.pdf', keep_empty=False)
     else:
         output_pdf = None
 
