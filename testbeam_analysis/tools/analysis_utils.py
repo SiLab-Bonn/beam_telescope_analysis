@@ -8,7 +8,6 @@ import errno
 
 import numpy as np
 import numexpr as ne
-import tables as tb
 import numba
 from numba import njit
 from scipy.interpolate import splrep, sproot
@@ -23,7 +22,6 @@ import requests
 import progressbar
 
 from testbeam_analysis import analysis_functions
-from testbeam_analysis.cpp import data_struct
 
 # A public secret representing public, read only owncloud folder
 SCIBO_PUBLIC_FOLDER = 'NzfAx2zAQll5YXB'
@@ -845,7 +843,7 @@ def simple_peak_detect(x, y):
     half_maximum = np.max(y) * 0.5
     greater = (y > half_maximum)
     change_indices = np.where(greater[:-1] != greater[1:])[0]
-    if np.all(greater == False) or greater[0] == True or greater[-1] == True:
+    if not np.any(greater) or greater[0] is True or greater[-1] is True:
         raise RuntimeError("Cannot determine peak")
     x = np.array(x)
     # get center of indices for higher precision peak position and FWHM
@@ -929,7 +927,7 @@ def hough_transform(img, theta_res=1.0, rho_res=1.0, return_edges=False):
             y = y_idxs[i]
 
             for theta_idx in range(thetas.size):
-                #rho_idx = np.around(x * cos_t[theta_idx] + y * sin_t[theta_idx]) + diag_len
+                # rho_idx = np.around(x * cos_t[theta_idx] + y * sin_t[theta_idx]) + diag_len
                 rhoVal = x * cos_t[theta_idx] + y * sin_t[theta_idx]
                 rho_idx = (np.abs(rhos - rhoVal)).argmin()
                 accumulator[rho_idx, theta_idx] += 1
@@ -955,7 +953,7 @@ def binned_statistic(x, values, func, nbins, range):
     N = len(values)
     r0, r1 = range
 
-    digitized = (float(nbins) / (r1-r0) * (x-r0)).astype(int)
+    digitized = (float(nbins) / (r1 - r0) * (x - r0)).astype(int)
     S = csr_matrix((values, [digitized, np.arange(N)]), shape=(nbins, N))
 
     return [func(group) for group in np.split(S.data, S.indptr[1:-1])]
@@ -989,7 +987,7 @@ def morton_1(x):
     x = (x | (x >> 2)) & 0x0F0F0F0F0F0F0F0F
     x = (x | (x >> 4)) & 0x00FF00FF00FF00FF
     x = (x | (x >> 8)) & 0x0000FFFF0000FFFF
-    x = (x | (x >> 16)) & 0xFFFFFFFFFFFFFFFF # TODO: 0x00000000FFFFFFFF
+    x = (x | (x >> 16)) & 0xFFFFFFFFFFFFFFFF  # TODO: 0x00000000FFFFFFFF
     return x
 
 

@@ -923,7 +923,7 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, resi
         if select is None:
             select = np.full_like(res_pos, True, dtype=np.bool)
         ax.scatter(res_pos[select], residuals_mean[select], color="blue", marker='o', label='Mean residual')
-        ax.scatter(res_pos[~select], residuals_mean[~select], color="darkblue", marker='o')
+        ax.scatter(res_pos[~select], residuals_mean[~select], color="r", marker='o')
     if fit is not None:
         x_lim = np.array(ax.get_xlim(), dtype=np.float32)
         ax.plot(x_lim, testbeam_analysis.tools.analysis_utils.linear(x_lim, *fit), linestyle='-', color="darkorange", linewidth=2, label='Mean residual fit\n%.2e + %.2e x' % (fit[0], fit[1]))
