@@ -224,8 +224,9 @@ class RectangularPixelDut(Dut):
         return min(z_values), max(z_values)
 
     def index_to_local_position(self, column, row):
-        column = np.array(column, dtype=np.float64)
-        row = np.array(row, dtype=np.float64)
+        if isinstance(column, (list, tuple, set)) or isinstance(row, (list, tuple, set)):
+            column = np.array(column, dtype=np.float64)
+            row = np.array(row, dtype=np.float64)
         # from index to local coordinates
         x = np.full_like(column, fill_value=np.nan, dtype=np.float64)
         y = np.full_like(column, fill_value=np.nan, dtype=np.float64)
@@ -242,9 +243,10 @@ class RectangularPixelDut(Dut):
         return x, y, z
 
     def local_position_to_index(self, x, y, z):
-        x = np.array(x, dtype=np.float64)
-        y = np.array(y, dtype=np.float64)
-        z = np.array(z, dtype=np.float64)
+        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+            x = np.array(x, dtype=np.float64)
+            y = np.array(y, dtype=np.float64)
+            z = np.array(z, dtype=np.float64)
         # check for valid z coordinates
         if not np.allclose(np.nan_to_num(z), 0.0):
             raise RuntimeError('The local z positions contain values z!=0.')
@@ -261,9 +263,10 @@ class RectangularPixelDut(Dut):
         return column, row
 
     def local_to_global_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
-        x = np.array(x, dtype=np.float64)
-        y = np.array(y, dtype=np.float64)
-        z = np.array(z, dtype=np.float64)
+        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+            x = np.array(x, dtype=np.float64)
+            y = np.array(y, dtype=np.float64)
+            z = np.array(z, dtype=np.float64)
         # check for valid z coordinates
         if translation_x is None and translation_y is None and translation_z is None and rotation_alpha is None and rotation_beta is None and rotation_gamma is None and not np.allclose(np.nan_to_num(z), 0.0):
             raise RuntimeError('The local z positions contain values z!=0.')
@@ -282,9 +285,10 @@ class RectangularPixelDut(Dut):
             transformation_matrix=transformation_matrix)
 
     def global_to_local_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
-        x = np.array(x, dtype=np.float64)
-        y = np.array(y, dtype=np.float64)
-        z = np.array(z, dtype=np.float64)
+        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+            x = np.array(x, dtype=np.float64)
+            y = np.array(y, dtype=np.float64)
+            z = np.array(z, dtype=np.float64)
         # apply DUT inverse alignment
         transformation_matrix = geometry_utils.global_to_local_transformation_matrix(
             x=self.translation_x if translation_x is None else float(translation_x),
@@ -342,19 +346,7 @@ class Diamond3DpCVD(FEI4):
     def index_to_local_position(self, column, row):
         column = np.array(column, dtype=np.float64)
         row = np.array(row, dtype=np.float64)
-        # from index to local coordinates
-        x = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        y = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        z = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        # check for hit index or cluster index is out of range
-        hit_selection = np.logical_and(
-            np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
-            np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
-        if not np.all(hit_selection):
-            raise ValueError("Column/row out of limits.")
-        x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
-        y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
-        z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
+        x, y, z = super(Diamond3DpCVD, self).index_to_local_position(column=column, row=row)
         # select all pixels, move positions where the bump bonds are
         hit_selection = np.mod(column, 2) == 1
         x[hit_selection] -= 100
@@ -474,19 +466,7 @@ class DiamondPseudo3DpCVD(FEI4):
     def index_to_local_position(self, column, row):
         column = np.array(column, dtype=np.float64)
         row = np.array(row, dtype=np.float64)
-        # from index to local coordinates
-        x = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        y = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        z = np.full_like(column, fill_value=np.nan, dtype=np.float64)
-        # check for hit index or cluster index is out of range
-        hit_selection = np.logical_and(
-            np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
-            np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
-        if not np.all(hit_selection):
-            raise ValueError("Column/row out of limits.")
-        x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
-        y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
-        z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
+        x, y, z = super(DiamondPseudo3DpCVD, self).index_to_local_position(column=column, row=row)
         # select all pixels, move positions where the bump bonds are
         hit_selection = np.mod(column, 2) == 1
         x[hit_selection] -= 100
