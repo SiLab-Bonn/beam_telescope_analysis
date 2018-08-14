@@ -17,6 +17,7 @@ from scipy.optimize import curve_fit
 from scipy.integrate import quad
 from scipy.sparse import csr_matrix
 from scipy.spatial import Voronoi
+from scipy.special import erf
 
 import requests
 import progressbar
@@ -679,21 +680,30 @@ def double_gauss_offset(x, *p):
     return gauss(x, A_1, mu_1, sigma_1) + gauss(x, A_2, mu_2, sigma_2) + offset
 
 
-def gauss_box(x, *p):
+def gauss_box_non_vec(x, *p):
     ''''Convolution of gaussian and rectangle is a gaussian integral.
 
     Parameters
     ----------
     A, mu, sigma, a (width of the rectangle) : float
 
-    See also: http://stackoverflow.com/questions/24230233/fit-gaussian-integral-function-to-data
+    See also:
+    - http://stackoverflow.com/questions/24230233/fit-gaussian-integral-function-to-data
+    - https://stackoverflow.com/questions/24386931/how-to-convolve-two-distirbutions-from-scipy-library
     '''
     A, mu, sigma, a = p
-    return quad(lambda t: gauss(x - t, A, mu, sigma), -a, a)[0]
+    return quad(lambda t: gauss(x - t, A, mu, sigma) / (np.sqrt(2.0 * np.pi) * sigma), -a / 2.0, a / 2.0)[0]
 
 
 # Vetorize function to use with np.arrays
-gauss_box_vfunc = np.vectorize(gauss_box, excluded=["*p"])
+gauss_box = np.vectorize(gauss_box_non_vec, excluded=["*p"])
+
+
+def gauss_box_erf(x, *p):
+    ''' Identical to gauss_box().
+    '''
+    A, mu, sigma, width = p
+    return 0.5 * A * erf((x - mu + width * 0.5) / (np.sqrt(2) * sigma)) + 0.5 * A * erf((mu + width * 0.5 - x) / (np.sqrt(2) * sigma))
 
 
 def get_chi2(y_data, y_fit):
