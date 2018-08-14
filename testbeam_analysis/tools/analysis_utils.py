@@ -895,12 +895,20 @@ def fit_residuals_vs_position(hist, xedges, yedges, mean, count, limit=None):
         select &= select_range
 #         n_hits_threshold = np.median(count[select]) * 0.1
 #         select &= (count > n_hits_threshold)
+    mean_fit = []
+    for index in range(hist.shape[0]):
+        if np.sum(hist[index, :]) == 0:
+            mean_fit.append(np.nan)
+        else:
+            mean_fit.append(fit_residuals(hist[index, :].astype(np.int32), yedges)[0][1])
+    select &= np.isfinite(mean_fit)
+    mean_fit = np.ma.masked_invalid(mean_fit)
     if np.count_nonzero(select) > 1:
         y_rel_err = np.sum(count[select]) / count[select]
-        fit, cov = curve_fit(linear, xcenter[select], mean[select], sigma=y_rel_err, absolute_sigma=False)
+        fit, cov = curve_fit(linear, xcenter[select], mean_fit[select], p0=[0.0, 0.0], sigma=y_rel_err, absolute_sigma=False)
     else:
         fit, cov = [np.nan, np.nan], [[np.nan, np.nan], [np.nan, np.nan]]
-    return fit, cov, select
+    return fit, cov, select, mean_fit
 
 
 def hough_transform(img, theta_res=1.0, rho_res=1.0, return_edges=False):

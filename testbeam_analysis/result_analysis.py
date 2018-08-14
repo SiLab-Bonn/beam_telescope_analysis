@@ -381,7 +381,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 out_local_y_res.attrs.fit_cov = cov_local_y_res
                 out_local_y_res[:] = local_y_residuals_hist
 
-                fit_local_x_residuals_x_pos, cov_local_x_residuals_x_pos, select = analysis_utils.fit_residuals_vs_position(
+                fit_local_x_residuals_x_pos, cov_local_x_residuals_x_pos, select, stat_local_x_residuals_x_pos_hist = analysis_utils.fit_residuals_vs_position(
                     hist=local_x_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
                     yedges=local_x_residuals_hist_edges,
@@ -418,7 +418,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 out_local_x_residuals_x_pos.attrs.fit_cov = cov_local_x_residuals_x_pos
                 out_local_x_residuals_x_pos[:] = local_x_residuals_x_pos_hist
 
-                fit_local_y_residuals_y_pos, cov_local_y_residuals_y_pos, select = analysis_utils.fit_residuals_vs_position(
+                fit_local_y_residuals_y_pos, cov_local_y_residuals_y_pos, select, stat_local_y_residuals_y_pos_hist = analysis_utils.fit_residuals_vs_position(
                     hist=local_y_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
                     yedges=local_y_residuals_hist_edges,
@@ -455,7 +455,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 out_local_y_residuals_y_pos.attrs.fit_cov = cov_local_y_residuals_y_pos
                 out_local_y_residuals_y_pos[:] = local_y_residuals_y_pos_hist
 
-                fit_local_y_residuals_x_pos, cov_local_y_residuals_x_pos, select = analysis_utils.fit_residuals_vs_position(
+                fit_local_y_residuals_x_pos, cov_local_y_residuals_x_pos, select, stat_local_y_residuals_x_pos_hist = analysis_utils.fit_residuals_vs_position(
                     hist=local_y_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
                     yedges=local_y_residuals_hist_edges,
@@ -492,7 +492,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 out_local_x_residuals_y_pos_pos.attrs.fit_cov = cov_local_y_residuals_x_pos
                 out_local_x_residuals_y_pos_pos[:] = local_y_residuals_x_pos_hist
 
-                fit_local_x_residuals_y_pos, cov_local_x_residuals_y_pos, select = analysis_utils.fit_residuals_vs_position(
+                fit_local_x_residuals_y_pos, cov_local_x_residuals_y_pos, select, stat_local_x_residuals_y_pos_hist = analysis_utils.fit_residuals_vs_position(
                     hist=local_x_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
                     yedges=local_x_residuals_hist_edges,
