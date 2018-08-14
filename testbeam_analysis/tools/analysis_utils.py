@@ -859,10 +859,13 @@ def fit_residuals(hist, edges):
     bin_center = (edges[1:] + edges[:-1]) / 2.0
     hist_mean = get_mean_from_histogram(hist, bin_center)
     hist_std = get_rms_from_histogram(hist, bin_center)
-    try:
-        fit, cov = curve_fit(gauss, bin_center, hist, p0=[np.amax(hist), hist_mean, hist_std])
-    except (RuntimeError, TypeError):
+    if hist_std == 0:
         fit, cov = [np.amax(hist), hist_mean, hist_std], np.full((3, 3), np.nan)
+    else:
+        try:
+            fit, cov = curve_fit(gauss, bin_center, hist, p0=[np.amax(hist), hist_mean, hist_std])
+        except (RuntimeError, TypeError):
+            fit, cov = [np.amax(hist), hist_mean, hist_std], np.full((3, 3), np.nan)
     return fit, cov
 
 
