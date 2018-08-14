@@ -891,8 +891,8 @@ def plot_residuals(histogram, edges, fit, cov, xlabel, title, output_pdf=None, g
         width = (edges[1:] - edges[:-1])
         ax.bar(x, histogram, width=width, log=plot_log, align='center')
         if np.any(fit):
-            ax.plot([fit[1], fit[1]], [0, ax.get_ylim()[1]], color='r', label='Entries %d\nRMS %.1f um' % (histogram.sum(), testbeam_analysis.tools.analysis_utils.get_rms_from_histogram(histogram, x)))
-            gauss_fit_legend_entry = 'Gauss fit: \nA=$%.1f\pm %.1f$\nmu=$%.1f\pm %.1f$\nsigma=$%.1f\pm %.1f$' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5))
+            ax.plot([fit[1], fit[1]], [0, ax.get_ylim()[1]], color='r', label='Entries: %d\n$\mathrm{RMS}=%.1f$ [$\mathrm{\mu}$m]' % (histogram.sum(), testbeam_analysis.tools.analysis_utils.get_rms_from_histogram(histogram, x)))
+            gauss_fit_legend_entry = 'Gauss fit: \n$A=%.1f\pm %.1f$\n$\mathrm{\mu}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]\n$\mathrm{\sigma}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5))
             x_gauss = np.arange(np.floor(np.min(edges)), np.ceil(np.max(edges)), step=0.1)
             ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, *fit), 'r--', label=gauss_fit_legend_entry, linewidth=2)
             ax.legend(loc=0)
