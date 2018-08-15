@@ -324,10 +324,9 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
                     complevel=5,
                     fletcher32=False))
 
-            for data_chunk, _ in analysis_utils.data_aligned_at_events(
-                    table=node,
-                    chunk_size=chunk_size):
-                if not np.all(np.diff(data_chunk['event_number']) >= 0):
+            last_event_number = 0
+            for data_chunk, _ in analysis_utils.data_aligned_at_events(table=node, chunk_size=chunk_size):
+                if not np.all(np.diff(np.r_[last_event_number, data_chunk['event_number']]) >= 0):
                     raise RuntimeError('The event number does not always increase.')
                 if use_positions is False:
                     if np.any(data_chunk['column'] < 1) or np.any(data_chunk['row'] < 1):
@@ -371,6 +370,7 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
 
                 out_dE.append(event_delta)
                 out_E.append(event_numbers)
+                last_event_number = event_numbers[-1]
 
             out_col = out_file_h5.create_carray(
                 where=out_file_h5.root,
