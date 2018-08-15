@@ -1233,7 +1233,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
     ax.set_ylim(plot_range[1])
-    ax.set_title('Pixels of %s' % actual_dut.name)
+    ax.set_title('Pixel cells of %s' % actual_dut.name)
     if gui:
         figs.append(fig)
     else:
