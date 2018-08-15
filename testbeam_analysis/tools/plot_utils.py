@@ -1212,7 +1212,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     count_tracks_2d_hist_masked = np.ma.array(count_tracks_2d_hist, mask=(count_tracks_2d_hist == 0))
     count_tracks_with_hit_2d_hist_masked = np.ma.array(count_tracks_with_hit_2d_hist, mask=(count_tracks_with_hit_2d_hist == 0))
 
-    indices = np.dstack(np.nonzero(np.ones([actual_dut.n_columns, actual_dut.n_rows])))[0].T + 1
+    indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1) + 1
     local_x, local_y, _ = actual_dut.index_to_local_position(
         column=indices[0],
         row=indices[1])
