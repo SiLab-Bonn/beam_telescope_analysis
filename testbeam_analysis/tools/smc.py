@@ -101,8 +101,7 @@ class SMC(object):
         self.func_kwargs = func_kwargs
 
         if self.align_at and self.align_at != 'event_number':
-            raise NotImplementedError('Data alignment is only supported '
-                                      'on event_number')
+            raise NotImplementedError('Data alignment is only supported on event_number')
 
         # Get the table node name
         with tb.open_file(input_filename, mode='r') as in_file:
