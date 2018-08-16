@@ -49,7 +49,7 @@ def convert(telescope_configuration, input_hit_files, output_hit_files=None, sel
     n_duts = len(telescope)
     if select_duts is None:
         select_duts = range(len(telescope))
-    if not isinstance(select_duts, (list, tuple, set)):
+    if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
         raise ValueError('Parameter "select_duts" contains ivalid values.')
@@ -189,7 +189,7 @@ def check(telescope_configuration, input_hit_files, output_check_files=None, sel
     n_duts = len(telescope)
     if select_duts is None:
         select_duts = range(len(telescope))
-    if not isinstance(select_duts, (list, tuple, set)):
+    if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
         raise ValueError('Parameter "select_duts" contains ivalid values.')
@@ -200,12 +200,12 @@ def check(telescope_configuration, input_hit_files, output_check_files=None, sel
         raise ValueError('Parameter "input_hit_files" has wrong length.')
     if output_check_files is not None and len(select_duts) != len(output_check_files):
         raise ValueError('Parameter "output_check_files" has wrong length.')
-    if isinstance(event_ranges, (list, tuple, set)):
+    if isinstance(event_ranges, (list, tuple)):
         if len(select_duts) != len(event_ranges):
             raise ValueError('Parameter "event_ranges" has wrong length.')
     else:
         event_ranges = [event_ranges] * len(select_duts)
-    if isinstance(resolutions, (list, tuple, set)):
+    if isinstance(resolutions, (list, tuple)):
         if len(select_duts) != len(resolutions):
             raise ValueError('Parameter "resolutions" has wrong length.')
     else:
@@ -436,7 +436,7 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
     n_duts = len(telescope)
     if select_duts is None:
         select_duts = range(len(telescope))
-    if not isinstance(select_duts, (list, tuple, set)):
+    if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
         raise ValueError('Parameter "select_duts" contains ivalid values.')
@@ -447,17 +447,17 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
         raise ValueError('Parameter "input_hit_files" has wrong length.')
     if output_mask_files is not None and len(select_duts) != len(output_mask_files):
         raise ValueError('Parameter "output_mask_files" has wrong length.')
-    if isinstance(pixel_mask_names, (list, tuple, set)):
+    if isinstance(pixel_mask_names, (list, tuple)):
         if len(select_duts) != len(pixel_mask_names):
             raise ValueError('Parameter "pixel_mask_names" has wrong length.')
     else:
         pixel_mask_names = [pixel_mask_names] * len(select_duts)
-    if isinstance(thresholds, (list, tuple, set)):
+    if isinstance(thresholds, (list, tuple)):
         if len(select_duts) != len(thresholds):
             raise ValueError('Parameter "thresholds" has wrong length.')
     else:
         thresholds = [thresholds] * len(select_duts)
-    if isinstance(filter_sizes, (list, tuple, set)):
+    if isinstance(filter_sizes, (list, tuple)):
         if len(select_duts) != len(filter_sizes):
             raise ValueError('Parameter "filter_sizes" has wrong length.')
     else:
@@ -600,7 +600,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     n_duts = len(telescope)
     if select_duts is None:
         select_duts = range(len(telescope))
-    if not isinstance(select_duts, (list, tuple, set)):
+    if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
         raise ValueError('Parameter "select_duts" contains ivalid values.')
@@ -613,27 +613,27 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
         raise ValueError('Parameter "input_mask_files" has wrong length.')
     if output_cluster_files is not None and len(select_duts) != len(output_cluster_files):
         raise ValueError('Parameter "output_cluster_files" has wrong length.')
-    if isinstance(min_hit_charges, (list, tuple, set)):
+    if isinstance(min_hit_charges, (list, tuple)):
         if len(select_duts) != len(min_hit_charges):
             raise ValueError('Parameter "min_hit_charges" has wrong length.')
     else:
         min_hit_charges = [min_hit_charges] * len(select_duts)
-    if isinstance(max_hit_charges, (list, tuple, set)):
+    if isinstance(max_hit_charges, (list, tuple)):
         if len(select_duts) != len(max_hit_charges):
             raise ValueError('Parameter "max_hit_charges" has wrong length.')
     else:
         max_hit_charges = [max_hit_charges] * len(select_duts)
-    if isinstance(column_cluster_distances, (list, tuple, set)):
+    if isinstance(column_cluster_distances, (list, tuple)):
         if len(select_duts) != len(column_cluster_distances):
             raise ValueError('Parameter "column_cluster_distances" has wrong length.')
     else:
         column_cluster_distances = [column_cluster_distances] * len(select_duts)
-    if isinstance(row_cluster_distances, (list, tuple, set)):
+    if isinstance(row_cluster_distances, (list, tuple)):
         if len(select_duts) != len(row_cluster_distances):
             raise ValueError('Parameter "row_cluster_distances" has wrong length.')
     else:
         row_cluster_distances = [row_cluster_distances] * len(select_duts)
-    if isinstance(frame_cluster_distances, (list, tuple, set)):
+    if isinstance(frame_cluster_distances, (list, tuple)):
         if len(select_duts) != len(frame_cluster_distances):
             raise ValueError('Parameter "frame_cluster_distances" has wrong length.')
     else:
@@ -1051,7 +1051,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
     n_duts = len(telescope)
     if select_duts is None:
         select_duts = range(len(telescope))
-    if not isinstance(select_duts, (list, tuple, set)):
+    if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
         raise ValueError('Parameter "select_duts" contains ivalid values.')
@@ -1065,7 +1065,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
 
     if select_reference_duts is None:
         ref_duts = select_duts
-    elif isinstance(select_reference_duts, (list, tuple, set)):
+    elif isinstance(select_reference_duts, (list, tuple)):
         ref_duts = select_reference_duts
     else:
         ref_duts = [select_reference_duts]  # make list

@@ -224,7 +224,7 @@ class RectangularPixelDut(Dut):
         return min(z_values), max(z_values)
 
     def index_to_local_position(self, column, row):
-        if isinstance(column, (list, tuple, set)) or isinstance(row, (list, tuple, set)):
+        if isinstance(column, (list, tuple)) or isinstance(row, (list, tuple)):
             column = np.array(column, dtype=np.float64)
             row = np.array(row, dtype=np.float64)
         # from index to local coordinates
@@ -243,7 +243,7 @@ class RectangularPixelDut(Dut):
         return x, y, z
 
     def local_position_to_index(self, x, y, z):
-        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)) or isinstance(z, (list, tuple)):
             x = np.array(x, dtype=np.float64)
             y = np.array(y, dtype=np.float64)
             z = np.array(z, dtype=np.float64)
@@ -263,7 +263,7 @@ class RectangularPixelDut(Dut):
         return column, row
 
     def local_to_global_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
-        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)) or isinstance(z, (list, tuple)):
             x = np.array(x, dtype=np.float64)
             y = np.array(y, dtype=np.float64)
             z = np.array(z, dtype=np.float64)
@@ -285,7 +285,7 @@ class RectangularPixelDut(Dut):
             transformation_matrix=transformation_matrix)
 
     def global_to_local_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
-        if isinstance(x, (list, tuple, set)) or isinstance(y, (list, tuple, set)) or isinstance(z, (list, tuple, set)):
+        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)) or isinstance(z, (list, tuple)):
             x = np.array(x, dtype=np.float64)
             y = np.array(y, dtype=np.float64)
             z = np.array(z, dtype=np.float64)

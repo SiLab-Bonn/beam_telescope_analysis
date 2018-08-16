@@ -52,7 +52,7 @@ def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_c
     else:
         fix_trigger_number, fix_event_number = False, False
     analyze_raw_data(input_filename=raw_data_file, trigger_data_format=trigger_data_format)
-    if isinstance(raw_data_file, (list, tuple, set)):
+    if isinstance(raw_data_file, (list, tuple)):
         raw_data_filename = os.path.splitext(sorted(raw_data_file)[0])[0]  # get filename with the lowest index
     else:  # string
         raw_data_filename = os.path.splitext(raw_data_file)[0]

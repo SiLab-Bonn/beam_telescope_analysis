@@ -111,7 +111,7 @@ class SMC(object):
                     self.node_name = tables[0].name
                 else:  # Multiple tables
                     raise RuntimeError('No table node defined and multiple table nodes found in file')
-            elif isinstance(table, (list, tuple, set)):  # possible names
+            elif isinstance(table, (list, tuple)):  # possible names
                 self.node_name = None
                 for node_cand in table:
                     try:
