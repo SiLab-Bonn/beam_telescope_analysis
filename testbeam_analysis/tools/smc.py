@@ -154,14 +154,14 @@ class SMC(object):
     def _map(self):
         chunk_size_per_core = int(self.chunk_size / self.n_cores)
         if self.n_cores == 1:
-            self.tmp_files = [self._work(self.table_file_in,
-                                         self.node_name,
-                                         self.func,
-                                         self.func_kwargs,
-                                         self.node_desc,
-                                         self.start_i[0],
-                                         self.stop_i[0],
-                                         chunk_size_per_core)]
+            self.tmp_files = [self._work(table_file_in=self.table_file_in,
+                                         node_name=self.node_name,
+                                         func=self.func,
+                                         func_kwargs=self.func_kwargs,
+                                         node_desc=self.node_desc,
+                                         start_i=self.start_i[0],
+                                         stop_i=self.stop_i[0],
+                                         chunk_size=chunk_size_per_core)]
         else:
             # Run function in parallel
             pool = Pool(self.n_cores)
@@ -177,8 +177,7 @@ class SMC(object):
                                   node_desc=self.node_desc,
                                   start_i=self.start_i[i],
                                   stop_i=self.stop_i[i],
-                                  chunk_size=chunk_size_per_core
-                                  )
+                                  chunk_size=chunk_size_per_core)
                 jobs.append(job)
 
             # Gather results
@@ -204,16 +203,9 @@ class SMC(object):
 
             output_file = tempfile.NamedTemporaryFile(delete=False, dir=os.getcwd())
             with tb.open_file(output_file.name, mode='w') as out_file:
-                # Create result table with specified data format
-                # From given pytables tables description
-                if 'description' in node_desc:
-                    table_out = out_file.create_table(out_file.root,
-                                                      **node_desc)
-                # Data format unknown and has to be determined later
-                # and thus the table has to be created later
-                else:
-                    table_out = None
-                # Create result histogram
+                # Create result table later
+                table_out = None
+                # Create result histogram later
                 hist_out = None
 
                 for data, _ in self._chunks_at_event(table=node,
@@ -222,16 +214,17 @@ class SMC(object):
                                                      chunk_size=chunk_size):
 
                     data_ret = func(data, **func_kwargs)
-                    # Create table if not existing
-                    # Extract table description from returned data
-                    if not table_out:
+                    # Create table or histogram on first iteration
+                    if table_out is None and hist_out is None:
                         if data_ret.dtype.names:  # Recarray thus table needed
-                            dcr = data_ret.dtype
-                            table_out = out_file.create_table(out_file.root,
-                                                              description=dcr,
+                            # Create result table with specified data format
+                            # If not provided, get description from returned data
+                            if 'description' not in node_desc:
+                                # update dict
+                                node_desc['description'] = data_ret.dtype
+                            table_out = out_file.create_table(where=out_file.root,
                                                               **node_desc)
-                        # Create histogram if data is not a table
-                        elif hist_out is None:
+                        else:  # Create histogram if data is not a table
                             # Copy needed for reshape
                             hist_out = data_ret.copy()
                             continue
@@ -254,11 +247,12 @@ class SMC(object):
                         data_ret.resize(hist_out.shape)
                         hist_out += data_ret
 
+                # Create CArray for histogram
                 if hist_out is not None:
                     # Store histogram to file
-                    dt = hist_out.dtype
-                    out = out_file.create_carray(out_file.root,
-                                                 atom=tb.Atom.from_dtype(dt),
+                    hist_dtype = hist_out.dtype
+                    out = out_file.create_carray(where=out_file.root,
+                                                 atom=tb.Atom.from_dtype(hist_dtype),
                                                  shape=hist_out.shape,
                                                  **node_desc)
                     out[:] = hist_out
@@ -321,7 +315,7 @@ class SMC(object):
                     os.remove(tmp_file)
 
                 dt = hist_data.dtype
-                out = out_file.create_carray(out_file.root,
+                out = out_file.create_carray(where=out_file.root,
                                              atom=tb.Atom.from_dtype(dt),
                                              shape=hist_data.shape,
                                              **self.node_desc)
