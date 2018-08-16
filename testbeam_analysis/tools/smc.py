@@ -213,6 +213,10 @@ class SMC(object):
                                                      chunk_size=chunk_size):
 
                     data_ret = func(data, **func_kwargs)
+                    if isinstance(data_ret, (list, tuple)):
+                        raise RuntimeError('Return value of "func" does not match "node_desc"')
+                    if not isinstance(data_ret, np.ndarray):
+                        raise RuntimeError('Return value of "func" must be numpy.ndarray')
                     # Create table or histogram on first iteration
                     if table_out is None and hist_out is None:
                         if data_ret.dtype.names:  # Recarray thus table needed
