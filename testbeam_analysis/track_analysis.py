@@ -1113,6 +1113,8 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
     for index_dut in range(n_duts):
         description.append(('n_hits_dut_%d' % index_dut, np.uint32))
     for index_dut in range(n_duts):
+        description.append(('cluster_ID_dut_%d' % index_dut, np.int16))
+    for index_dut in range(n_duts):
         description.append(('cluster_shape_dut_%d' % index_dut, np.int64))
     for index_dut in range(n_duts):
         description.append(('n_cluster_dut_%d' % index_dut, np.uint32))
@@ -1148,6 +1150,7 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
         tracks_array['z_err_dut_%d' % index_dut] = track_candidates_chunk['z_err_dut_%d' % index_dut]
         tracks_array['charge_dut_%d' % index_dut] = track_candidates_chunk['charge_dut_%d' % index_dut]
         tracks_array['n_hits_dut_%d' % index_dut] = track_candidates_chunk['n_hits_dut_%d' % index_dut]
+        tracks_array['cluster_ID_dut_%d' % index_dut] = track_candidates_chunk['cluster_ID_dut_%d' % index_dut]
         tracks_array['cluster_shape_dut_%d' % index_dut] = track_candidates_chunk['cluster_shape_dut_%d' % index_dut]
         tracks_array['n_cluster_dut_%d' % index_dut] = track_candidates_chunk['n_cluster_dut_%d' % index_dut]
 
