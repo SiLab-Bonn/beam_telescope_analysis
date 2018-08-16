@@ -2,9 +2,7 @@
 from __future__ import division
 
 import os
-import shutil
 import tempfile
-from collections import Iterable
 from multiprocessing import Pool, cpu_count
 
 import dill
@@ -63,12 +61,12 @@ class SMC(object):
                 Would create an output node with the name test, the title and
                 filters as the input table and the data type is deduced from
                 the calculated data.
-            table : string, iterable of strings, None
-                string: Table name. Needed if multiple tables exists in file.
-                iterable of strings: possible table names. First existing table
-                is used
-                None: only table is used independent of name. If multiple
-                tables exist exception is raised
+            table : string, list of strings, None
+                If a string is given, use the node which has a name identical to the string. If the node does not exist, a RuntimeError is raised.
+                If a list of strings is given, check for nodes that have a names identical to one of the strings from the list.
+                The first existing node is used. Otherwise a RuntimeError is raised.
+                If None, automatically search for a node. If multiple
+                nodes exist in the input file, a RuntimeError is raised.
             align_at : string, None
                 If specified align chunks at this column values
             n_cores : integer, None
@@ -95,7 +93,10 @@ class SMC(object):
         self.n_cores = n_cores
         self.align_at = align_at
         self.func = func
+        if not isinstance(node_desc, (list, tuple)):
+            node_desc = (node_desc,)
         self.node_desc = node_desc
+        self.node_name = None
         self.chunk_size = chunk_size
         self.mode = mode
         self.func_kwargs = func_kwargs
@@ -105,34 +106,42 @@ class SMC(object):
 
         # Get the table node name
         with tb.open_file(input_filename, mode='r') as in_file:
-            if not table:  # Find the table node
+            if table is None:  # node is None, find a node
                 tables = in_file.list_nodes('/', classname='Table')  # get all nodes of type 'table'
                 if len(tables) == 1:  # if there is only one table, take this one
                     self.node_name = tables[0].name
                 else:  # Multiple tables
-                    raise RuntimeError('No table node defined and multiple table nodes found in file')
-            elif isinstance(table, (list, tuple)):  # possible names
-                self.node_name = None
-                for node_cand in table:
+                    raise RuntimeError('Paramter "table" not nto set and multiple table nodes found in file')
+            elif isinstance(table, (list, tuple)):  # node is list of strings
+                for node_name in table:
                     try:
-                        in_file.get_node(in_file.root, node_cand)
-                        self.node_name = node_cand
+                        in_file.get_node(in_file.root, node_name)
+                        self.node_name = node_name
+                        break  # stop at the first valid node
                     except tb.NoSuchNodeError:
                         pass
-                if not self.node_name:
-                    raise RuntimeError('No table nodes with names %s found', str(table))
-            else:  # string
-                self.node_name = table
+                if self.node_name is None:
+                    raise RuntimeError('Found no table node with names: %s' % ', '.join(table))
+            else:  # node is string
+                try:
+                    in_file.get_node(in_file.root, table)
+                except tb.NoSuchNodeError:
+                    raise RuntimeError('Found no table node with name: %s' % table)
+                else:
+                    self.node_name = table
 
             node = in_file.get_node(in_file.root, self.node_name)
 
             # Set number of rows
             self.n_rows = node.shape[0]
 
-            # Set output parameters from input if not defined
-            self.node_desc.setdefault('filters', node.filters)
-            self.node_desc.setdefault('name', node.name)
-            self.node_desc.setdefault('title', node.title)
+            for curr_node_desc in self.node_desc:
+                # Set output parameters from input if not defined
+                if 'name' not in curr_node_desc and len(self.node_desc) != 1:
+                    raise ValueError('Key "name" must exist in "node_desc"')
+                else:
+                    curr_node_desc.setdefault('name', node.name)
+                curr_node_desc.setdefault('filters', node.filters)
 
         if not self.n_cores:  # Set n_cores to maximum cores available
             self.n_cores = cpu_count()
@@ -196,16 +205,14 @@ class SMC(object):
         Reads data, applies the function and stores data in chunks into a table
         or a histogram.
         '''
-
         with tb.open_file(input_filename, mode='r') as in_file:
             node = in_file.get_node(in_file.root, node_name)
-
             output_file = tempfile.NamedTemporaryFile(delete=False, dir=os.getcwd())
             with tb.open_file(output_file.name, mode='w') as out_file:
                 # Create result table later
-                table_out = None
+                table_out = []
                 # Create result histogram later
-                hist_out = None
+                hist_out = []
 
                 for data, _ in self._chunks_at_event(table=node,
                                                      start_index=start_i,
@@ -213,116 +220,115 @@ class SMC(object):
                                                      chunk_size=chunk_size):
 
                     data_ret = func(data, **func_kwargs)
-                    if isinstance(data_ret, (list, tuple)):
+                    if not isinstance(data_ret, (list, tuple)):
+                        data_ret = (data_ret,)
+                    if not isinstance(node_desc, (list, tuple)):
+                        node_desc = (node_desc,)
+                    if len(data_ret) != len(node_desc):
                         raise RuntimeError('Return value of "func" does not match "node_desc"')
-                    if not isinstance(data_ret, np.ndarray):
-                        raise RuntimeError('Return value of "func" must be numpy.ndarray')
-                    # Create table or histogram on first iteration
-                    if table_out is None and hist_out is None:
-                        if data_ret.dtype.names:  # Recarray thus table needed
-                            # Create result table with specified data format
-                            # If not provided, get description from returned data
-                            if 'description' not in node_desc:
-                                # update dict
-                                node_desc['description'] = data_ret.dtype
-                            table_out = out_file.create_table(where=out_file.root,
-                                                              **node_desc)
-                        else:  # Create histogram if data is not a table
-                            # Copy needed for reshape
-                            hist_out = data_ret.copy()
-                            continue
+                    # Loop over all tables and histograms
+                    for i, curr_node_desc in enumerate(node_desc):
+                        if not isinstance(data_ret[i], np.ndarray):
+                            raise RuntimeError('Return value of "func" must be numpy.ndarray')
+                        # Create table or histogram on first iteration over data
+                        if len(table_out) != len(node_desc):
+                            if data_ret[i].dtype.names:  # Recarray, thus table needed
+                                # Create result table with specified data format
+                                # If not provided, get description from returned data
+                                if 'description' not in curr_node_desc:
+                                    # update dict
+                                    curr_node_desc['description'] = data_ret[i].dtype
+                                table_out.append(out_file.create_table(where=out_file.root,
+                                                                       **curr_node_desc))
+                                hist_out.append(None)
+                            else:  # Create histogram if data is not a table
+                                # Copy needed for reshape
+                                table_out.append(None)
+                                hist_out.append(np.zeros_like(data_ret[i]))
 
-                    if table_out is not None:
-                        table_out.append(data_ret)  # Tables are appended
-                    else:
-                        # Check if array needs to be enlarged
-                        shape = []
-                        # Loop over dimension
-                        for i in range(len(hist_out.shape)):
-                            if hist_out.shape[i] < data_ret.shape[i]:
-                                shape.append(data_ret.shape[i])
-                            else:
-                                shape.append(hist_out.shape[i])
+                        if table_out[i] is not None:
+                            table_out[i].append(data_ret[i])  # Data is appended to the table
+                        else:
+                            # Check if array needs to be resized
+                            new_shape = np.maximum(hist_out[i].shape, data_ret[i].shape)
+                            hist_out[i].resize(new_shape)
+                            # Add array
+                            data_ret[i].resize(new_shape)
+                            hist_out[i] += data_ret[i]
 
-                        hist_out.resize(shape)
-
-                        # Add array, ignore size
-                        data_ret.resize(hist_out.shape)
-                        hist_out += data_ret
-
-                # Create CArray for histogram
-                if hist_out is not None:
-                    # Store histogram to file
-                    hist_dtype = hist_out.dtype
-                    out = out_file.create_carray(where=out_file.root,
-                                                 atom=tb.Atom.from_dtype(hist_dtype),
-                                                 shape=hist_out.shape,
-                                                 **node_desc)
-                    out[:] = hist_out
+                for i, curr_node_desc in enumerate(node_desc):
+                    # Create CArray for histogram
+                    if hist_out and hist_out[i] is not None:
+                        # Store histogram to file
+                        hist_dtype = hist_out[i].dtype
+                        out = out_file.create_carray(where=out_file.root,
+                                                     atom=tb.Atom.from_dtype(hist_dtype),
+                                                     shape=hist_out[i].shape,
+                                                     **curr_node_desc)
+                        out[:] = hist_out[i]
 
         return output_file.name
 
     def _combine(self):
-        # Try to set output node name if defined
-        try:
-            node_name = self.node_desc['name']
-        except KeyError:
-            # Output node name set to input node name
-            node_name = self.node_name
+        file_mode = self.mode
+        for curr_node_desc in self.node_desc:
+            curr_node_name = curr_node_desc['name']
+            # Check data type to decide on combine procedure
+            with tb.open_file(self.tmp_files[0], mode='r') as in_file:
+                input_node = in_file.get_node(in_file.root, curr_node_name)
+                if isinstance(input_node, tb.carray.CArray):
+                    data_type = 'array'
+                else:
+                    data_type = 'table'
 
-        # Check data type to decide on combine procedure
-        data_type = 'table'
-        with tb.open_file(self.tmp_files[0], mode='r') as in_file:
-            node = in_file.get_node(in_file.root, node_name)
-            if type(node) is tb.carray.CArray:
-                data_type = 'array'
+            if data_type == 'table':
+                with tb.open_file(self.output_filename, mode=file_mode) as out_file:
+                    for index, tmp_file in enumerate(self.tmp_files):
+                        with tb.open_file(tmp_file, mode="r") as in_file:
+                            input_node = in_file.get_node(in_file.root, curr_node_name)
+                            # Copy node from first result file to output file
+                            if index == 0:
+                                try:
+                                    out_file.remove_node(out_file.root, curr_node_name)
+                                except tb.NoSuchNodeError:
+                                    pass
+                                out_file.copy_node(input_node, out_file.root, overwrite=False, recursive=True)
+                                output_node = out_file.get_node(out_file.root, curr_node_name)
+                            else:
+                                output_node.append(input_node[:])
+            else:
+                # Merge arrays from several temprary files,
+                # merge them by adding up array data and resizing shape if necessary
+                with tb.open_file(self.output_filename, mode=file_mode) as out_file:
+                    for index, tmp_file in enumerate(self.tmp_files):
+                        with tb.open_file(tmp_file, mode='r') as in_file:
+                            tmp_data = in_file.get_node(in_file.root, curr_node_name)[:]
+                            if index == 0:
+                                # Copy needed for reshape
+                                hist_data = tmp_data.copy()
+                            else:
+                                # Check if array needs to be resized
+                                new_shape = np.maximum(hist_data.shape, tmp_data.shape)
+                                hist_data.resize(new_shape)
+                                # Add array
+                                tmp_data.resize(new_shape)
+                                hist_data += tmp_data
 
-        if data_type == 'table':
-            with tb.open_file(self.output_filename, mode=self.mode) as out_file:
-                for index, tmp_file in enumerate(self.tmp_files):
-                    with tb.open_file(tmp_file, mode="r") as in_file:
-                        tmp_node = in_file.get_node(in_file.root, node_name)
-                        # Copy node from first result file to output file
-                        if index == 0:
-                            out_file.copy_node(tmp_node, out_file.root, overwrite=True, recursive=True)
-                            node = out_file.get_node(out_file.root, node_name)
-                        else:
-                            for i in range(0, tmp_node.shape[0], self.chunk_size):
-                                node.append(tmp_node[i: i + self.chunk_size])
-                    os.remove(tmp_file)
-        else:  # TODO: solution without having all hists in RAM
-            # Merge arrays from several temprary files,
-            # merge them by adding up array data and resizing shape if necessary
-            with tb.open_file(self.output_filename, mode=self.mode) as out_file:
-                for index, tmp_file in enumerate(self.tmp_files):
-                    with tb.open_file(tmp_file, mode='r') as in_file:
-                        tmp_data = in_file.get_node(in_file.root, node_name)[:]
-                        if index == 0:
-                            # Copy needed for reshape
-                            hist_data = tmp_data.copy()
-                        else:
-                            # Check if array needs to be enlarged
-                            shape = []
-                            # Loop over dimension
-                            for i in range(len(hist_data.shape)):
-                                if hist_data.shape[i] < tmp_data.shape[i]:
-                                    shape.append(tmp_data.shape[i])
-                                else:
-                                    shape.append(hist_data.shape[i])
+                    data_dtype = hist_data.dtype
+                    try:
+                        out_file.remove_node(out_file.root, curr_node_name)
+                    except tb.NoSuchNodeError:
+                        pass
+                    out = out_file.create_carray(where=out_file.root,
+                                                 atom=tb.Atom.from_dtype(data_dtype),
+                                                 shape=hist_data.shape,
+                                                 **curr_node_desc)
+                    out[:] = hist_data
+            # append to output file if more than one node exists
+            file_mode = 'r+'
 
-                            hist_data.resize(shape)
-
-                            # Add array, ignore size
-                            tmp_data.resize(hist_data.shape)
-                            hist_data += tmp_data
-                    os.remove(tmp_file)
-
-                dt = hist_data.dtype
-                out = out_file.create_carray(where=out_file.root,
-                                             atom=tb.Atom.from_dtype(dt),
-                                             shape=hist_data.shape,
-                                             **self.node_desc)
-                out[:] = hist_data
+        for tmp_file in self.tmp_files:
+            os.remove(tmp_file)
 
     def _get_split_indeces(self):
         ''' Calculates the data range for each core.
@@ -330,7 +336,6 @@ class SMC(object):
             Return two lists with start/stop indeces.
             Stop indeces are exclusive.
         '''
-
         core_chunk_size = self.n_rows // self.n_cores
         start_indeces = list(range(0,
                                    self.n_rows,
@@ -397,7 +402,6 @@ class SMC(object):
             do_something(data)
             show_progress(index)
         '''
-
         # Initialize variables
         if not start_index:
             start_index = 0
