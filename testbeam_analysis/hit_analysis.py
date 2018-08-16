@@ -529,8 +529,8 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
         col, row = hit_chunk['column'], hit_chunk['row']
         return analysis_utils.hist_2d_index(col - 1, row - 1, shape=dut.n_pixel)
 
-    smc.SMC(table_file_in=input_hit_file,
-            file_out=output_mask_file,
+    smc.SMC(input_filename=input_hit_file,
+            output_filename=output_mask_file,
             table='Hits',
             func=work,
             node_desc={'name': 'HistOcc'},
@@ -882,8 +882,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         return cl
 
     smc.SMC(
-        table_file_in=input_hit_file,
-        file_out=output_cluster_file,
+        input_filename=input_hit_file,
+        output_filename=output_cluster_file,
         table="Hits",
         func=cluster_func,
         func_kwargs={
@@ -901,8 +901,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         return hist
 
     smc.SMC(
-        table_file_in=output_cluster_file,
-        file_out=output_cluster_file,
+        input_filename=output_cluster_file,
+        output_filename=output_cluster_file,
         table="Clusters",
         mode='r+',  # file must already exist
         func=cluster_size_hist_func,
@@ -916,8 +916,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         return hist
 
     smc.SMC(
-        table_file_in=output_cluster_file,
-        file_out=output_cluster_file,
+        input_filename=output_cluster_file,
+        output_filename=output_cluster_file,
         table="Clusters",
         mode='r+',  # file must already exist
         func=cluster_shape_hist_func,
@@ -960,8 +960,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
 
     if use_positions:
         smc.SMC(
-            table_file_in=output_cluster_file,
-            file_out=output_cluster_file,
+            input_filename=output_cluster_file,
+            output_filename=output_cluster_file,
             table="Clusters",
             mode='r+',  # file must already exist
             func=pos_error_func_with_position,
@@ -983,8 +983,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         d = (dut.column_size - pxi + dut.row_size - pyi) / 4
 
         smc.SMC(
-            table_file_in=output_cluster_file,
-            file_out=output_cluster_file,
+            input_filename=output_cluster_file,
+            output_filename=output_cluster_file,
             table="Clusters",
             mode='r+',  # file must already exist
             func=pos_error_func_with_index,

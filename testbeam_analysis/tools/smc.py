@@ -37,17 +37,17 @@ def _run_with_dill(payload):
 
 class SMC(object):
 
-    def __init__(self, table_file_in, file_out,
+    def __init__(self, input_filename, output_filename,
                  func, func_kwargs={}, node_desc={}, table=None,
                  align_at=None, n_cores=None, mode='w', chunk_size=1000000):
         ''' Apply a function to a pytable on multiple cores in chunks.
 
             Parameters
             ----------
-            table_file_in : string
-                Filename of the file with the table.
-            file_out : string
-                Filename with the resulting table/histogram.
+            input_filename : string
+                Filename of the input file with the table.
+            output_filename : string
+                Filename of the output file with the resulting table/histogram.
             func : function
                 Function to be applied on table chunks.
             func_kwargs : dict
@@ -90,8 +90,8 @@ class SMC(object):
             '''
 
         # Set parameters
-        self.table_file_in = table_file_in
-        self.file_out = file_out
+        self.input_filename = input_filename
+        self.output_filename = output_filename
         self.n_cores = n_cores
         self.align_at = align_at
         self.func = func
@@ -105,7 +105,7 @@ class SMC(object):
                                       'on event_number')
 
         # Get the table node name
-        with tb.open_file(table_file_in, mode='r') as in_file:
+        with tb.open_file(input_filename, mode='r') as in_file:
             if not table:  # Find the table node
                 tables = in_file.list_nodes('/', classname='Table')  # get all nodes of type 'table'
                 if len(tables) == 1:  # if there is only one table, take this one
@@ -154,7 +154,7 @@ class SMC(object):
     def _map(self):
         chunk_size_per_core = int(self.chunk_size / self.n_cores)
         if self.n_cores == 1:
-            self.tmp_files = [self._work(table_file_in=self.table_file_in,
+            self.tmp_files = [self._work(input_filename=self.input_filename,
                                          node_name=self.node_name,
                                          func=self.func,
                                          func_kwargs=self.func_kwargs,
@@ -170,7 +170,7 @@ class SMC(object):
             for i in range(self.n_cores):
                 job = apply_async(pool=pool,
                                   fun=self._work,
-                                  table_file_in=self.table_file_in,
+                                  input_filename=self.input_filename,
                                   node_name=self.node_name,
                                   func=self.func,
                                   func_kwargs=self.func_kwargs,
@@ -190,7 +190,7 @@ class SMC(object):
 
             del pool
 
-    def _work(self, table_file_in, node_name, func, func_kwargs,
+    def _work(self, input_filename, node_name, func, func_kwargs,
               node_desc, start_i, stop_i, chunk_size):
         ''' Defines the work per worker.
 
@@ -198,7 +198,7 @@ class SMC(object):
         or a histogram.
         '''
 
-        with tb.open_file(table_file_in, mode='r') as in_file:
+        with tb.open_file(input_filename, mode='r') as in_file:
             node = in_file.get_node(in_file.root, node_name)
 
             output_file = tempfile.NamedTemporaryFile(delete=False, dir=os.getcwd())
@@ -275,7 +275,7 @@ class SMC(object):
                 data_type = 'array'
 
         if data_type == 'table':
-            with tb.open_file(self.file_out, mode=self.mode) as out_file:
+            with tb.open_file(self.output_filename, mode=self.mode) as out_file:
                 for index, tmp_file in enumerate(self.tmp_files):
                     with tb.open_file(tmp_file, mode="r") as in_file:
                         tmp_node = in_file.get_node(in_file.root, node_name)
@@ -290,7 +290,7 @@ class SMC(object):
         else:  # TODO: solution without having all hists in RAM
             # Merge arrays from several temprary files,
             # merge them by adding up array data and resizing shape if necessary
-            with tb.open_file(self.file_out, mode=self.mode) as out_file:
+            with tb.open_file(self.output_filename, mode=self.mode) as out_file:
                 for index, tmp_file in enumerate(self.tmp_files):
                     with tb.open_file(tmp_file, mode='r') as in_file:
                         tmp_data = in_file.get_node(in_file.root, node_name)[:]
@@ -352,7 +352,7 @@ class SMC(object):
 
         next_indeces = []
         for index in indeces[1:]:
-            with tb.open_file(self.table_file_in, mode='r') as in_file:
+            with tb.open_file(self.input_filename, mode='r') as in_file:
                 node = in_file.get_node(in_file.root, self.node_name)
                 values = node[index:index + self.chunk_size][self.align_at]
                 value = values[0]

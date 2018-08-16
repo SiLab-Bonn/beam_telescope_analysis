@@ -129,8 +129,8 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 #         combined = np.column_stack((event_number, x_local, y_local, z_local, charge, n_hits, cluster_shape, n_cluster, hit_flag, quality_flag, n_tracks, x_err_local, y_err_local, z_err_local))
 #         return np.core.records.fromarrays(combined.transpose(), dtype=tracklets_data_chunk.dtype)
 
-#     smc.SMC(table_file_in=input_tracklets_file,
-#             file_out=output_track_candidates_file,
+#     smc.SMC(input_filename=input_tracklets_file,
+#             output_filename=output_track_candidates_file,
 #             func=work,
 #             node_desc={'name':'TrackCandidates',
 #                         'title':'Track candidates'},
