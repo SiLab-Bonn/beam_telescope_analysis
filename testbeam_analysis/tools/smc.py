@@ -49,7 +49,7 @@ class SMC(object):
             output_filename : string
                 Filename of the output file with the resulting table/histogram.
             func : function
-                Function to be applied on table chunks.
+                Worker function that is applied on the data from the input table.
             func_kwargs : dict
                 Additional kwargs to pass to worker function
             node_desc : dict
@@ -72,8 +72,8 @@ class SMC(object):
             align_at : string, None
                 If specified align chunks at this column values
             n_cores : integer, None
-                How many cores to use. If None use all available cores.
-                If 1 multithreading is disabled, useful for debuging.
+                How many cores to use. If None, all available cores will be used.
+                If set to 1, multithreading will be disabled which is useful for debuging.
             chunk_size : int
                 Chunk size of the data when reading from file.
 
@@ -86,7 +86,7 @@ class SMC(object):
               is still too large to fit in memory it is chunked further. The
               result is written to a table per core.
             - combine: the tables are merged into one result table or one
-                       result histogram depending on the output data format
+              result histogram depending on the output data format
             '''
 
         # Set parameters
