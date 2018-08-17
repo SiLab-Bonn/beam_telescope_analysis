@@ -36,7 +36,7 @@ def _run_with_dill(payload):
 class SMC(object):
 
     def __init__(self, input_filename, output_filename,
-                 func, func_kwargs={}, node_desc={}, table=None,
+                 func, func_kwargs=None, node_desc=None, table=None,
                  align_at=None, n_cores=None, mode='w', chunk_size=1000000):
         ''' Apply a function to a pytable on multiple cores in chunks.
 
@@ -85,21 +85,21 @@ class SMC(object):
               result is written to a table per core.
             - combine: the tables are merged into one result table or one
               result histogram depending on the output data format
-            '''
-
+        '''
         # Set parameters
         self.input_filename = input_filename
         self.output_filename = output_filename
         self.n_cores = n_cores
         self.align_at = align_at
         self.func = func
+        node_desc = {} if node_desc is None else node_desc
         if not isinstance(node_desc, (list, tuple)):
             node_desc = (node_desc,)
         self.node_desc = node_desc
         self.node_name = None
         self.chunk_size = chunk_size
         self.mode = mode
-        self.func_kwargs = func_kwargs
+        self.func_kwargs = {} if func_kwargs is None else func_kwargs
 
         if self.align_at and self.align_at != 'event_number':
             raise NotImplementedError('Data alignment is only supported on event_number')
