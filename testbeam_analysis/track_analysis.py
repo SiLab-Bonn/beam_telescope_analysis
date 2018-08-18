@@ -207,18 +207,6 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                     total_n_tracks_stored += store_n_tracks
                     tracklets_data_chunk = tracklets_data_chunk[selected_tracks]
                 indices = np.column_stack([np.arange(tracklets_data_chunk.shape[0], dtype=np.int64) for _ in range(n_duts)])
-                # Prepare hit data for track finding, create temporary arrays for x, y, z position and charge data
-                # This is needed to call a numba jitted function, since the number of DUTs is not fixed and thus the data format
-                # x_local = np.column_stack([tracklets_data_chunk['x_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # y_local = np.column_stack([tracklets_data_chunk['y_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # z_local = np.column_stack([tracklets_data_chunk['z_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # x_err_local = np.column_stack([tracklets_data_chunk['x_err_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # y_err_local = np.column_stack([tracklets_data_chunk['y_err_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # z_err_local = np.column_stack([tracklets_data_chunk['z_err_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # charge = np.column_stack([tracklets_data_chunk['charge_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # n_hits = np.column_stack([tracklets_data_chunk['n_hits_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # cluster_shape = np.column_stack([tracklets_data_chunk['cluster_shape_dut_%s' % dut_index] for dut_index in range(n_duts)])
-                # n_cluster = np.column_stack([tracklets_data_chunk['n_cluster_dut_%s' % dut_index] for dut_index in range(n_duts)])
                 event_numbers = tracklets_data_chunk['event_number']
                 x_global = []
                 y_global = []
@@ -246,9 +234,6 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 y_global = np.column_stack(y_global)
                 z_global = np.column_stack(z_global)
                 hit_flag = np.zeros_like(tracklets_data_chunk['hit_flag'])
-                # quality_flag = np.zeros_like(tracklets_data_chunk['quality_flag'])
-                # n_tracks = tracklets_data_chunk['n_tracks']
-
                 # Perform the track finding with jitted loop
                 _find_tracks_loop(
                     event_numbers=event_numbers,
@@ -256,18 +241,17 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                     z_sorted_dut_indices=z_sorted_dut_indices,
                     x=x_global,
                     y=y_global,
-                    z=z_global,
-                    hit_flag=hit_flag)
-
+                    z=z_global)
+                # copy the columns to the result array
                 for dut_index in range(n_duts):
                     for column_name in tracklets_data_chunk.dtype.names:
                         if 'dut_%d' % dut_index in column_name:
                             tracklets_data_chunk[column_name] = tracklets_data_chunk[column_name][indices[:, dut_index]]
+                # calculate new hit flags
+                for dut_index in range(n_duts):
+                    hit_flag += np.isfinite(tracklets_data_chunk['x_dut_%d' % dut_index]).astype(hit_flag.dtype) << dut_index
                 tracklets_data_chunk['hit_flag'] = hit_flag
-
-                # Merge result data from arrays into one recarray
-                # combined = np.column_stack((event_numbers, x_local, y_local, z_local, charge, n_hits, cluster_shape, n_cluster, hit_flag, quality_flag, n_tracks, x_err_local, y_err_local, z_err_local))
-                # combined = np.core.records.fromarrays(combined.transpose(), dtype=tracklets_data_chunk.dtype)
+                # append data to table
                 track_candidates.append(tracklets_data_chunk)
                 track_candidates.flush()
                 total_n_events_stored_last = total_n_events_stored
@@ -281,7 +265,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 
 
 @njit
-def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, hit_flag):
+def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z):
     ''' This function provides an algorithm to generates the track candidates from the tracklets array.
     Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -304,10 +288,6 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, hit
             if not reference_hit_set and not np.isnan(x[track_index][dut_index]):  # Search for first DUT that registered a hit
                 # actual_reference_x, actual_reference_y = x[track_index][dut_index], y[track_index][dut_index]
                 reference_hit_set = True
-                _set_dut_hit_flag(
-                    hit_flag=hit_flag,
-                    index=track_index,
-                    dut_index=dut_index)
             elif reference_hit_set:  # First hit found, now find best (closest) DUT hit
                 _find_tracks(
                     event_numbers=event_numbers,
@@ -318,14 +298,13 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, hit
                     dut_index=dut_index,
                     x=x,
                     y=y,
-                    z=z,
-                    hit_flag=hit_flag)
+                    z=z)
         # goto next possible track
         track_index += 1
 
 
 @njit
-def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, index, dut_index, x, y, z, hit_flag):
+def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, index, dut_index, x, y, z):
     # The hit distance of the actual assigned hit; -1 means not assigned
     reference_dut_index = _get_first_dut_index(
         x=x,
@@ -383,27 +362,6 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
 
     x[best_index][dut_index], y[best_index][dut_index], z[best_index][dut_index] = tmp_x, tmp_y, tmp_z
     indices[best_index][dut_index] = tmp_index
-    # setting hit flag
-    if np.isnan(x[index][dut_index]):
-        _reset_dut_hit_flag(
-            hit_flag=hit_flag,
-            index=index,
-            dut_index=dut_index)
-    else:
-        _set_dut_hit_flag(
-            hit_flag=hit_flag,
-            index=index,
-            dut_index=dut_index)
-    if np.isnan(x[best_index][dut_index]):
-        _reset_dut_hit_flag(
-            hit_flag=hit_flag,
-            index=best_index,
-            dut_index=dut_index)
-    else:
-        _set_dut_hit_flag(
-            hit_flag=hit_flag,
-            index=best_index,
-            dut_index=dut_index)
     # recursively call _find_tracks in case of swapping
     # hits with other finished tracks
     first_dut_hit_index = _get_first_dut_index(
@@ -420,18 +378,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             dut_index=dut_index,
             x=x,
             y=y,
-            z=z,
-            hit_flag=hit_flag)
-
-
-@njit
-def _set_dut_hit_flag(hit_flag, index, dut_index):
-    hit_flag[index] |= (1 << dut_index)
-
-
-@njit
-def _reset_dut_hit_flag(hit_flag, index, dut_index):
-    hit_flag[index] &= ~(1 << dut_index)
+            z=z)
 
 
 @njit
@@ -441,13 +388,6 @@ def _get_first_dut_index(x, index, z_sorted_dut_indices):
         if not np.isnan(x[index][dut_index]):
             return dut_index
     return -1
-
-
-@njit
-def _set_n_tracks(start_index, stop_index, n_tracks, n_actual_tracks):
-    # Called if no merged track is found
-    for i in range(start_index, stop_index):  # Set number of tracks of previous event
-        n_tracks[i] = n_actual_tracks
 
 
 def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(500, 500), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
@@ -893,7 +833,7 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
     y_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     y_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     # reset quality flag
-    quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["quality_flag"].dtype)
+    quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["hit_flag"].dtype)
     if full_track_info:
         track_estimates_chunk_full = np.full(shape=(np.count_nonzero(good_track_selection), len(telescope), 6), fill_value=np.nan, dtype=np.float32)
     else:
@@ -1103,44 +1043,27 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
 
 
 def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_flag, good_track_selection, track_candidates_chunk, keep_data, track_estimates_chunk_full):
-    # Define description
-    description = [('event_number', np.int64)]
+    # Tracks description, additional columns
+    tracks_descr = []
     for dimension in ['x', 'y', 'z']:
-        for index_dut in range(n_duts):
-            description.append(('%s_dut_%d' % (dimension, index_dut), np.float32))
-    for index_dut in range(n_duts):
-        description.append(('charge_dut_%d' % index_dut, np.float32))
-    for index_dut in range(n_duts):
-        description.append(('n_hits_dut_%d' % index_dut, np.uint32))
-    for index_dut in range(n_duts):
-        description.append(('cluster_ID_dut_%d' % index_dut, np.int16))
-    for index_dut in range(n_duts):
-        description.append(('cluster_shape_dut_%d' % index_dut, np.int64))
-    for index_dut in range(n_duts):
-        description.append(('n_cluster_dut_%d' % index_dut, np.uint32))
+        tracks_descr.append(('offset_%s' % dimension, track_candidates_chunk["x_dut_0"].dtype))
     for dimension in ['x', 'y', 'z']:
-        description.append(('offset_%s' % dimension, np.float32))
-    for dimension in ['x', 'y', 'z']:
-        description.append(('slope_%s' % dimension, np.float32))
+        tracks_descr.append(('slope_%s' % dimension, track_candidates_chunk["x_dut_0"].dtype))
     if track_estimates_chunk_full is not None:
         for index_dut in range(n_duts):
             for index in ['offset', 'slope']:
                 for dimension in ['x', 'y', 'z']:
-                    description.append(('%s_%s_dut_%d' % (index, dimension, index_dut), np.float32))
-    description.extend([('track_chi2', np.float32), ('hit_flag', np.uint32), ('quality_flag', np.uint32), ('n_tracks', np.uint32)])
-    for dimension in ['x', 'y', 'z']:
-        for index_dut in range(n_duts):
-            description.append(('%s_err_dut_%d' % (dimension, index_dut), np.float32))
+                    tracks_descr.append(('%s_%s_dut_%d' % (index, dimension, index_dut), track_candidates_chunk["x_dut_0"].dtype))
+    tracks_descr.extend([('track_chi2', np.float32), ('quality_flag', track_candidates_chunk["hit_flag"].dtype)])
 
     # Select only fitted tracks (keep_data is False) or keep all track candidates (keep_data is True)
     if not keep_data:
         track_candidates_chunk = track_candidates_chunk[good_track_selection]
 
-    tracks_array = np.empty((track_candidates_chunk.shape[0],), dtype=description)
+    tracks_array = np.empty((track_candidates_chunk.shape[0],), dtype=track_candidates_chunk.dtype.descr + tracks_descr)
 
     tracks_array['hit_flag'] = track_candidates_chunk['hit_flag']
     tracks_array['event_number'] = track_candidates_chunk['event_number']
-    tracks_array['n_tracks'] = track_candidates_chunk['n_tracks']
     for index_dut in range(n_duts):
         tracks_array['x_dut_%d' % index_dut] = track_candidates_chunk['x_dut_%d' % index_dut]
         tracks_array['y_dut_%d' % index_dut] = track_candidates_chunk['y_dut_%d' % index_dut]

@@ -1369,7 +1369,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
         description.append(('cluster_shape_dut_%d' % index, np.int64))
     for index, _ in enumerate(input_cluster_files):
         description.append(('n_cluster_dut_%d' % index, np.uint32))
-    description.extend([('hit_flag', np.uint32), ('quality_flag', np.uint32), ('n_tracks', np.uint32)])
+    description.append(('hit_flag', np.uint32))
     for dimension in ['x', 'y', 'z']:
         for index_dut in range(n_duts):
             description.append(('%s_err_dut_%d' % (dimension, index_dut), np.float32))
@@ -1479,7 +1479,10 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                             merged_cluster_array['cluster_ID_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_ID'][selection]
                             merged_cluster_array['cluster_shape_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_shape'][selection]
                             merged_cluster_array['n_cluster_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['n_cluster'][selection]
-
+                # calculate hit flags
+                for dut_index in range(n_duts):
+                    merged_cluster_array['hit_flag'] += np.isfinite(merged_cluster_array['x_dut_%d' % dut_index]).astype(merged_cluster_array['hit_flag'].dtype) << dut_index
+                # append to table
                 merged_cluster_table.append(merged_cluster_array)
                 merged_cluster_table.flush()
                 actual_start_event_number = common_event_numbers[-1] + 1  # Set the starting event number for the next chunked read
