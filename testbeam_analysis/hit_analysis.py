@@ -559,7 +559,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     return output_mask_file
 
 
-def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, min_hit_charges=0, max_hit_charges=None, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
+def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=0, max_hit_charges=None, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
     '''Clustering hits. Wrapper for cluster_hits(). For detailed description of the parameters see cluster_hits().
 
     Parameters
@@ -575,6 +575,10 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     select_duts : list
         Selecting DUTs that will be processed.
         If None, for all DUTs are selected.
+    use_positions : list
+        If True, cluster local positions instead of hit indices.
+        Conversion to local position is done on the fly, if input hit file provides hit indices.
+        If None, automatically decide from input hit file format.
     min_hit_charges : list
         Minimum hit charges.
     max_hit_charges : list
@@ -612,6 +616,11 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
         raise ValueError('Parameter "input_mask_files" has wrong length.')
     if output_cluster_files is not None and len(select_duts) != len(output_cluster_files):
         raise ValueError('Parameter "output_cluster_files" has wrong length.')
+    if isinstance(use_positions, (list, tuple)):
+        if len(select_duts) != len(use_positions):
+            raise ValueError('Parameter "use_positions" has wrong length.')
+    else:
+        use_positions = [use_positions] * len(select_duts)
     if isinstance(min_hit_charges, (list, tuple)):
         if len(select_duts) != len(min_hit_charges):
             raise ValueError('Parameter "min_hit_charges" has wrong length.')
@@ -645,6 +654,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
             input_hit_file=input_hit_files[i],
             output_cluster_file=None if output_cluster_files is None else output_cluster_files[i],
             input_mask_file=None if input_mask_files is None else input_mask_files[i],
+            use_positions=use_positions[i],
             min_hit_charge=min_hit_charges[i],
             max_hit_charge=max_hit_charges[i],
             column_cluster_distance=column_cluster_distances[i],
@@ -655,7 +665,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     return output_files
 
 
-def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, min_hit_charge=0, max_hit_charge=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, plot=True, chunk_size=1000000):
+def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=0, max_hit_charge=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, plot=True, chunk_size=1000000):
     '''Clusters the hits in the data file containing the hit table.
 
     Parameters
@@ -668,6 +678,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         Filename of the output cluster file. If None, the filename will be derived from the input hits file.
     input_mask_file : string
         Filename of the input mask file.
+    use_positions : bool
+        If True, cluster local positions instead of hit indices.
+        Conversion to local position is done on the fly, if input hit file provides hit indices.
+        If None, automatically decide from input hit file format.
     min_hit_charge : uint
         Minimum hit charge. Minimum possible hit charge must be given in order to correcly calculate the cluster coordinates.
     max_hit_charge : uint
@@ -696,10 +710,29 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     # Check for whether local coordinates or indices are used
     with tb.open_file(input_hit_file, mode='r') as input_file_h5:
         node = input_file_h5.root.Hits
-        if 'x' in node.dtype.names:
-            use_positions = True
+        if use_positions is None:
+            if 'x' in node.dtype.names:
+                use_positions = True
+            else:
+                use_positions = False
+            convert_to_positions = False
         else:
-            use_positions = False
+            # check if hit indices needs to be converted to local coordinates
+            if use_positions is True:
+                if 'x' in node.dtype.names:
+                    convert_to_positions = False
+                else:
+                    convert_to_positions = True
+            else:
+                convert_to_positions = False
+        # check whether hit indices can be copied to cluster hits array
+        if use_positions:
+            if 'column' in node.dtype.names:
+                copy_hit_indices = True
+            else:
+                copy_hit_indices = False
+        else:
+            copy_hit_indices = False
 
     # Getting noisy and disabled pixel mask
     if input_mask_file is not None:
@@ -717,7 +750,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         noisy_pixels = None
     # Check for valid inputs
     if use_positions and (disabled_pixels is not None or noisy_pixels is not None):
-        raise ValueError('Cannot use masks when hit file with local coordinates is provided.')
+        raise ValueError('Cannot use pixel masks when using local coordinates.')
 
     # Prepare clusterizer
     # Define end of cluster function to
@@ -875,11 +908,45 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     clusterizer.set_end_of_event_function(end_of_event_function)
 
     # Run clusterizer on hit table in parallel on all cores
-    def cluster_func(hits, clusterizer, noisy_pixels, disabled_pixels):
-        cluster_hits, clusters = clusterizer.cluster_hits(
-            hits=hits,
-            noisy_pixels=noisy_pixels,
-            disabled_pixels=disabled_pixels)
+    def cluster_func(hits, clusterizer, noisy_pixels, disabled_pixels, dut, convert_to_positions, copy_hit_indices):
+        if convert_to_positions:
+            dut_x_pos, dut_y_pos, _ = dut.index_to_local_position(column=hits['column'], row=hits['row'])
+            new_hits_dtype = []
+            for name, dtype in hits.dtype.descr:
+                if name == 'column':
+                    new_hits_dtype.append(('x', np.float32))
+                elif name == 'row':
+                    new_hits_dtype.append(('y', np.float32))
+                else:
+                    new_hits_dtype.append((name, dtype))
+            new_hits = np.empty(shape=hits.shape, dtype=new_hits_dtype)
+            for name in new_hits.dtype.names:
+                if name == 'x':
+                    new_hits['x'] = dut_x_pos
+                elif name == 'y':
+                    new_hits['y'] = dut_y_pos
+                else:
+                    new_hits[name] = hits[name]
+            cluster_hits, clusters = clusterizer.cluster_hits(
+                hits=new_hits,
+                noisy_pixels=noisy_pixels,
+                disabled_pixels=disabled_pixels)
+        else:
+            cluster_hits, clusters = clusterizer.cluster_hits(
+                hits=hits,
+                noisy_pixels=noisy_pixels,
+                disabled_pixels=disabled_pixels)
+        if copy_hit_indices:
+            new_cluster_hits_dtype = cluster_hits.dtype.descr + [('column', np.uint16), ('row', np.uint16)]
+            new_cluster_hits = np.empty(shape=hits.shape, dtype=new_cluster_hits_dtype)
+            for name in new_cluster_hits.dtype.names:
+                if name == 'column':
+                    new_cluster_hits['column'] = hits['column']
+                elif name == 'row':
+                    new_cluster_hits['row'] = hits['row']
+                else:
+                    new_cluster_hits[name] = cluster_hits[name]
+            cluster_hits = new_cluster_hits
         return cluster_hits, clusters  # return hits array with additional columns for cluster ID, and cluster array
 
     smc.SMC(
@@ -890,7 +957,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         func_kwargs={
             'clusterizer': clusterizer,
             'noisy_pixels': noisy_pixels,
-            'disabled_pixels': disabled_pixels},
+            'disabled_pixels': disabled_pixels,
+            'dut': dut,
+            'convert_to_positions': convert_to_positions,
+            'copy_hit_indices': copy_hit_indices},
         node_desc=[{'name': 'ClusterHits'}, {'name': 'Clusters'}],
         align_at='event_number',
         chunk_size=chunk_size)
