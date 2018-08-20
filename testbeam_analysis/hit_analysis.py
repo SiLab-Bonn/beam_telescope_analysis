@@ -3,7 +3,6 @@ from __future__ import division
 
 import logging
 import os.path
-import re
 import math
 from multiprocessing import Pool
 
