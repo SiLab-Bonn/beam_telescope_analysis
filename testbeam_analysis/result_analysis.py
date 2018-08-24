@@ -566,7 +566,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, resolutions=None, extend_areas=None, plot_ranges=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=None, in_pixel=False, plot=True, gui=False, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=None, in_pixel=False, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -611,6 +611,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     else:
         output_pdf = None
 
+    if input_cluster_files is not None and len(select_duts) != len(input_cluster_files):
+        raise ValueError('Parameter "input_cluster_files" has wrong length.')
+
     efficiencies = []
     pass_tracks = []
     total_tracks = []
@@ -618,6 +621,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         with tb.open_file(output_efficiency_file, mode='w') as out_file_h5:
             for index, actual_dut_index in enumerate(select_duts):
+                if input_cluster_files is not None and input_cluster_files[index] is not None:
+                    in_cluster_file_h5 = tb.open_file(filename=input_cluster_files[index], mode='r')
+                else:
+                    in_cluster_file_h5 = None
                 actual_dut = telescope[actual_dut_index]
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
 
@@ -668,23 +675,29 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 #     total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
                 #     total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
 
-                indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1) + 1
+                pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
                 local_x, local_y, _ = actual_dut.index_to_local_position(
-                    column=indices[0],
-                    row=indices[1])
+                    column=pixel_indices[:, 0] + 1,
+                    row=pixel_indices[:, 1] + 1)
                 pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
                 points, regions, ridge_vertices, vertices = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
-                kd_tree = cKDTree(points)
+                # pixel_center_col_row_pair_data is a subset of points
+                # points includes additional image points
+                pixel_center_extended_kd_tree = cKDTree(points)
                 count_tracks_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
                 count_tracks_with_hit_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
-                # print points, points.shape
-                # sel = points[:, 0] > max(dut_extent[:2])
-                # sel |= points[:, 0] < min(dut_extent[:2])
-                # sel |= points[:, 1] > max(dut_extent[2:])
-                # sel |= points[:, 1] < min(dut_extent[2:])
-                # print np.where(sel)
+                if in_cluster_file_h5:
+                    x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+                    y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+                    y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
+                    bin_center_col_row_pair_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
+                    _, bin_center_to_pixel_center_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
+                    count_pixel_hits_2d_hist = np.zeros(shape=(hist_2d_x_n_bins, hist_2d_y_n_bins, 7, 7), dtype=np.int32)
+                else:
+                    count_pixel_hits_2d_hist = None
 
                 initialize = True
+                start_index_cluster_hits = 0
                 for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     # Transform the hits and track intersections into the local coordinate system
                     # Coordinates in global coordinate system (x, y, z)
@@ -703,12 +716,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # Suppress numpy warning with nan_to_num
                         select_valid_hit &= (np.nan_to_num(distance_local) <= cut_distances[index])
 
+                    # Histograms for per-pixel efficiency
                     # Pixel tracks
-                    _, closest_indices = kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
+                    _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
                     count_tracks_pixel_hist += np.bincount(closest_indices)[:pixel_center_col_row_pair_data.shape[0]]
                     # Pixel tracks with valid hit
-                    _, closest_indices = kd_tree.query(np.column_stack((intersection_x_local[select_valid_hit], intersection_y_local[select_valid_hit])))
-                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices)[:pixel_center_col_row_pair_data.shape[0]]
+                    _, closest_indices_with_hit = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_hit], intersection_y_local[select_valid_hit])))
+                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices_with_hit)[:pixel_center_col_row_pair_data.shape[0]]
 
                     if initialize:
                         initialize = False
@@ -795,9 +809,41 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     #                                                                  bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
                     #                                                                  range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
 
-                if np.all(count_tracks_2d_hist == 0):
-                    logging.warning('No tracks on DUT%d, cannot calculate efficiency.', actual_dut_index)
-                    continue
+                    if in_cluster_file_h5:
+                        binnumber = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges, expand_binnumbers=True).binnumber
+                        tracks_with_hits_to_bin_center_index = np.ravel_multi_index(binnumber - 1, (hist_2d_x_n_bins, hist_2d_y_n_bins))
+                        # event_number_id_array = np.repeat(np.column_stack((tracks_chunk['event_number'][select_valid_hit], tracks_chunk['cluster_id_dut_%d' % actual_dut_index][select_valid_hit])), tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit])
+                        for actual_cluster_hits_dut, start_index_cluster_hits in analysis_utils.data_aligned_at_events(in_cluster_file_h5.root.ClusterHits, start_index=start_index_cluster_hits, start_event_number=tracks_chunk['event_number'][0], stop_event_number=tracks_chunk['event_number'][-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):
+                            cluster_hits_event_numbers_cluster_ids = actual_cluster_hits_dut[['event_number', 'cluster_ID']]
+                            selected_event_numbers_clusters_ids = np.array(tracks_chunk[['event_number', 'cluster_ID_dut_%d' % actual_dut_index]][select_valid_hit], dtype=cluster_hits_event_numbers_cluster_ids.dtype)
+                            selected_cluster_hits, selected_indices = analysis_utils.in1d_index(ar1=cluster_hits_event_numbers_cluster_ids, ar2=selected_event_numbers_clusters_ids, fill_invalid=None, assume_sorted=False)
+                            actual_cluster_hits = actual_cluster_hits_dut[selected_cluster_hits]
+                            # actual_tracks = np.repeat(tracks_chunk[select_valid_hit][selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
+                            actual_bin_center_indices = np.repeat(tracks_with_hits_to_bin_center_index[selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
+                            actual_bin_center_col_row_pair = np.column_stack(np.unravel_index(actual_bin_center_indices, dims=(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1])))
+                            actual_pixel_center_indices = bin_center_to_pixel_center_index[actual_bin_center_indices]
+                            actual_pixel_center_col_row_pair = np.column_stack(np.unravel_index(indices=actual_pixel_center_indices, dims=(actual_dut.n_columns, actual_dut.n_rows)))
+                            actual_cluster_hits_col_row_pair = np.column_stack((actual_cluster_hits['column'] - 1, actual_cluster_hits['row'] - 1))
+                            sel = actual_pixel_center_col_row_pair[:, 0] == 0
+                            sel &= actual_pixel_center_col_row_pair[:, 1] == 0
+                            actual_col_index = actual_cluster_hits_col_row_pair[:, 0] - actual_pixel_center_col_row_pair[:, 0] + 3
+                            actual_row_index = actual_cluster_hits_col_row_pair[:, 1] - actual_pixel_center_col_row_pair[:, 1] + 3
+                            hits_select = actual_col_index >= 0
+                            hits_select &= actual_col_index < 7
+                            hits_select &= actual_row_index >= 0
+                            hits_select &= actual_row_index < 7
+                            # TODO: check histograms for significant loss of data, increase size of array
+                            # hits_col = np.histogram(actual_col_index, bins=np.arange(-10, 11))
+                            # hist_row = np.histogram(actual_row_index, bins=np.arange(-10, 11))
+                            # hist_col_sel = np.histogram(actual_col_index[hits_select], bins=np.arange(-10, 11))
+                            # hist_row_sel = np.histogram(actual_row_index[hits_select], bins=np.arange(-10, 11))
+                            ravel_indices = np.ravel_multi_index((actual_bin_center_col_row_pair[hits_select, 0], actual_bin_center_col_row_pair[hits_select, 1], actual_col_index[hits_select], actual_row_index[hits_select]), dims=count_pixel_hits_2d_hist.shape)
+                            unique_indices, unique_indices_count = np.unique(ravel_indices, return_counts=True)
+                            count_pixel_hits_2d_hist.reshape(-1)[unique_indices] += unique_indices_count
+
+                    if np.all(count_tracks_2d_hist == 0):
+                        logging.warning('No tracks on DUT%d, cannot calculate efficiency.', actual_dut_index)
+                        continue
 
                 # Calculate efficiency
                 stat_2d_efficiency_hist = np.full_like(count_tracks_2d_hist, fill_value=np.nan, dtype=np.float)
@@ -813,7 +859,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     array_pass=count_tracks_with_hit_2d_hist,
                     array_total=count_tracks_2d_hist)
 
-                logging.info('Efficiency =  %.4f (+%.4f/%.4f)%%' % (eff, eff_err_pl, eff_err_min))
+                logging.info('Efficiency = %.4f (+%.4f/%.4f)%%' % (eff, eff_err_pl, eff_err_min))
                 efficiencies.append(np.ma.mean(stat_2d_efficiency_hist))
 
                 # Calculate in-pixel-efficiency
@@ -838,6 +884,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_charge_hist=stat_2d_charge_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                         stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
+                        count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
                         efficiency=[eff, eff_err_pl, eff_err_min],
                         actual_dut_index=actual_dut_index,
                         dut_extent=dut_extent,
@@ -863,6 +910,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_charge_hist=stat_2d_charge_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                         stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
+                        count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
                         efficiency=[eff, eff_err_pl, eff_err_min],
                         actual_dut_index=actual_dut_index,
                         dut_extent=dut_extent,
@@ -916,6 +964,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 out_efficiency_mask[:] = stat_2d_efficiency_hist.mask.T
                 out_pass[:] = count_tracks_with_hit_2d_hist.T
                 out_total[:] = count_tracks_2d_hist.T
+                if in_cluster_file_h5:
+                    try:
+                        in_cluster_file_h5.close()
+                    except Exception:
+                        pass
+                    finally:
+                        in_cluster_file_h5 = None
 
     if output_pdf is not None:
         output_pdf.close()

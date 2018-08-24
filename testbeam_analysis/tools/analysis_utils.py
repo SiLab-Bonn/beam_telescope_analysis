@@ -280,8 +280,9 @@ def map_cluster(event_numbers, clusters, mapped_clusters):
 
     gives mapped_clusters.event_number = [ 0  1  0  2  3  0 ]
     '''
+    i = 0
     j = 0
-    for i in range(event_numbers.shape[0]):
+    while i < event_numbers.shape[0]:
         # Find first Hit with a fitting event number
         while j < clusters.shape[0] and clusters['event_number'][j] < event_numbers[i]:  # Catch up to actual event number events[i]
             j += 1
@@ -292,6 +293,7 @@ def map_cluster(event_numbers, clusters, mapped_clusters):
                 j += 1
         else:
             return
+        i += 1
 
 
 def get_events_in_both_arrays(events_one, events_two):
@@ -1124,6 +1126,55 @@ def voronoi_finite_polygons_2d(points, dut_extent=None):
     ridge_vertices_indices_with_vertex_inside = np.where(ridge_vertices_with_vertex_inside_sel)[0]
     # TODO: remove not used vertices and update indices lists
     return vor.points, np.array(vor.regions)[new_regions_indices].tolist(), vor_ridge_vertices[ridge_vertices_indices_with_vertex_inside].tolist(), vor.vertices
+
+
+def in1d_index(ar1, ar2, fill_invalid=None, assume_sorted=False):
+    ''' Return indices of ar1 that overlap with ar2 and the indices of ar2 that occur in ar1.
+
+    alternative implementation (only works if both ar1 and ar2 are unique!):
+    def overlap(ar1, ar2):
+        bool_ar1 = np.in1d(ar1, ar2)
+        ind_ar1 = np.arange(len(ar1))
+        ind_ar1 = ind_ar1[bool_ar1]
+        ind_ar2 = np.array([np.argwhere(ar2 == ar1[x]) for x in ind_ar1]).flatten()
+        return ind_ar1, ind_ar2
+
+    Parameters
+    ----------
+    ar1 : array_like
+        Input array.
+    ar2 : array_like
+        The values against which to test each value of ar1.
+    fill_invalid : int
+        If a value is given, in1d_index has the same lenght than ar1
+        and invalid positions are filled with the given value.
+    assume_sorted : bool
+        If True, assume sorted ar2.
+
+    Returns
+    -------
+    in1d_valid : ndarray
+        The indices of ar1 overlapping with ar2.
+    in1d_index : ndarray
+        The indices of ar2 that occur in ar1.
+    '''
+    if assume_sorted:
+        ar2_index = np.searchsorted(ar2, ar1)
+    else:
+        ar2_sorter = np.argsort(ar2)
+        ar2_sorted = ar2[ar2_sorter]
+        ar2_sorted_index = np.searchsorted(ar2_sorted, ar1)
+        # Remove invalid indices
+        ar2_sorted_index[ar2_sorted_index >= ar2.shape[0]] = ar2.shape[0] - 1
+        # Go back into the original index
+        ar2_index = ar2_sorter[ar2_sorted_index]
+    if fill_invalid is None:
+        valid = ar2.take(ar2_index, mode='clip') == ar1
+        return np.where(valid)[0], ar2_index[valid]
+    else:
+        invalid = ar2.take(ar2_index, mode='clip') != ar1
+        ar2_index[invalid] = fill_invalid
+        return np.where(~invalid)[0], ar2_index
 
 
 def get_data(path, output=None, fail_on_overwrite=False):

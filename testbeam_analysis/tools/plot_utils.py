@@ -1198,7 +1198,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None, gui=False, figs=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf and not gui:
         return
@@ -1212,10 +1212,10 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     count_tracks_2d_hist_masked = np.ma.array(count_tracks_2d_hist, mask=(count_tracks_2d_hist == 0))
     count_tracks_with_hit_2d_hist_masked = np.ma.array(count_tracks_with_hit_2d_hist, mask=(count_tracks_with_hit_2d_hist == 0))
 
-    indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1) + 1
+    pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
     local_x, local_y, _ = actual_dut.index_to_local_position(
-        column=indices[0],
-        row=indices[1])
+        column=pixel_indices[:, 0] + 1,
+        row=pixel_indices[:, 1] + 1)
     pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
 
     mesh_color = 'red'
@@ -1284,21 +1284,20 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    x_mesh = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
-    y_mesh = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
-    x, y = np.meshgrid(x_mesh, y_mesh)
-    x = x.T
-    y = y.T
-    sel = np.zeros(x.shape, dtype=np.bool)
+    bin_indices = np.indices(stat_2d_efficiency_hist.shape).reshape(2, -1).T
+    x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+    y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+    y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
+    select_bins = np.zeros(x_meshgrid.shape, dtype=np.bool)
     # reduce number of arrows
-    sel[::4, ::4] = 1
+    select_bins[::4, ::4] = 1
     # speed up plotting
-    sel &= x >= min(plot_range[0])
-    sel &= x <= max(plot_range[0])
-    sel &= y >= min(plot_range[1])
-    sel &= y <= max(plot_range[1])
+    select_bins &= x_meshgrid >= min(plot_range[0])
+    select_bins &= x_meshgrid <= max(plot_range[0])
+    select_bins &= y_meshgrid >= min(plot_range[1])
+    select_bins &= y_meshgrid <= max(plot_range[1])
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-    ax.quiver(x[sel], y[sel], np.nan_to_num(stat_2d_x_residuals_hist[sel]), np.nan_to_num(stat_2d_y_residuals_hist[sel]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
+    ax.quiver(x_meshgrid[select_bins], y_meshgrid[select_bins], np.nan_to_num(stat_2d_x_residuals_hist[select_bins]), np.nan_to_num(stat_2d_y_residuals_hist[select_bins]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_title('Residuals of %s' % actual_dut.name)
@@ -1314,14 +1313,15 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    sel = (count_tracks_with_hit_2d_hist > 0)
-    residual_vetors_x = x[sel] + stat_2d_x_residuals_hist[sel]
-    residual_vetors_y = y[sel] + stat_2d_y_residuals_hist[sel]
+    select_bins = (count_tracks_with_hit_2d_hist > 0)
+    residual_vetors_x = x_meshgrid[select_bins] + stat_2d_x_residuals_hist[select_bins]
+    residual_vetors_y = y_meshgrid[select_bins] + stat_2d_y_residuals_hist[select_bins]
     residual_vetors = np.column_stack((np.ravel(residual_vetors_x), np.ravel(residual_vetors_y)))
-    bin_center_col_row_pair_data = np.column_stack((np.ravel(x[sel]), np.ravel(y[sel])))
-    kd_tree = cKDTree(pixel_center_col_row_pair_data)
-    _, res_center_col_row_pair_index = kd_tree.query(residual_vetors)
-    _, grain_center_col_row_pair_index = kd_tree.query(bin_center_col_row_pair_data)
+    bin_center_col_row_pair_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
+    bin_indices_sel = bin_indices[np.ravel(select_bins)]
+    pixel_center_kd_tree = cKDTree(pixel_center_col_row_pair_data)
+    _, res_center_col_row_pair_index_sel = pixel_center_kd_tree.query(residual_vetors)
+    _, pixel_center_col_row_pair_index_sel = pixel_center_kd_tree.query(bin_center_col_row_pair_data_sel)
     effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
     colors = np.linspace(0.0, 1.0, num=100)
     cmap = cm.get_cmap('tab20')
@@ -1337,30 +1337,32 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
     color_index = 0
     for pixel_index, pixel_position in enumerate(pixel_center_col_row_pair_data):
-        res_center_col_row_pair_data_indices = np.where(res_center_col_row_pair_index == pixel_index)[0]
-        res_center_col_row_pair_data_positions = bin_center_col_row_pair_data[res_center_col_row_pair_data_indices]
-        if res_center_col_row_pair_data_positions.shape[0] == 0:
+        res_center_col_row_pair_data_indices = np.where(res_center_col_row_pair_index_sel == pixel_index)[0]
+        # res_center_col_row_pair_data_positions = bin_center_col_row_pair_data_sel[res_center_col_row_pair_data_indices]
+        if res_center_col_row_pair_data_indices.shape[0] == 0:
             continue
+        actual_bin_col_row_indices = bin_indices_sel[res_center_col_row_pair_data_indices]
         # TODO: add border (convex hull) to every area
-        x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
-        y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
-        bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
-        bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data[bin_center_col_row_pair_data_indices]
-        index_0_pixel = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
-        index_1_pixel = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-        pixel_color_indices = color_index_2d[index_0_pixel, index_1_pixel]
+        # x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+        # y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
+        bin_center_col_row_pair_data_indices = np.where(pixel_center_col_row_pair_index_sel == pixel_index)[0]
+        # bin_center_col_row_pair_data_positions = bin_center_col_row_pair_data_sel[bin_center_col_row_pair_data_indices]
+        # index_0_pixel = np.array((bin_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+        # index_1_pixel = np.array((bin_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+        actual_pixel_bin_indices = bin_indices_sel[bin_center_col_row_pair_data_indices]
+        pixel_color_indices = color_index_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
         # change color if same color is already occurring inside pixel region
         num_repeats = 0
         while color_index % num_colors in pixel_color_indices and num_repeats < num_colors - 1:
             color_index += 1
             num_repeats += 1
-        index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
-        index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-        color = colors[color_index % num_colors]
+        # index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+        # index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
+        actual_color = colors[color_index % num_colors]
         rgb_color = rgb_colors[color_index % num_colors]
         color_index_array[pixel_index] = color_index % num_colors
-        color_index_2d[index_0, index_1] = color_index % num_colors
-        effective_pixels_2d[index_0, index_1] = color
+        color_index_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = color_index % num_colors
+        effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = actual_color
         ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_color, markeredgecolor='k', markeredgewidth=0.1)  # , markerfacecolor='k', markeredgecolor='k'
         color_index += 1
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
@@ -1376,6 +1378,75 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         figs.append(fig)
     else:
         output_pdf.savefig(fig)
+
+    if count_pixel_hits_2d_hist is not None:
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        select_bins = np.sum(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1], -1), axis=2) != 0
+        bin_center_col_row_pair_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
+        bin_indices_sel = bin_indices[np.ravel(select_bins)]
+        _, pixel_center_col_row_pair_index_sel = pixel_center_kd_tree.query(bin_center_col_row_pair_data_sel)
+        max_pixel_index_hist = np.column_stack(np.unravel_index(np.argmax(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0] * count_pixel_hits_2d_hist.shape[1], -1), axis=1), dims=(7, 7)))
+        max_pixel_index_hist[np.ravel(select_bins), 0] -= 3
+        max_pixel_index_hist[np.ravel(select_bins), 1] -= 3
+        pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
+        bin_center_col_row_pair_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
+        _, bin_center_to_pixel_center_index = pixel_center_kd_tree.query(bin_center_col_row_pair_data)
+        max_hits_pixel_col_row = pixel_indices[bin_center_to_pixel_center_index] + max_pixel_index_hist
+        max_hits_pixel_index = np.ravel_multi_index(max_hits_pixel_col_row.T, dims=(actual_dut.n_columns, actual_dut.n_rows))
+        max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
+        effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+        colors = np.linspace(0.0, 1.0, num=100)
+        cmap = cm.get_cmap('tab20')
+        rgb_colors = np.array([cmap(color) for color in colors])
+        valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
+        num_colors = len(valid_color_indices)
+        # select and reorder colors
+        colors = colors[valid_color_indices]
+        colors[::2] = np.roll(colors[::2], int(num_colors / 4))
+        rgb_colors = rgb_colors[valid_color_indices]
+        rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
+        color_index_array = np.full(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int8, fill_value=-1)
+        color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+        color_index = 0
+        for pixel_index, pixel_position in enumerate(pixel_center_col_row_pair_data):
+            actual_bin_indices_sel = np.where((max_hits_pixel_index_sel == pixel_index))[0]
+            if actual_bin_indices_sel.shape[0] == 0:
+                continue
+            actual_bin_col_row_indices = bin_indices_sel[actual_bin_indices_sel]
+            # alternative:
+            # actual_bin_indices = np.where((max_hits_pixel_index == pixel_index) & select_bins.reshape(-1))[0]
+            # actual_bin_col_row_indices = np.column_stack(np.unravel_index(actual_bin_indices, dims=count_pixel_hits_2d_hist.shape[:2]))
+            # TODO: add border (convex hull) to every area
+            bin_center_col_row_pair_data_indices = np.where(pixel_center_col_row_pair_index_sel == pixel_index)[0]
+            actual_pixel_bin_indices = bin_indices_sel[bin_center_col_row_pair_data_indices]
+            pixel_color_indices = color_index_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+            # change color if same color is already occurring inside pixel region
+            num_repeats = 0
+            while color_index % num_colors in pixel_color_indices and num_repeats < num_colors - 1:
+                color_index += 1
+                num_repeats += 1
+            actual_color = colors[color_index % num_colors]
+            rgb_color = rgb_colors[color_index % num_colors]
+            color_index_array[pixel_index] = color_index % num_colors
+            color_index_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = color_index % num_colors
+            effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = actual_color
+            ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_color, markeredgecolor='k', markeredgewidth=0.1)  # , markerfacecolor='k', markeredgecolor='k'
+            color_index += 1
+        _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+        plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel sizes for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
+        rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+        ax.add_patch(rect)
+        ax.set_title('Effective pixel sizes %s' % actual_dut.name)
+        ax.set_xlabel("column [$\mathrm{\mu}$m]")
+        ax.set_ylabel("row [$\mathrm{\mu}$m]")
+        ax.set_xlim(plot_range[0])
+        ax.set_ylim(plot_range[1])
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
 
     fig = Figure()
     _ = FigureCanvas(fig)
@@ -1473,11 +1544,11 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         # select &= bin_center_col_row_pair_data[:, 1] >= min(dut_extent[2:])
         # select &= bin_center_col_row_pair_data[:, 1] <= max(dut_extent[2:])
         # bin_center_col_row_pair_dut = bin_center_col_row_pair_data[select]
-        # _, grain_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
+        # _, pixel_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
         # pixel_efficiencies = []
         # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
         # for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
-        #     bin_center_col_row_pair_data_indices = np.where(grain_center_col_row_pair_index == pixel_index)[0]
+        #     bin_center_col_row_pair_data_indices = np.where(pixel_center_col_row_pair_index == pixel_index)[0]
         #     bin_center_col_row_pair_data_positions = bin_center_col_row_pair_dut[bin_center_col_row_pair_data_indices]
         #     # print bin_center_col_row_pair_data_positions
         #     # select = bin_center_col_row_pair_data_positions[:, 0] >= min(dut_extent[:2]) & bin_center_col_row_pair_data_positions[:, 0] <= max(dut_extent[:2])
