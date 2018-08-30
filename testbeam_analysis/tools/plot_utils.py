@@ -1752,7 +1752,7 @@ def plot_track_angle(input_track_angle_file, select_duts, output_pdf_file=None, 
                     # fixing bin width in plotting
                     width = (edges[1:] - edges[:-1])
                     ax.bar(bin_center, track_angle_hist, label='Angular Distribution%s' % ((" for %s" % dut_name) if actual_dut_index is not None else ""), width=width, color='b', align='center')
-                    x_gauss = np.arange(np.min(edges), np.max(edges), step=0.00001)
+                    x_gauss = np.linspace(np.min(edges), np.max(edges), num=1000)
                     ax.plot(x_gauss, testbeam_analysis.tools.analysis_utils.gauss(x_gauss, amplitude, mean, sigma), color='r', label='Gauss-Fit:\nMean: %.5f mrad,\nSigma: %.5f mrad' % (mean, sigma))
                     ax.set_ylabel('#')
                     ax.set_title('%s angular distribution of fitted tracks%s' % (angle.replace("_", " "), (" for %s" % dut_name) if actual_dut_index is not None else ""))
