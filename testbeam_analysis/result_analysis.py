@@ -692,7 +692,19 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
                     bin_center_col_row_pair_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
                     _, bin_center_to_pixel_center_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
-                    count_pixel_hits_2d_hist = np.zeros(shape=(hist_2d_x_n_bins, hist_2d_y_n_bins, 7, 7), dtype=np.int32)
+                    shape_x = int(actual_dut.column_size / 50)
+                    if shape_x % 2 == 0:
+                        shape_x += 7
+                    else:
+                        shape_x += 8
+                    shape_y = int(actual_dut.row_size / 50)
+                    if shape_y % 2 == 0:
+                        shape_y += 7
+                    else:
+                        shape_y += 8
+                    count_pixel_hits_2d_hist = np.zeros(shape=(hist_2d_x_n_bins, hist_2d_y_n_bins, shape_x, shape_y), dtype=np.int32)
+                    if (count_pixel_hits_2d_hist.shape[2] <= 1) or (count_pixel_hits_2d_hist.shape[2] % 2 != 1) or (count_pixel_hits_2d_hist.shape[3] <= 1) or (count_pixel_hits_2d_hist.shape[3] % 2 != 1):
+                        raise RuntimeError("Invalid shape of histogram")
                 else:
                     count_pixel_hits_2d_hist = None
 
@@ -826,17 +838,19 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             actual_cluster_hits_col_row_pair = np.column_stack((actual_cluster_hits['column'] - 1, actual_cluster_hits['row'] - 1))
                             sel = actual_pixel_center_col_row_pair[:, 0] == 0
                             sel &= actual_pixel_center_col_row_pair[:, 1] == 0
-                            actual_col_index = actual_cluster_hits_col_row_pair[:, 0] - actual_pixel_center_col_row_pair[:, 0] + 3
-                            actual_row_index = actual_cluster_hits_col_row_pair[:, 1] - actual_pixel_center_col_row_pair[:, 1] + 3
+                            actual_col_index = actual_cluster_hits_col_row_pair[:, 0] - actual_pixel_center_col_row_pair[:, 0] + int(count_pixel_hits_2d_hist.shape[2] / 2)
+                            actual_row_index = actual_cluster_hits_col_row_pair[:, 1] - actual_pixel_center_col_row_pair[:, 1] + int(count_pixel_hits_2d_hist.shape[3] / 2)
                             hits_select = actual_col_index >= 0
-                            hits_select &= actual_col_index < 7
+                            hits_select &= actual_col_index < count_pixel_hits_2d_hist.shape[2]
                             hits_select &= actual_row_index >= 0
-                            hits_select &= actual_row_index < 7
+                            hits_select &= actual_row_index < count_pixel_hits_2d_hist.shape[3]
                             # TODO: check histograms for significant loss of data, increase size of array
                             # hits_col = np.histogram(actual_col_index, bins=np.arange(-10, 11))
                             # hist_row = np.histogram(actual_row_index, bins=np.arange(-10, 11))
                             # hist_col_sel = np.histogram(actual_col_index[hits_select], bins=np.arange(-10, 11))
                             # hist_row_sel = np.histogram(actual_row_index[hits_select], bins=np.arange(-10, 11))
+                            if np.count_nonzero(~hits_select) / hits_select.shape[0] > 1e-3:
+                                logging.warning('Consider increasing shape of count_pixel_hits_2d_hist')
                             ravel_indices = np.ravel_multi_index((actual_bin_center_col_row_pair[hits_select, 0], actual_bin_center_col_row_pair[hits_select, 1], actual_col_index[hits_select], actual_row_index[hits_select]), dims=count_pixel_hits_2d_hist.shape)
                             unique_indices, unique_indices_count = np.unique(ravel_indices, return_counts=True)
                             count_pixel_hits_2d_hist.reshape(-1)[unique_indices] += unique_indices_count

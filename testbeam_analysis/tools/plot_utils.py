@@ -1387,9 +1387,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         bin_center_col_row_pair_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
         bin_indices_sel = bin_indices[np.ravel(select_bins)]
         _, pixel_center_col_row_pair_index_sel = pixel_center_kd_tree.query(bin_center_col_row_pair_data_sel)
-        max_pixel_index_hist = np.column_stack(np.unravel_index(np.argmax(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0] * count_pixel_hits_2d_hist.shape[1], -1), axis=1), dims=(7, 7)))
-        max_pixel_index_hist[np.ravel(select_bins), 0] -= 3
-        max_pixel_index_hist[np.ravel(select_bins), 1] -= 3
+        max_pixel_index_hist = np.column_stack(np.unravel_index(np.argmax(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0] * count_pixel_hits_2d_hist.shape[1], -1), axis=1), dims=count_pixel_hits_2d_hist.shape[2:]))
+        max_pixel_index_hist[np.ravel(select_bins), 0] -= int(count_pixel_hits_2d_hist.shape[2] / 2)
+        max_pixel_index_hist[np.ravel(select_bins), 1] -= int(count_pixel_hits_2d_hist.shape[3] / 2)
         pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
         bin_center_col_row_pair_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
         _, bin_center_to_pixel_center_index = pixel_center_kd_tree.query(bin_center_col_row_pair_data)
