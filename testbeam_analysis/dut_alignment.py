@@ -331,6 +331,8 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
 
     if gui:
         return figs
+    else:
+        return output_telescope_configuration
 
 
 def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
@@ -536,7 +538,10 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     logging.info('=== Alignment of %d DUTs ===' % len(set(np.unique(np.hstack(np.array(align_duts))).tolist())))
 
     if output_telescope_configuration is None:
-        output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
+        if 'prealigned' in telescope_configuration:
+            output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned')
+        else:
+            output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
 
     telescope.save_configuration(configuration_file=output_telescope_configuration)
 
@@ -688,6 +693,8 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             use_limits=use_limits,
             plot=plot,
             chunk_size=chunk_size)
+
+    return output_telescope_configuration
 
 
 def _duts_alignment(telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
