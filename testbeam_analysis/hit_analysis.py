@@ -22,7 +22,7 @@ from testbeam_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_
 
 
 def convert(telescope_configuration, input_hit_files, output_hit_files=None, select_duts=None, index_to_local=True, chunk_size=1000000):
-    '''"Checking hit files. Wrapper for check_file(). For detailed description of the parameters see check_file().
+    '''"Converting hit files. Wrapper for convert_coordinates(). For detailed description of the parameters see convert_coordinates().
 
     Parameters
     ----------

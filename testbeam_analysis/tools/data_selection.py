@@ -272,8 +272,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     hit_mask |= (1 << dut)
                 for dut in select_no_hit_duts[index]:
                     hit_mask |= (1 << dut)
-                print hit_flags, bin(hit_flags)
-                print hit_mask, bin(hit_mask)
+                print 'hit_flags:', bin(hit_flags)
+                print 'hit_mask:', bin(hit_mask)
                 quality_flags = 0
                 quality_mask = 0
                 for dut in select_quality_duts[index]:
@@ -281,8 +281,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     quality_mask |= (1 << dut)
                 for dut in select_no_quality_duts[index]:
                     quality_mask |= (1 << dut)
-                print quality_flags, bin(quality_flags)
-                print quality_mask, bin(quality_mask)
+                print 'quality_flags:', bin(quality_flags)
+                print 'quality_mask:', bin(quality_mask)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,
