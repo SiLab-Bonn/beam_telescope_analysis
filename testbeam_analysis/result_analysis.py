@@ -577,6 +577,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         Filename of the input tracks file.
     select_duts : iterable
         Selecting DUTs that will be processed.
+    input_cluster_files : list of strings
+        Filenames of the input cluster files with ClusterHits table for each selected DUT.
     resolutions : list or tuple
         Resolution of the histogram in x and y direction (in um) for each selected DUT.
         If None, the resolution will be set to the pixel size.
