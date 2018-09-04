@@ -25,7 +25,7 @@ testbeam_analysis_dtype = np.dtype([
     ('charge', np.uint16)])
 
 
-def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2):
+def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2, timing_offset=None):
     ''' Process and format raw data.
 
     Parameters
@@ -43,7 +43,7 @@ def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2):
         Filenames of the output interpreted and formatted data files.
     '''
     analyzed_data_file = os.path.splitext(raw_data_file)[0] + '_interpreted.h5'
-    with data_interpreter.DataInterpreter(raw_data_file=raw_data_file, analyzed_data_file=analyzed_data_file, trigger_data_format=trigger_data_format, create_pdf=True) as mimosa_data_interpreter:
+    with data_interpreter.DataInterpreter(raw_data_file=raw_data_file, analyzed_data_file=analyzed_data_file, trigger_data_format=trigger_data_format, timing_offset=timing_offset, create_pdf=True) as mimosa_data_interpreter:
         mimosa_data_interpreter.create_occupancy_hist = True
         mimosa_data_interpreter.create_error_hist = True
         mimosa_data_interpreter.create_hit_table = True
