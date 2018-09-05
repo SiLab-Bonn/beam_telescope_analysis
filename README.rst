@@ -4,15 +4,13 @@ Introduction
 
 |travis-status|  |appveyor-status|  |coverage|  |doc|
 
-Testbeam analysis is a simple to use software to analyse pixel-sensor data taken in a particle-beam telescope-setup.
-All steps of a complete analysis are implemented with a few independent python functions.
-For a quick first impression check the examples in the documentation.
-
-In a future release it is forseen to enhance the alignment to work more reliable.
+The testbeam analysis package is for the analysis of pixel detector data together with data from a beam telescope in a particle beam.
+All steps of from raw data conversion to telescope alignment and finally efficiency calculation and plotting are provided and implemented in separate functions.
+For a first impression, please check the examples in the documentation and inside the examples folder.
 
 Installation
 ============
-You have to have Python 2/3 with the following modules installed:
+The following modules are required:
   - cython
   - dill
   - future
@@ -28,28 +26,30 @@ You have to have Python 2/3 with the following modules installed:
   - pyyaml
   - scipy
 
-If you are new to Python please look at the installation guide in the wiki.
-Since it is recommended to change example files according to your needs you should install the module with
+If you are new to Python, please have a look at the installation guide in the wiki.
+We recommend to use to use `Anaconda/Miniconda <https://conda.io/docs/user-guide/install/download.html>`_ Python to ease the installation of the dependencies.
+
+Clone the testbeam analysis repository and run the following commands inside the testbeam_analysis folder:
 
 .. code-block:: bash
 
-   conda install python=2.7 cython dill future matplotlib numba numexpr numpy numpydoc pytables pyyaml scipy
+   conda install cython dill future matplotlib numba numexpr numpy numpydoc pytables pyyaml scipy
    pip install pixel_clusterizer progressbar-latest pylandau
    python setup.py develop
 
 This does not copy the code to a new location, but just links to it.
-Uninstall:
+Uninstall with:
 
 .. code-block:: bash
 
    pip uninstall testbeam_analysis
 
 
-Example usage
-==============
+Example Usage
+=============
 Check the examples folder with data and examples of a Mimosa26 and a FE-I4 telescope analysis.
 Run eutelescope_example.py or fei4_telescope_example.py in the example folder and check the text output to
-the console as well as the plot and data files that are created to understand what is going on.
+the console as well as the plots and data files that are created to understand what is going on.
 In the examples folder type e.g.:
 
 .. code-block:: bash
