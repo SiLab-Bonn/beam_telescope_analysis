@@ -1217,6 +1217,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         column=pixel_indices[:, 0] + 1,
         row=pixel_indices[:, 1] + 1)
     pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
+    _, regions, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
 
     mesh_color = 'red'
     mesh_line_width = 0.5
@@ -1227,7 +1228,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color='r')
-    _, regions, ridge_vertices, vertices = testbeam_analysis.tools.analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=True, line_width=mesh_line_width, line_alpha=1.0, line_color=mesh_color, point_size=mesh_point_size, point_alpha=1.0, point_color=mesh_color)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
