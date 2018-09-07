@@ -617,8 +617,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError('Parameter "input_cluster_files" has wrong length.')
 
     efficiencies = []
-    pass_tracks = []
-    total_tracks = []
     figs = [] if gui else None
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         with tb.open_file(output_efficiency_file, mode='w') as out_file_h5:
@@ -641,6 +639,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_y_extent = telescope[actual_dut_index].y_extent(global_position=False)
                 dut_y_size = dut_y_extent[1] - dut_y_extent[0]
                 dut_extent = [dut_x_extent[0], dut_x_extent[1], dut_y_extent[0], dut_y_extent[1]]
+
                 # DUT hist size
                 dut_x_center = 0.0
                 dut_hist_x_size = math.ceil(dut_x_size / resolution[0]) * resolution[0]
@@ -654,6 +653,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     dut_hist_y_extent_area = math.ceil(extend_area / resolution[1]) * resolution[1] * 2.0
                     dut_hist_y_size += dut_hist_y_extent_area
                 dut_hist_y_extent = [dut_y_center - dut_hist_y_size / 2.0, dut_y_center + dut_hist_y_size / 2.0]
+                hist_extent = [dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]]
                 hist_2d_x_n_bins = int(dut_hist_x_size / resolution[0])
                 hist_2d_y_n_bins = int(dut_hist_y_size / resolution[1])
                 hist_2d_x_edges = np.linspace(dut_hist_x_extent[0], dut_hist_x_extent[1], hist_2d_x_n_bins + 1, endpoint=True)
@@ -663,19 +663,19 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     plot_range = plot_ranges[index]
                 else:
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
-                # if in_pixel is True:
-                #     n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
-                #     if len(n_bins_in_pixel) == 1:
-                #         actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
-                #         actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
-                #     else:
-                #         actual_bin_size_in_pixel_x = n_bins_in_pixel[index][0]
-                #         actual_bin_size_in_pixel_y = n_bins_in_pixel[index][1]
+                if in_pixel is True:
+                    n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
+                    if len(n_bins_in_pixel) == 1:
+                        actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
+                        actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
+                    else:
+                        actual_bin_size_in_pixel_x = n_bins_in_pixel[index][0]
+                        actual_bin_size_in_pixel_y = n_bins_in_pixel[index][1]
 
-                # if in_pixel is True:
-                #     total_hit_hist_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), dtype=np.uint32)
-                #     total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
-                #     total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
+                if in_pixel is True:
+                    total_hit_hist_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), dtype=np.uint32)
+                    total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
+                    total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
 
                 pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
                 local_x, local_y, _ = actual_dut.index_to_local_position(
@@ -726,9 +726,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
 
                     select_valid_hit = ~np.isnan(hit_x_local)
                     if cut_distances is not None and cut_distances[index] is not None:
-                        # Select data where distance between the hit and track is smaller than the given value
-                        # Suppress numpy warning with nan_to_num
-                        select_valid_hit &= (np.nan_to_num(distance_local) <= cut_distances[index])
+                        cut_distance = np.float(cut_distances[index])
+                    else:
+                        cut_distance = np.inf
+                    # Select data where distance between the hit and track is smaller than the given value
+                    # Numpy RuntimeWarning may happen here
+                    select_valid_hit &= (distance_local <= cut_distance)
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -800,28 +803,28 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_1d_charge_hist += count_1d_charge_hist_tmp
 
                     # # project intersections and hits onto n x n pixel area
-                    # if in_pixel is True:
-                    #     n = n_pixel_projection  # select pixel areas (n x n)
-                    #     hit_x_local_projection = np.mod(hit_x_local, np.array([n * actual_dut.column_size] * len(hit_x_local)))
-                    #     hit_y_local_projection = np.mod(hit_y_local, np.array([n * actual_dut.row_size] * len(hit_y_local)))
-                    #     intersection_x_local_projection = np.mod(intersection_x_local, np.array([n * actual_dut.column_size] * len(intersections_local[:, 0])))
-                    #     intersection_y_local_projection = np.mod(intersection_y_local, np.array([n * actual_dut.row_size] * len(intersections_local[:, 1])))
-                    #     intersection_valid_hit_projection_x = np.mod(intersection_valid_hit[:, 0], np.array([n * actual_dut.column_size] * len(intersection_valid_hit[:, 0])))
-                    #     intersection_valid_hit_projection_y = np.mod(intersection_valid_hit[:, 1], np.array([n * actual_dut.row_size] * len(intersection_valid_hit[:, 1])))
+                    if in_pixel is True:
+                        n = n_pixel_projection  # select pixel areas (n x n)
+                        hit_x_local_projection = np.mod(hit_x_local, np.array([n * actual_dut.column_size] * len(hit_x_local)))
+                        hit_y_local_projection = np.mod(hit_y_local, np.array([n * actual_dut.row_size] * len(hit_y_local)))
+                        intersection_x_local_projection = np.mod(intersection_x_local, np.array([n * actual_dut.column_size] * len(intersections_local[:, 0])))
+                        intersection_y_local_projection = np.mod(intersection_y_local, np.array([n * actual_dut.row_size] * len(intersections_local[:, 1])))
+                        intersection_valid_hit_projection_x = np.mod(intersection_valid_hit[:, 0], np.array([n * actual_dut.column_size] * len(intersection_valid_hit[:, 0])))
+                        intersection_valid_hit_projection_y = np.mod(intersection_valid_hit[:, 1], np.array([n * actual_dut.row_size] * len(intersection_valid_hit[:, 1])))
 
-                    #     intersections_local_projection = np.column_stack((intersection_x_local_projection, intersection_y_local_projection))
-                    #     hits_local_projection = np.column_stack((hit_x_local_projection, hit_y_local_projection))
-                    #     intersections_valid_hit_projection = np.column_stack((intersection_valid_hit_projection_x, intersection_valid_hit_projection_y))
+                        intersections_local_projection = np.column_stack((intersection_x_local_projection, intersection_y_local_projection))
+                        hits_local_projection = np.column_stack((hit_x_local_projection, hit_y_local_projection))
+                        intersections_valid_hit_projection = np.column_stack((intersection_valid_hit_projection_x, intersection_valid_hit_projection_y))
 
-                    #     total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1],
-                    #                                                 bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                    #                                                 range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]).astype(np.uint32)
-                    #     total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1],
-                    #                                                     bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                    #                                                     range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
-                    #     total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1],
-                    #                                                                  bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                    #                                                                  range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
+                        total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1],
+                                                                    bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                    range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]).astype(np.uint32)
+                        total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1],
+                                                                        bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                        range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
+                        total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1],
+                                                                                     bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
+                                                                                     range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
 
                     if in_cluster_file_h5:
                         binnumber = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges, expand_binnumbers=True).binnumber
@@ -874,15 +877,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 eff, eff_err_min, eff_err_pl = analysis_utils.get_mean_efficiency(
                     array_pass=count_tracks_with_hit_2d_hist,
                     array_total=count_tracks_2d_hist)
-
-                logging.info('Efficiency = %.4f (+%.4f/%.4f)%%' % (eff, eff_err_pl, eff_err_min))
-                efficiencies.append(np.ma.mean(stat_2d_efficiency_hist))
+                logging.info('Selected tracks / total tracks: %d / %d', count_tracks_with_hit_2d_hist.sum(), count_tracks_2d_hist.sum())
+                logging.info('Efficiency = %.4f (+%.4f / %.4f)%%' % (eff, eff_err_pl, eff_err_min))
+                efficiencies.append((eff, eff_err_min, eff_err_pl))
 
                 # Calculate in-pixel-efficiency
-                # if in_pixel is True:
-                #     in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
-                #     in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float32) / total_track_density_projected[total_track_density_projected != 0].astype(np.float32) * 100.0
-                #     in_pixel_efficiency = np.ma.array(in_pixel_efficiency, mask=total_track_density_projected < minimum_track_density)
+                if in_pixel is True:
+                    in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
+                    in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float32) / total_track_density_projected[total_track_density_projected != 0].astype(np.float32) * 100.0
+                    in_pixel_efficiency = np.ma.array(in_pixel_efficiency, mask=total_track_density_projected < minimum_track_density)
+                else:
+                    in_pixel_efficiency = None
                 if not np.any(stat_2d_efficiency_hist):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut_index)
 
@@ -930,7 +935,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency=[eff, eff_err_pl, eff_err_min],
                         actual_dut_index=actual_dut_index,
                         dut_extent=dut_extent,
-                        hist_extent=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
+                        hist_extent=hist_extent,
                         plot_range=plot_range,
                         in_pixel_efficiency=None,
                         plot_range_in_pixel=None,
@@ -939,47 +944,140 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         gui=gui,
                         figs=figs)
 
-
-
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT%d' % actual_dut_index)
 
-                out_efficiency = out_file_h5.create_carray(dut_group, name='Efficiency', title='Efficiency map of DUT%d' % actual_dut_index,
-                                                           atom=tb.Atom.from_dtype(stat_2d_efficiency_hist.dtype), shape=stat_2d_efficiency_hist.T.shape,
-                                                           filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_efficiency_mask = out_file_h5.create_carray(dut_group, name='Efficiency_mask', title='Masked pixel map of DUT%d' % actual_dut_index,
-                                                                atom=tb.Atom.from_dtype(stat_2d_efficiency_hist.mask.dtype), shape=stat_2d_efficiency_hist.mask.T.shape,
-                                                                filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_hist_2d_x_edges = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='hist_2d_x_edges',
+                    title='hist_2d_x_edges for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(hist_2d_x_edges.dtype),
+                    shape=hist_2d_x_edges.shape)
+                out_hist_2d_x_edges[:] = hist_2d_x_edges
+
+                out_hist_2d_y_edges = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='hist_2d_y_edges',
+                    title='hist_2d_y_edges for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(hist_2d_y_edges.dtype),
+                    shape=hist_2d_y_edges.shape)
+                out_hist_2d_y_edges[:] = hist_2d_y_edges
+
+                out_count_hits_2d_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_hits_2d_hist',
+                    title='count_hits_2d_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_hits_2d_hist.dtype),
+                    shape=count_hits_2d_hist.shape)
+                out_count_hits_2d_hist[:] = count_hits_2d_hist
+
+                out_count_tracks_2d_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_tracks_2d_hist',
+                    title='count_tracks_2d_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_tracks_2d_hist.dtype),
+                    shape=count_tracks_2d_hist.shape)
+                out_count_tracks_2d_hist[:] = count_tracks_2d_hist
+
+                out_count_tracks_with_hit_2d_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_tracks_with_hit_2d_hist',
+                    title='count_tracks_with_hit_2d_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_tracks_with_hit_2d_hist.dtype),
+                    shape=count_tracks_with_hit_2d_hist.shape)
+                out_count_tracks_with_hit_2d_hist[:] = count_tracks_with_hit_2d_hist
+
+                out_stat_2d_x_residuals_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_x_residuals_hist',
+                    title='stat_2d_x_residuals_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_x_residuals_hist.dtype),
+                    shape=stat_2d_x_residuals_hist.shape)
+                out_stat_2d_x_residuals_hist[:] = stat_2d_x_residuals_hist
+
+                out_stat_2d_y_residuals_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_y_residuals_hist',
+                    title='stat_2d_y_residuals_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_y_residuals_hist.dtype),
+                    shape=stat_2d_y_residuals_hist.shape)
+                out_stat_2d_y_residuals_hist[:] = stat_2d_y_residuals_hist
+
+                out_stat_2d_residuals_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_residuals_hist',
+                    title='stat_2d_residuals_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_residuals_hist.dtype),
+                    shape=stat_2d_residuals_hist.shape)
+                out_stat_2d_residuals_hist[:] = stat_2d_residuals_hist
+
+                out_count_1d_charge_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_charge_hist',
+                    title='count_1d_charge_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_charge_hist.dtype),
+                    shape=count_1d_charge_hist.shape)
+                out_count_1d_charge_hist[:] = count_1d_charge_hist
+
+                out_stat_2d_charge_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_charge_hist',
+                    title='stat_2d_charge_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_charge_hist.dtype),
+                    shape=stat_2d_charge_hist.shape)
+                out_stat_2d_charge_hist[:] = stat_2d_charge_hist
+
+                out_stat_2d_efficiency_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_efficiency_hist',
+                    title='stat_2d_efficiency_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_efficiency_hist.dtype),
+                    shape=stat_2d_efficiency_hist.shape)
+                out_stat_2d_efficiency_hist[:] = stat_2d_efficiency_hist
+
+                out_stat_pixel_efficiency_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_pixel_efficiency_hist',
+                    title='stat_pixel_efficiency_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_pixel_efficiency_hist.dtype),
+                    shape=stat_pixel_efficiency_hist.shape)
+                out_stat_pixel_efficiency_hist[:] = stat_pixel_efficiency_hist
+
+                out_stat_2d_efficiency_hist_mask = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_efficiency_hist_mask',
+                    title='stat_2d_efficiency_hist_mask for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_efficiency_hist.mask.dtype),
+                    shape=stat_2d_efficiency_hist.mask.shape)
+                out_stat_2d_efficiency_hist_mask[:] = stat_2d_efficiency_hist.mask
+
+                if in_cluster_file_h5:
+                    out_count_pixel_hits_2d_hist = out_file_h5.create_carray(
+                        where=dut_group,
+                        name='count_pixel_hits_2d_hist',
+                        title='count_pixel_hits_2d_hist for DUT%d' % actual_dut_index,
+                        atom=tb.Atom.from_dtype(count_pixel_hits_2d_hist.dtype),
+                        shape=count_pixel_hits_2d_hist.shape)
+                    out_count_pixel_hits_2d_hist[:] = count_pixel_hits_2d_hist
 
                 if in_pixel is True:
-                    out_in_pixel_efficiency = out_file_h5.create_carray(dut_group, name='In_Pixel_Efficiency', title='In-Pixel-Efficiency map of DUT%d' % actual_dut_index,
-                                                                        atom=tb.Atom.from_dtype(in_pixel_efficiency.dtype), shape=in_pixel_efficiency.T.shape,
-                                                                        filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-
-                # For correct statistical error calculation the number of detected tracks over total tracks is needed
-                out_pass = out_file_h5.create_carray(dut_group, name='Passing_tracks', title='Passing events of DUT%d' % actual_dut_index,
-                                                     atom=tb.Atom.from_dtype(count_tracks_with_hit_2d_hist.dtype), shape=count_tracks_with_hit_2d_hist.T.shape,
-                                                     filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_total = out_file_h5.create_carray(dut_group, name='Total_tracks', title='Total events of DUT%d' % actual_dut_index,
-                                                      atom=tb.Atom.from_dtype(count_tracks_2d_hist.dtype), shape=count_tracks_2d_hist.T.shape,
-                                                      filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-
-                pass_tracks.append(count_tracks_with_hit_2d_hist.sum())
-                total_tracks.append(count_tracks_2d_hist.sum())
-                logging.info('Passing / total tracks: %d / %d', count_tracks_with_hit_2d_hist.sum(), count_tracks_2d_hist.sum())
+                    out_in_pixel_efficiency = out_file_h5.create_carray(
+                        where=dut_group,
+                        name='in_pixel_efficiency',
+                        title='in_pixel_efficiency for DUT%d' % actual_dut_index,
+                        atom=tb.Atom.from_dtype(in_pixel_efficiency.dtype),
+                        shape=in_pixel_efficiency.shape)
+                    out_in_pixel_efficiency[:] = in_pixel_efficiency
 
                 # Store parameters used for efficiency calculation
-                # out_efficiency.attrs.bin_size = bin_size
-                out_efficiency.attrs.minimum_track_density = minimum_track_density
-                # out_efficiency.attrs.sensor_size = sensor_size
-                out_efficiency.attrs.cut_distance = cut_distances[index]
-                out_efficiency.attrs.hist_x_extent = dut_hist_x_extent
-                out_efficiency.attrs.hist_y_extent = dut_hist_y_extent
-                out_efficiency[:] = stat_2d_efficiency_hist.T
-                if in_pixel is True:
-                    out_in_pixel_efficiency[:] = in_pixel_efficiency.T
-                out_efficiency_mask[:] = stat_2d_efficiency_hist.mask.T
-                out_pass[:] = count_tracks_with_hit_2d_hist.T
-                out_total[:] = count_tracks_2d_hist.T
+                dut_group._v_attrs.resolution = resolution
+                dut_group._v_attrs.extend_area = extend_area
+                dut_group._v_attrs.plot_range = plot_range
+                dut_group._v_attrs.minimum_track_density = minimum_track_density
+                dut_group._v_attrs.cut_distance = cut_distance
+                dut_group._v_attrs.efficiency = (eff, eff_err_min, eff_err_pl)
+                dut_group._v_attrs.dut_extent = dut_extent
+                dut_group._v_attrs.hist_extent = hist_extent
+
                 if in_cluster_file_h5:
                     try:
                         in_cluster_file_h5.close()
@@ -994,7 +1092,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     if gui:
         return figs
 
-    return eff, eff_err_min, eff_err_pl
+    return efficiencies
 
 
 def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bin_size, output_purity_file=None, minimum_hit_density=10, cut_distance=None, local_x_range=None, local_y_range=None, plot=True, chunk_size=1000000):
