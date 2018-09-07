@@ -50,10 +50,10 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
             z_max = ceil(hist2d.max())
     if isinstance(cmap, basestring):
         cmap = cm.get_cmap(cmap)
+        cmap.set_bad('w')
     else:
         cmap = cmap
-    cmap.set_bad('w')
-    im = ax.imshow(hist2d, interpolation='none', origin='lower', aspect="auto", extent=plot_range, cmap=cmap, clim=(0, z_max))
+    im = ax.imshow(hist2d, interpolation='none', origin='lower', aspect="auto", extent=plot_range, cmap=cmap, clim=(z_min, z_max))
     if title is not None:
         ax.set_title(title)
     if x_axis_title is not None:
@@ -1325,6 +1325,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
     colors = np.linspace(0.0, 1.0, num=100)
     cmap = cm.get_cmap('tab20')
+    cmap.set_bad('w')
     rgb_colors = np.array([cmap(color) for color in colors])
     valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
     num_colors = len(valid_color_indices)
@@ -1399,6 +1400,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
         colors = np.linspace(0.0, 1.0, num=100)
         cmap = cm.get_cmap('tab20')
+        cmap.set_bad('w')
         rgb_colors = np.array([cmap(color) for color in colors])
         valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
         num_colors = len(valid_color_indices)
