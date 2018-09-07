@@ -1322,7 +1322,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     pixel_center_kd_tree = cKDTree(pixel_center_col_row_pair_data)
     _, res_center_col_row_pair_index_sel = pixel_center_kd_tree.query(residual_vetors)
     _, pixel_center_col_row_pair_index_sel = pixel_center_kd_tree.query(bin_center_col_row_pair_data_sel)
-    effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+    effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
     colors = np.linspace(0.0, 1.0, num=100)
     cmap = cm.get_cmap('tab20')
     cmap.set_bad('w')
@@ -1335,7 +1335,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     rgb_colors = rgb_colors[valid_color_indices]
     rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
     color_index_array = np.full(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int8, fill_value=-1)
-    color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+    color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
     color_index = 0
     for pixel_index, pixel_position in enumerate(pixel_center_col_row_pair_data):
         res_center_col_row_pair_data_indices = np.where(res_center_col_row_pair_index_sel == pixel_index)[0]
@@ -1397,7 +1397,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         max_hits_pixel_col_row = pixel_indices[bin_center_to_pixel_center_index] + max_pixel_index_hist
         max_hits_pixel_index = np.ravel_multi_index(max_hits_pixel_col_row.T, dims=(actual_dut.n_columns, actual_dut.n_rows))
         max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
-        effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+        effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
         colors = np.linspace(0.0, 1.0, num=100)
         cmap = cm.get_cmap('tab20')
         cmap.set_bad('w')
@@ -1410,7 +1410,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         rgb_colors = rgb_colors[valid_color_indices]
         rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
         color_index_array = np.full(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int8, fill_value=-1)
-        color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float, fill_value=np.nan)
+        color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
         color_index = 0
         for pixel_index, pixel_position in enumerate(pixel_center_col_row_pair_data):
             actual_bin_indices_sel = np.where((max_hits_pixel_index_sel == pixel_index))[0]
@@ -1548,7 +1548,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         # bin_center_col_row_pair_dut = bin_center_col_row_pair_data[select]
         # _, pixel_center_col_row_pair_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_dut)
         # pixel_efficiencies = []
-        # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float)
+        # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float32)
         # for pixel_index, pixel in enumerate(pixel_center_col_row_pair_data):
         #     bin_center_col_row_pair_data_indices = np.where(pixel_center_col_row_pair_index == pixel_index)[0]
         #     bin_center_col_row_pair_data_positions = bin_center_col_row_pair_dut[bin_center_col_row_pair_data_indices]
