@@ -103,7 +103,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.set_title('Occupancy of %s' % (dut_name, ))
+        ax.set_title('Occupancy for %s' % (dut_name, ))
         ax.imshow(occupancy, aspect=aspect, cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max), extent=[0.5, occupancy.shape[1] + 0.5, 0.5, occupancy.shape[0] + 0.5])
         ax.set_xlim(0.5, occupancy.shape[1] + 0.5)
         ax.set_ylim(0.5, occupancy.shape[0] + 0.5)
@@ -141,9 +141,9 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
             fig = Figure()
             _ = FigureCanvas(fig)
             # title of the page
-            fig.suptitle('Occupancy of %s%s' % (dut_name, '\n(noisy and disabled pixels masked)' if masked_hits else ''))
+            fig.suptitle('Occupancy for %s%s' % (dut_name, '\n(noisy and disabled pixels masked)' if masked_hits else ''))
             ax = fig.add_subplot(111)
-            # ax.set_title('Occupancy of %s' % (dut_name, ))
+            # ax.set_title('Occupancy for %s' % (dut_name, ))
             im = ax.imshow(np.ma.getdata(occupancy), aspect='auto', cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max), extent=[0.5, occupancy.shape[1] + 0.5, 0.5, occupancy.shape[0] + 0.5])
             # np.ma.filled(occupancy, fill_value=0)
             ax.set_xlim(0.5, occupancy.shape[1] + 0.5)
@@ -244,7 +244,7 @@ def plot_cluster_size(input_cluster_file, dut_name=None, output_pdf_file=None, c
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.bar(left, hight, align='center')
-        ax.set_title('Cluster size of %s\n(%i hits in %i clusters)' % (dut_name, n_hits, n_clusters))
+        ax.set_title('Cluster size for %s\n(%i hits in %i clusters)' % (dut_name, n_hits, n_clusters))
         ax.set_xlabel('Cluster size')
         ax.set_ylabel('#')
         ax.grid()
@@ -261,7 +261,7 @@ def plot_cluster_size(input_cluster_file, dut_name=None, output_pdf_file=None, c
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.bar(left, hight, align='center')
-        ax.set_title('Cluster size of %s\n(%i hits in %i clusters)' % (dut_name, n_hits, n_clusters))
+        ax.set_title('Cluster size for %s\n(%i hits in %i clusters)' % (dut_name, n_hits, n_clusters))
         ax.set_xlabel('Cluster size')
         ax.set_ylabel('#')
         ax.grid()
@@ -455,8 +455,8 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.bar(x, cluster_size_hist, align='center')
-                # ax.set_title('Cluster sizes%s\n(%d hits in %d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
-                ax.set_title('Cluster sizes%s\n(%d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_clusters))
+                # ax.set_title('Cluster sizes%s\n(%d hits in %d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                ax.set_title('Cluster sizes%s\n(%d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_clusters))
                 ax.set_xlabel('Cluster size')
                 ax.set_ylabel('#')
                 ax.grid()
@@ -495,8 +495,8 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                                     u"\u2004\u2596\u2596\u2596",  # 3 hit cluster, horizontal
                                     u"\u2004\u2596\n\u2004\u2596\n\u2004\u2596",  # 3 hit cluster, vertical
                                     u"\u2597\u2009\u2596\n\u259d\u2009\u2598"])  # 4 hit cluster
-                # ax.set_title('Cluster shapes%s\n(%d hits in %d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_hits, n_clusters))
-                ax.set_title('Cluster shapes%s\n(%d clusters)' % ((" of %s" % dut_name) if dut_name else "", n_clusters))
+                # ax.set_title('Cluster shapes%s\n(%d hits in %d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_hits, n_clusters))
+                ax.set_title('Cluster shapes%s\n(%d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_clusters))
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
                 ax.grid()
@@ -1233,7 +1233,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
     ax.set_ylim(plot_range[1])
-    ax.set_title('Pixel cells of %s' % actual_dut.name)
+    ax.set_title('Pixel locations for %s' % actual_dut.name)
     if gui:
         figs.append(fig)
     else:
@@ -1300,7 +1300,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.quiver(x_meshgrid[select_bins], y_meshgrid[select_bins], np.nan_to_num(stat_2d_x_residuals_hist[select_bins]), np.nan_to_num(stat_2d_y_residuals_hist[select_bins]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
-    ax.set_title('Residuals of %s' % actual_dut.name)
+    ax.set_title('Residuals for %s' % actual_dut.name)
     ax.set_xlabel("column [$\mathrm{\mu}$m]")
     ax.set_ylabel("row [$\mathrm{\mu}$m]")
     ax.set_xlim(plot_range[0])
@@ -1367,10 +1367,10 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_color, markeredgecolor='k', markeredgewidth=0.1)  # , markerfacecolor='k', markeredgecolor='k'
         color_index += 1
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel sizes for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
+    plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel locations for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
-    ax.set_title('Effective pixel sizes %s' % actual_dut.name)
+    ax.set_title('Effective pixel locations for %s' % actual_dut.name)
     ax.set_xlabel("column [$\mathrm{\mu}$m]")
     ax.set_ylabel("row [$\mathrm{\mu}$m]")
     ax.set_xlim(plot_range[0])
@@ -1437,10 +1437,10 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_color, markeredgecolor='k', markeredgewidth=0.1)  # , markerfacecolor='k', markeredgecolor='k'
             color_index += 1
         _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_col_row_pair_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-        plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel sizes for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
+        plot_2d_pixel_hist(fig, ax, effective_pixels_2d.T, hist_extent, title='Effective pixel locations for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
-        ax.set_title('Effective pixel sizes %s' % actual_dut.name)
+        ax.set_title('Effective pixel locations for %s' % actual_dut.name)
         ax.set_xlabel("column [$\mathrm{\mu}$m]")
         ax.set_ylabel("row [$\mathrm{\mu}$m]")
         ax.set_xlim(plot_range[0])
@@ -1469,7 +1469,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax = fig.add_subplot(111)
     hist_charge_95, indices = testbeam_analysis.tools.analysis_utils.hist_quantiles(hist=count_1d_charge_hist, prob=(0.0, 0.99), return_indices=True)
     ax.bar(x=range(indices[1] + 1), height=hist_charge_95[:indices[1] + 1], align='center')
-    ax.set_title('Charge distribution of %s' % actual_dut.name)
+    ax.set_title('Charge distribution for %s' % actual_dut.name)
     if gui:
         figs.append(fig)
     else:
@@ -1854,7 +1854,7 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
                                                                                                                                                                                fit[4],
                                                                                                                                                                                np.absolute(pcov[4][4]) ** 0.5)
                     ax.plot(x, fitted_correlations, color='k', label=fit_label)
-                    ax.set_title("%s residual correlation of %s" % (direction.title(), dut_name))
+                    ax.set_title("%s residual correlation for %s" % (direction.title(), dut_name))
                     ax.set_ylabel("Correlation of %s residuals" % (direction,))
                     ax.set_xlabel("Track distance [$\mathrm{\mu}$m]")
                     ax.legend(loc="upper right")

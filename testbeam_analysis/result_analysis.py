@@ -1239,12 +1239,12 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
 
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT%d' % actual_dut_index)
 
-                out_purity = out_file_h5.create_carray(dut_group, name='Purity', title='Purity map of DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.dtype), shape=purity.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_purity_mask = out_file_h5.create_carray(dut_group, name='Purity_mask', title='Masked pixel map of DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.mask.dtype), shape=purity.mask.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_purity = out_file_h5.create_carray(dut_group, name='Purity', title='Purity map for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.dtype), shape=purity.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_purity_mask = out_file_h5.create_carray(dut_group, name='Purity_mask', title='Masked pixel map for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.mask.dtype), shape=purity.mask.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
                 # For correct statistical error calculation the number of pure hits over total hits is needed
-                out_pure_hits = out_file_h5.create_carray(dut_group, name='Pure_hits', title='Passing events of DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_pure_hit_hist.dtype), shape=total_pure_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_total_total = out_file_h5.create_carray(dut_group, name='Total_hits', title='Total events of DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_hit_hist.dtype), shape=total_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_pure_hits = out_file_h5.create_carray(dut_group, name='Pure_hits', title='Passing events for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_pure_hit_hist.dtype), shape=total_pure_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_total_total = out_file_h5.create_carray(dut_group, name='Total_hits', title='Total events for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_hit_hist.dtype), shape=total_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
 
                 pure_hits.append(total_pure_hit_hist.sum())
                 total_hits.append(total_hit_hist.sum())
