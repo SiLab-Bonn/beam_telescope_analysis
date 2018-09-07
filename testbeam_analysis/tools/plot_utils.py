@@ -1381,6 +1381,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         output_pdf.savefig(fig)
 
     if count_pixel_hits_2d_hist is not None:
+        x_resolution = np.diff(hist_2d_edges[0])[0]
+        y_resolution = np.diff(hist_2d_edges[1])[0]
+        pixel_sizes = np.full(pixel_center_col_row_pair_data.shape[0], dtype=np.float32, fill_value=np.nan)
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
@@ -1417,6 +1420,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             if actual_bin_indices_sel.shape[0] == 0:
                 continue
             actual_bin_col_row_indices = bin_indices_sel[actual_bin_indices_sel]
+            pixel_sizes[pixel_index] = actual_bin_col_row_indices.shape[0] * x_resolution * y_resolution
             # alternative:
             # actual_bin_indices = np.where((max_hits_pixel_index == pixel_index) & select_bins.reshape(-1))[0]
             # actual_bin_col_row_indices = np.column_stack(np.unravel_index(actual_bin_indices, dims=count_pixel_hits_2d_hist.shape[:2]))
@@ -1445,6 +1449,19 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_ylabel("row [$\mathrm{\mu}$m]")
         ax.set_xlim(plot_range[0])
         ax.set_ylim(plot_range[1])
+        if gui:
+            figs.append(fig)
+        else:
+            output_pdf.savefig(fig)
+
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=50)
+        ax.set_yscale('log')
+        ax.set_title('Effective pixel sizes for %s' % actual_dut.name)
+        ax.set_xlabel("Pixel size [$\mathrm{\mu}$m$^2$]")
+        ax.set_ylabel("#")
         if gui:
             figs.append(fig)
         else:
