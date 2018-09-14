@@ -681,19 +681,19 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 local_x, local_y, _ = actual_dut.index_to_local_position(
                     column=pixel_indices[:, 0] + 1,
                     row=pixel_indices[:, 1] + 1)
-                pixel_center_col_row_pair_data = np.column_stack((local_x, local_y))
-                points, regions, ridge_vertices, vertices = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_col_row_pair_data, dut_extent=dut_extent)
-                # pixel_center_col_row_pair_data is a subset of points
+                pixel_center_data = np.column_stack((local_x, local_y))
+                points, regions, ridge_vertices, vertices = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_data, dut_extent=dut_extent)
+                # pixel_center_data is a subset of points
                 # points includes additional image points
                 pixel_center_extended_kd_tree = cKDTree(points)
-                count_tracks_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
-                count_tracks_with_hit_pixel_hist = np.zeros(shape=pixel_center_col_row_pair_data.shape[0], dtype=np.int64)
+                count_tracks_pixel_hist = np.zeros(shape=pixel_center_data.shape[0], dtype=np.int64)
+                count_tracks_with_hit_pixel_hist = np.zeros(shape=pixel_center_data.shape[0], dtype=np.int64)
                 if in_cluster_file_h5:
                     x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
                     y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
                     y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
-                    bin_center_col_row_pair_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
-                    _, bin_center_to_pixel_center_index = cKDTree(pixel_center_col_row_pair_data).query(bin_center_col_row_pair_data)
+                    bin_center_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
+                    _, bin_center_to_pixel_center = cKDTree(pixel_center_data).query(bin_center_data)
                     shape_x = int(actual_dut.column_size / 50)
                     if shape_x % 2 == 0:
                         shape_x += 7
@@ -736,10 +736,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
                     _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
-                    count_tracks_pixel_hist += np.bincount(closest_indices)[:pixel_center_col_row_pair_data.shape[0]]
+                    count_tracks_pixel_hist += np.bincount(closest_indices)[:pixel_center_data.shape[0]]
                     # Pixel tracks with valid hit
                     _, closest_indices_with_hit = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_hit], intersection_y_local[select_valid_hit])))
-                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices_with_hit)[:pixel_center_col_row_pair_data.shape[0]]
+                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices_with_hit)[:pixel_center_data.shape[0]]
 
                     if initialize:
                         initialize = False
@@ -838,7 +838,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # actual_tracks = np.repeat(tracks_chunk[select_valid_hit][selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
                             actual_bin_center_indices = np.repeat(tracks_with_hits_to_bin_center_index[selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
                             actual_bin_center_col_row_pair = np.column_stack(np.unravel_index(actual_bin_center_indices, dims=(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1])))
-                            actual_pixel_center_indices = bin_center_to_pixel_center_index[actual_bin_center_indices]
+                            actual_pixel_center_indices = bin_center_to_pixel_center[actual_bin_center_indices]
                             actual_pixel_center_col_row_pair = np.column_stack(np.unravel_index(indices=actual_pixel_center_indices, dims=(actual_dut.n_columns, actual_dut.n_rows)))
                             actual_cluster_hits_col_row_pair = np.column_stack((actual_cluster_hits['column'] - 1, actual_cluster_hits['row'] - 1))
                             sel = actual_pixel_center_col_row_pair[:, 0] == 0
