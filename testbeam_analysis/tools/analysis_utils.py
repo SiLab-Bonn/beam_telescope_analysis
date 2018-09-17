@@ -1128,6 +1128,33 @@ def voronoi_finite_polygons_2d(points, dut_extent=None):
     return vor.points, np.array(vor.regions)[new_regions_indices].tolist(), vor_ridge_vertices[ridge_vertices_indices_with_vertex_inside].tolist(), vor.vertices
 
 
+def polygon_area(x, y):
+    ''' Calculating the polygon area using Shoelace formula/Gausssche Trapezformel.
+
+    Parameters
+    ----------
+    x : list
+        X coodinates of the polygon.
+    y : list
+        Y coodinates of the polygon.
+
+    Returns
+    -------
+    Area of the polygon.
+
+    Note: Points must be provided in clockwise/counter clockwise order.
+
+    See: https://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
+    '''
+    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+
+
+def polygon_area_multi(x, y):
+    ''' Calculating the are of multiple polygons.
+    '''
+    return 0.5 * np.abs(np.einsum('ik,ik->i', x, np.roll(y, 1, axis=1)) - np.einsum('ik,ik->i', y, np.roll(x, 1, axis=1)))
+
+
 def in1d_index(ar1, ar2, fill_invalid=None, assume_sorted=False):
     ''' Return indices of ar1 that overlap with ar2 and the indices of ar2 that occur in ar1.
 

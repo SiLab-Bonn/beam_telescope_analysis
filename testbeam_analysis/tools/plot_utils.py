@@ -1460,11 +1460,21 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=50)
+        max_region_size = 0
+        for region in regions:
+            max_region_size = max(max_region_size, len(region))
+        region_array = np.zeros((len(regions), max_region_size), dtype=np.int32)
+        for index, region in enumerate(regions):
+            region_array[index] = region + [region[-1]] * (max_region_size - len(region))
+        pixel_vertices = vertices[region_array]
+        calculated_pixel_sizes = testbeam_analysis.tools.analysis_utils.polygon_area_multi(pixel_vertices[:, :, 0], pixel_vertices[:, :, 1])
+        _, bin_edges, _ = ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=100, range=(0, np.ceil(max(np.max(pixel_sizes[np.isfinite(pixel_sizes)]), np.max(calculated_pixel_sizes)))), alpha=0.5, label='Measured pixel size')
+        ax.hist(calculated_pixel_sizes[np.isfinite(pixel_sizes)], bins=bin_edges, alpha=0.5, label='Calculated pixel size')
         ax.set_yscale('log')
         ax.set_title('Effective pixel sizes for %s' % actual_dut.name)
         ax.set_xlabel("Pixel size [$\mathrm{\mu}$m$^2$]")
         ax.set_ylabel("#")
+        ax.legend()
         if gui:
             figs.append(fig)
         else:
