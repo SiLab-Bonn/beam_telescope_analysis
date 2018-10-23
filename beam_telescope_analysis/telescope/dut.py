@@ -31,7 +31,7 @@ class Dut(object):
         '''
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)
-        init = False
+        init = True
         for item in calframe:
             if "__init__" in item[3]:
                 for function in item[4]:
@@ -206,6 +206,7 @@ class RectangularPixelDut(Dut):
         self.n_columns = n_columns
         self.n_rows = n_rows
 
+
     @property
     def column_size(self):
         return self._column_size
@@ -284,7 +285,10 @@ class RectangularPixelDut(Dut):
             np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
         if not np.all(hit_selection):
             raise ValueError("Column/row out of limits.")
+
         x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
+        x[0:2] -= 150
+        x[2:4] += 150
         y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
         z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
         return x, y, z
@@ -397,11 +401,23 @@ class FEI4(RectangularPixelDutWithDoubleColumns):
         super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
 
 
-class RD53A(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+class FEI4DCModule(RectangularPixelDut):
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha,
+                 rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
+        super(FEI4DCModule, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y,
+                                   translation_z=translation_z, rotation_alpha=rotation_alpha,
+                                   rotation_beta=rotation_beta, rotation_gamma=rotation_gamma,
+                                   column_limit=column_limit, row_limit=row_limit, material_budget=material_budget,
+                                   column_size=250.0, row_size=50.0, n_columns=160, n_rows=336)
+
+
+class RD53A(RectangularPixelDut):
+   dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+
+   def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
+       super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
 class PSI46(RectangularPixelDutWithDoubleColumns):
