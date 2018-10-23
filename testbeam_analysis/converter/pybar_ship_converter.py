@@ -287,9 +287,7 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
             moduleID = int(hit_file[hit_file.rfind('module_') + 7])
             with tb.open_file(hit_file[:-3] + '_aligned.h5', 'r') as in_file:
                 hits = in_file.root.Hits[:]
-                print "module", moduleID
-#                 print "rows", hits['row'].max()
-#                 print "columns", hits['column'].max()
+                logging.info("merging front end %s" % frontEndID)
                 if moduleID == 0 :
                     hits['row'] = -(hits['row'] - 81)
 #                     hits['row'] = hits['row'] + 80
@@ -310,13 +308,13 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
                     hits['row'] = -(hits['row'] - 337) + 336
                 elif moduleID == 6:
                     hits['column'] = -(hits['column'] - 81)
-#                     hits['row'] = (hits['row'] -337)*-1 
+#                     hits['row'] = (hits['row'] -337)*-1
                 elif moduleID == 7:
 #                     hits['row'] = (hits['row'] -337)*-1
                     hits['column'] = -(hits['column'] - 81) + 80
                 else:
                     logging.error('moduleID out of range')
-                nhits += hits.shape[0]    
+                nhits += hits.shape[0]
                 single_hit_arrays.append(hits)
         
         try:
@@ -324,12 +322,12 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
         except ValueError:
             logging.error('Empty hit array')
-            
-        print nhits
-        print merged_hits.shape
+
+        logging.info("number of hits = %s" %nhits)
+        logging.info("shape of new hit table: %s" % merged_hits.shape)
         hits_out.append(merged_hits)
-        
-        logging.info('merged run %s plane %s. File saved at: %s'%(pyBARrun, plane_number, output_file))    
+
+        logging.info('merged run %s plane %s. File saved at: %s'%(pyBARrun, plane_number, output_file))
 
 
 def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
@@ -362,9 +360,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
                 frontEndID = int(hit_file[hit_file.rfind('module_') + 7])
                 with tb.open_file(hit_file[:-3] + '_aligned.h5', 'r') as in_file:
                     hits = in_file.root.Hits[:]
-                    print "FE", frontEndID
-    #                 print "rows", hits['row'].max()
-    #                 print "columns", hits['column'].max()
+                    logging.info("merging front end %s" % frontEndID)
                     if frontEndID == 0 :
                         hits['row'] = -(hits['row'] - 81)
     #                     hits['row'] = hits['row'] + 80
@@ -375,7 +371,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
                         hits['column'] = (hits['column'] -337)*-1
                         hits['row'] = -(hits['row'] - 81)
                     elif frontEndID == 3:
-                        hits['column'] = (hits['column'] -337)*-1 
+                        hits['column'] = (hits['column'] -337)*-1
                         hits['row'] = -(hits['row'] - 81) + 80
                     elif frontEndID == 4:
                         hits['column'] = -(hits['column'] - 81)
@@ -385,13 +381,13 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
 #                         hits['row'] = -(hits['row'] - 337) + 336
                     elif frontEndID == 6:
                         hits['column'] = -(hits['column'] - 81)
-    #                     hits['row'] = (hits['row'] -337)*-1 
+    #                     hits['row'] = (hits['row'] -337)*-1
                     elif frontEndID == 7:
     #                     hits['row'] = (hits['row'] -337)*-1
                         hits['column'] = -(hits['column'] - 81) + 80
                     else:
                         logging.error('moduleID out of range')
-                    nhits += hits.shape[0]    
+                    nhits += hits.shape[0]
                     single_hit_arrays.append(hits)
             
             try:
@@ -399,19 +395,20 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
             except ValueError:
                 logging.error('Empty hit array')
-                
-            print nhits, "hits"
-            print merged_hits.shape
-            hits_out.append(merged_hits)
-            
-            logging.info('merged run %s plane %s module %s. File saved at: %s'%(pyBARrun, plane_number, module_number, output_file))    
 
-    
-def merge_dc_module_local(output_dir, plane_files, pyBARrun, plane_number, output_file_list = None):
+            logging.info("number of hits = %s" %nhits)
+            logging.info("shape of new hit table: %s" % merged_hits.shape)
+            hits_out.append(merged_hits)
+
+            logging.info('merged run %s plane %s module %s. File saved at: %s'%(pyBARrun, plane_number, module_number, output_file))
+
+
+def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, output_file_list = None):
     ''' merges 2 FE data files, columnwise, i.e. the new object has 160 columms and 336 rows.
         No translation or rotation is performed.
     '''
-    
+    if not output_dir:
+        output_dir = "./"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
@@ -421,24 +418,18 @@ def merge_dc_module_local(output_dir, plane_files, pyBARrun, plane_number, outpu
             dc_files = [plane_files[0]]
         elif module_number == 1 and plane_number == 1:
             dc_files = plane_files[-2:]
-        output_file = os.path.abspath(os.path.join(output_dir, 'pyBARrun_%s' % pyBARrun + 'plane_%s' % plane_number + '_DC_module_%s_local.h5' % module_number))
+        output_file = os.path.abspath(os.path.join(output_dir, 'pyBARrun_%s' % pyBARrun + '_plane_%s' % plane_number + '_DC_module_%s_local.h5' % module_number))
         single_hit_arrays = []
         nhits = 0
         with tb.open_file(output_file, 'w') as out_file:
             hits_out = out_file.create_table(out_file.root, name='Hits',
                                                  description= np.dtype([
-                                                     ('event_number', np.int64), 
-                                                     ('trigger_time_stamp',np.uint64), 
-                                                     ('frame', np.uint32), 
-                                                     ('column', np.uint16), 
-                                                     ('row', np.uint16), 
+                                                     ('event_number', np.int64),
+                                                     ('trigger_time_stamp',np.uint64),
+                                                     ('frame', np.uint32),
+                                                     ('column', np.uint16),
+                                                     ('row', np.uint16),
                                                      ('charge', np.uint16)]),
-#                                                  description= np.dtype([
-#                                                      ('event_number', np.int64),
-#                                                      ('frame', np.uint32),
-#                                                      ('column', np.uint16),
-#                                                      ('row', np.uint16),
-#                                                      ('charge', np.uint16)]),
 
                                                  title='Merged hits for plane %s DC module %s' % (plane_number, module_number),
                                                  filters=tb.Filters(
@@ -449,16 +440,14 @@ def merge_dc_module_local(output_dir, plane_files, pyBARrun, plane_number, outpu
                 frontEndID = int(hit_file[hit_file.rfind('module_') + 7])
                 with tb.open_file(hit_file[:-3] + '_interpreted_formatted_fei4.h5', 'r') as in_file:
                     hits = in_file.root.Hits[:]
-                    print "FE", frontEndID
-    #                 print "rows", hits['row'].max()
-    #                 print "columns", hits['column'].max()
+                    logging.info("merging front end %s" % frontEndID)
                     if frontEndID % 2 == 0 :
                         hits['column'] = hits['column'] + 80
     #                     hits['row'] = hits['row'] + 80
     #                     hits['column'] = -hits['column'] + 337
                     else:
                         hits['column'] = hits['column']
-                    nhits += hits.shape[0]    
+                    nhits += hits.shape[0]
                     single_hit_arrays.append(hits)
             
             try:
@@ -466,26 +455,30 @@ def merge_dc_module_local(output_dir, plane_files, pyBARrun, plane_number, outpu
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
             except ValueError:
                 logging.error('Empty hit array')
-                
-            print nhits, "hits"
-            print merged_hits.shape
-            print merged_hits.dtype
+
+            logging.info("number of hits = %s" %nhits)
+            logging.info("shape of new hit table: %s" % merged_hits.shape)
             hits_out.append(merged_hits)
-            
-            logging.info('merged run %s plane %s module %s. File saved at: %s'%(pyBARrun, plane_number, module_number, output_file))    
+
+            logging.info('merged run %s plane %s module %s. File saved at: %s'%(pyBARrun, plane_number, module_number, output_file))
             if isinstance(output_file_list , list):
                 output_file_list.append(output_file)
 
 
 if __name__ == "__main__":
 
-    pybar_runs = '412' , '306', '240' # '394', '288', '222' # 
-    dirs = ['/media/data/SHiP/charm_exp_2018/data/part_0x0800',
-            '/media/data/SHiP/charm_exp_2018/data/part_0x0801',
-            '/media/data/SHiP/charm_exp_2018/data/part_0x0802'
+    pybar_runs = '412' , '306', '240' # '394', '288', '222' #  '439', '333', '267'
+    # dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/single_FE_files/run_2836',
+    #         '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/single_FE_files/run_2836',
+    #         '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/single_FE_files/run_2836'
+    #         ]
+
+    dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
+            '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0801',
+            '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0802'
             ]
-    
-    output_dir = '/media/data/SHiP/charm_exp_2018/data/tba_improvements/'
+
+    output_dir = '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/'
     for i, directory in enumerate(dirs):
         first_plane, second_plane = get_plane_files(pyBARrun = pybar_runs[i], subpartition_dir = directory, string = 's_hi_p.h5')
         for data_file in first_plane:
