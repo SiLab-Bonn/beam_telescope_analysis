@@ -287,8 +287,6 @@ class RectangularPixelDut(Dut):
             raise ValueError("Column/row out of limits.")
 
         x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
-        x[0:2] -= 150
-        x[2:4] += 150
         y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
         z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
         return x, y, z
@@ -404,13 +402,37 @@ class FEI4(RectangularPixelDutWithDoubleColumns):
 class FEI4DCModule(RectangularPixelDut):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha,
-                 rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
-        super(FEI4DCModule, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y,
-                                   translation_z=translation_z, rotation_alpha=rotation_alpha,
-                                   rotation_beta=rotation_beta, rotation_gamma=rotation_gamma,
-                                   column_limit=column_limit, row_limit=row_limit, material_budget=material_budget,
-                                   column_size=250.0, row_size=50.0, n_columns=160, n_rows=336)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
+        super(FEI4DCModule, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=160, n_rows=336)
+
+   def index_to_local_position(self,column, row):
+      if isinstance(column, (list, tuple)) or isinstance(row, (list, tuple)):
+          column = np.array(column, dtype=np.float64)
+          row = np.array(row, dtype=np.float64)
+      # from index to local coordinates
+      x, y, z = super(FEI4DCModule, self).index_to_local_position(column=column, row=row)
+      # check for hit index or cluster index is out of range
+      hit_selection = np.logical_and(
+          np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
+          np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
+      if not np.all(hit_selection):
+          raise ValueError("Column/row out of limits.")
+      inner_pixels1 = np.where(column == 80)
+      inner_pixels2 = np.where(column == 81)
+      x[inner_pixels1] -= 100
+      x[inner_pixels2] += 100
+      outer_pixels1 = np.where(column == 1)
+      outer_pixels2 = np.where(column == 160)
+      x[outer_pixels1] -= 100
+      x[outer_pixels2] += 100
+      matrix1 = np.where(column < 80)
+      matrix2 = np.where(column > 81)
+      x[matrix1] -= 200
+      x[matrix2] += 200
+      # x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
+      # y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
+      # z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
+      return x, y, z
 
 
 class RD53A(RectangularPixelDut):
