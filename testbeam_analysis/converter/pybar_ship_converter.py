@@ -31,7 +31,7 @@ testbeam_analysis_dtype = np.dtype([
     ('charge', np.uint16)])
 
 
-def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_corrections=False):
+def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_corrections=False, empty_events=False):
     ''' Process and format raw data.
 
     Parameters
@@ -52,7 +52,7 @@ def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_c
         fix_trigger_number, fix_event_number = False, True
     else:
         fix_trigger_number, fix_event_number = False, False
-    analyze_raw_data(input_filename=raw_data_file, trigger_data_format=trigger_data_format)
+    analyze_raw_data(input_filename=raw_data_file, trigger_data_format=trigger_data_format, empty_events = empty_events)
     if isinstance(raw_data_file, (list, tuple)):
         raw_data_filename = os.path.splitext(sorted(raw_data_file)[0])[0]  # get filename with the lowest index
     else:  # string
@@ -69,7 +69,7 @@ def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_c
     return output_filename
 
 
-def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0):  # FE-I4 raw data analysis
+def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0, empty_events = False):  # FE-I4 raw data analysis
     '''Std. raw data analysis of FE-I4 data. A hit table is created for further analysis.
 
     Parameters
@@ -93,7 +93,7 @@ def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0
         analyze_raw_data.create_tot_hist = False
         analyze_raw_data.align_at_trigger = True
         analyze_raw_data.fei4b = False
-        analyze_raw_data.create_empty_event_hits = False
+        analyze_raw_data.create_empty_event_hits = empty_events
         # analyze_raw_data.n_bcid = 16
         # analyze_raw_data.max_tot_value = 13
         analyze_raw_data.interpreter.set_warning_output(False)
@@ -244,12 +244,12 @@ def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
     return output_filename
 
 def get_plane_files(pyBARrun, subpartition_dir, string='s_hi_p.h5'):
-    
+
     first_plane_modules = ('module_0','module_1','module_2','module_3')
     second_plane_modules = ('module_4','module_5','module_6','module_7')
-    
+
     partID = subpartition_dir[subpartition_dir.find('0x08') + 5]
-    
+
     first_plane, second_plane = [], []
     for dirpath,_,filenames in os.walk(subpartition_dir):
         for f in filenames:
@@ -271,7 +271,7 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
     '''
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
+
     output_file = os.path.abspath(os.path.join(output_dir, 'pyBARrun_%s' % pyBARrun + '_plane_%s' % plane_number +'_merged.h5'))
     single_hit_arrays = []
     nhits = 0
@@ -316,7 +316,7 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
                     logging.error('moduleID out of range')
                 nhits += hits.shape[0]
                 single_hit_arrays.append(hits)
-        
+
         try:
             if len(single_hit_arrays) > 0:
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
@@ -336,7 +336,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
     '''
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
+
     for module_number in range(2) :
         dc_files = plane_files[module_number*2:(module_number*2)+2]
         if module_number == 0 and plane_number == 1 :
@@ -389,7 +389,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
                         logging.error('moduleID out of range')
                     nhits += hits.shape[0]
                     single_hit_arrays.append(hits)
-            
+
             try:
 #                 if len(single_hit_arrays) > 0:
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
@@ -411,7 +411,7 @@ def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, 
         output_dir = "./"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
+
     for module_number in range(2) :
         dc_files = plane_files[module_number*2:(module_number*2)+2]
         if module_number == 0 and plane_number == 1 :
@@ -449,7 +449,7 @@ def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, 
                         hits['column'] = hits['column']
                     nhits += hits.shape[0]
                     single_hit_arrays.append(hits)
-            
+
             try:
 #                 if len(single_hit_arrays) > 0:
                 merged_hits = np.sort(np.concatenate(single_hit_arrays), order='event_number') #hits_out.read_sorted(sortby = 'event_number', checkCSI = True)
