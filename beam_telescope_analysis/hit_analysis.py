@@ -1540,7 +1540,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 use_positions.append(False)
 
     # Create result array description, depends on the number of DUTs
-    description = [('event_number', np.int64), ('trigger_time_stamp', np.int64)]
+    description = [('event_number', np.int64), ('trigger_time_stamp', np.uint64)]
     for dimension in ['x', 'y', 'z']:
         for index_dut in range(n_duts):
             description.append(('%s_dut_%d' % (dimension, index_dut), np.float64))
