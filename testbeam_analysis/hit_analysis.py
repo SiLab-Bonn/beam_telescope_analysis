@@ -831,7 +831,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     if use_positions:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('frame', '<u4'),
+            ('frame', '<u1'),
             ('x', '<f4'),
             ('y', '<f4'),
             ('charge', '<u2'),  # TODO: change that
@@ -860,7 +860,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     else:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('frame', '<u4'),
+            ('frame', '<u1'),
             ('column', '<u2'),
             ('row', '<u2'),
             ('charge', '<u2'),  # TODO: change that
