@@ -18,6 +18,7 @@ from scipy.integrate import quad
 from scipy.sparse import csr_matrix
 from scipy.spatial import Voronoi
 from scipy.special import erf
+from scipy.ndimage import distance_transform_edt
 
 import requests
 import progressbar
@@ -1202,6 +1203,107 @@ def in1d_index(ar1, ar2, fill_invalid=None, assume_sorted=False):
         invalid = ar2.take(ar2_index, mode='clip') != ar1
         ar2_index[invalid] = fill_invalid
         return np.where(~invalid)[0], ar2_index
+
+
+@njit
+def unique_loop(mask, N, A, p, count):
+    for j in range(N):
+        mask[:] = True
+        mask[A[0, j]] = False
+        c = 1
+        for i in range(1, p):
+            if mask[A[i, j]]:
+                c += 1
+            mask[A[i, j]] = False
+        count[j] = c
+    return count
+
+
+def unique_in_array(arr):
+    ''' Return number of unique values along axis 0.
+
+    See:
+    - https://stackoverflow.com/questions/46893369/count-unique-elements-along-an-axis-of-a-numpy-array
+    - https://stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
+    -
+    '''
+    p, m, n = arr.shape
+    arr.shape = (-1, m * n)
+    maxn = arr.max() + 1
+    N = arr.shape[1]
+    mask = np.empty(maxn, dtype=bool)
+    count = np.empty(N, dtype=int)
+    arr_out = unique_loop(mask, N, arr, p, count).reshape(m, n)
+    arr.shape = (-1, m, n)
+    return arr_out
+
+
+def count_unique_neighbors(arr, structure=None):
+    ''' Return number of unique neighbors (vertical, horizontal and diagonal) in a given 2D array.
+
+    Parameters
+    ----------
+    data : ndarray
+        2D array.
+    structure : ndarray
+        A 2D structuring element that defines the neighbors. The stucture
+        must be symmetric.
+        If None, the structuring element is [[1,1,1], [1,1,1], [1,1,1]].
+
+    Returns
+    -------
+    Array with number of unique neighbor elements.
+
+    See:
+    - https://stackoverflow.com/questions/48248773/numpy-counting-unique-neighbours-in-2d-array
+    - https://stackoverflow.com/questions/25169997/how-to-count-adjacent-elements-in-a-3d-numpy-array-efficiently
+    - https://stackoverflow.com/questions/41550979/fill-holes-with-majority-of-surrounding-values-python
+    '''
+    if structure is None:
+        structure = np.ones((3, 3), dtype=np.bool)
+    else:
+        structure = np.array(structure, dtype=np.bool)
+    if len(structure.shape) != 2:
+        raise ValueError('Structure must be a 2D array')
+    if structure.shape[0] != structure.shape[1]:
+        raise ValueError('Structure must be symmetrical')
+    if structure.shape[0] % 2 == 0:
+        raise ValueError('Structure shape must be odd')
+    selected_indices = np.column_stack(np.where(structure))
+    extent = int(structure.shape[0] / 2)
+    selected_indices -= extent
+    a = np.pad(arr, (extent, extent), mode='reflect')
+    selected_arrays = []
+    for selected_index in selected_indices:
+        selected_arrays.append(a[extent + selected_index[0]:a.shape[0] - extent + selected_index[0], extent + selected_index[1]:a.shape[1] - extent + selected_index[1]])
+    return unique_in_array(np.array(selected_arrays))
+
+
+def fill(arr, invalid=None):
+    '''
+    Replace the value of invalid data cells by the value of the nearest valid data cell.
+
+    See: https://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
+
+    Parameters
+    ----------
+    arr : ndarray
+        Array of any dimension.
+    invalid : ndarray
+        Boolean array of the same shape as data where True indicates data cells which are to be replaced.
+        If None (default), generate the array by assuming invalid values to be nan.
+
+    Returns
+    -------
+    Array with filled data cells.
+    '''
+    if invalid is None:
+        invalid = np.isnan(arr)
+    else:
+        invalid = np.array(invalid, dtype=np.bool)
+
+    fill_indices = distance_transform_edt(invalid, return_distances=False, return_indices=True)
+    return arr[tuple(fill_indices)]
 
 
 def get_data(path, output=None, fail_on_overwrite=False):
