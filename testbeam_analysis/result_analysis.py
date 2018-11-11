@@ -694,16 +694,18 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
                     bin_center_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
                     _, bin_center_to_pixel_center = cKDTree(pixel_center_data).query(bin_center_data)
-                    shape_x = int(actual_dut.column_size / 50)
+                    # estimate the size of the relative hit index array
+                    # assume a region of 1mm x 1mm
+                    shape_x = int(math.ceil(1000.0 / actual_dut.column_size))
                     if shape_x % 2 == 0:
-                        shape_x += 7
+                        shape_x += 1
                     else:
-                        shape_x += 8
-                    shape_y = int(actual_dut.row_size / 50)
+                        shape_x += 2
+                    shape_y = int(math.ceil(1000.0 / actual_dut.row_size))
                     if shape_y % 2 == 0:
-                        shape_y += 7
+                        shape_y += 1
                     else:
-                        shape_y += 8
+                        shape_y += 2
                     count_pixel_hits_2d_hist = np.zeros(shape=(hist_2d_x_n_bins, hist_2d_y_n_bins, shape_x, shape_y), dtype=np.int32)
                     if (count_pixel_hits_2d_hist.shape[2] <= 1) or (count_pixel_hits_2d_hist.shape[2] % 2 != 1) or (count_pixel_hits_2d_hist.shape[3] <= 1) or (count_pixel_hits_2d_hist.shape[3] % 2 != 1):
                         raise RuntimeError("Invalid shape of histogram")
