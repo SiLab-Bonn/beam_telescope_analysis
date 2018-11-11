@@ -388,7 +388,7 @@ class Diamond3DpCVD(FEI4):
         hit_selection_3_1 = hit_selection_3 & (np.mod(row - self.sensor_position[1], 2) == 1)
         x[hit_selection_3_1] -= 225
         y[hit_selection_3_1] -= 25
-        # select hexagonal pixels (115.5um x 133,3um)
+        # select hexagonal pixels (115.5um x 133.3um)
         hit_selection = (column >= (self.sensor_position[0])) & (column < (self.sensor_position[0] + 12)) & (row >= (self.sensor_position[1] + 30)) & (row < (self.sensor_position[1] + 62))
         #defects
         hit_selection &= ~((column >= (self.sensor_position[0] + 10)) & (column < (self.sensor_position[0] + 12)) & (row == (self.sensor_position[1] + 30)))
