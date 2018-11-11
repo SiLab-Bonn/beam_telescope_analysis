@@ -542,9 +542,8 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned')
         else:
             output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
-    else:
-        if output_telescope_configuration == telescope_configuration:
-            raise ValueError('Output configuration file must be different from input configuration file.')
+    elif output_telescope_configuration == telescope_configuration:
+        raise ValueError('Output configuration file must be different from input configuration file.')
     if os.path.isfile(output_telescope_configuration):
         logging.info('Configuration file already exists.')
     else:
