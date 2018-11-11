@@ -733,7 +733,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         cut_distance = np.inf
                     # Select data where distance between the hit and track is smaller than the given value
                     # Numpy RuntimeWarning may happen here
-                    select_valid_hit &= (distance_local <= cut_distance)
+                    select_valid_hit[~np.isnan(distance_local)] &= (distance_local[~np.isnan(distance_local)] <= cut_distance)
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
