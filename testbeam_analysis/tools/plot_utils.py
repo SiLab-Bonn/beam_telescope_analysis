@@ -1334,32 +1334,30 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
     color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
     count_index_array = np.zeros(shape=pixel_center_data.shape[0], dtype=np.uint16)
-    color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
     effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.int32, fill_value=-1)
     color_index = 0
+    # x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+    # y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
     for pixel_index, pixel_position in enumerate(pixel_center_data):
         res_center_col_row_pair_data_indices = np.where(residual_to_pixel_center_sel == pixel_index)[0]
         # res_center_col_row_pair_data_positions = bin_center_data_sel[res_center_col_row_pair_data_indices]
         actual_bin_col_row_indices = bin_indices_sel[res_center_col_row_pair_data_indices]
-        # TODO: add border (convex hull) to every area
-        # x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
-        # y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
         bin_center_data_indices = np.where(bin_center_to_pixel_center_sel == pixel_index)[0]
         count_index_array[pixel_index] = np.count_nonzero(bin_center_data_indices)
         # bin_center_data_positions = bin_center_data_sel[bin_center_data_indices]
         # index_0_pixel = np.array((bin_center_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
         # index_1_pixel = np.array((bin_center_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
         actual_pixel_bin_indices = bin_indices_sel[bin_center_data_indices]
-        pixel_color_indices = color_index_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+        other_pixel_indices = effective_pixels_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+        other_colors = color_index_array[other_pixel_indices]
         # change color if same color is already occurring inside pixel region
         num_repeats = 0
-        while color_index % num_colors in pixel_color_indices and num_repeats < num_colors - 1:
+        while color_index % num_colors in other_colors and num_repeats < num_colors - 1:
             color_index += 1
             num_repeats += 1
         # index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
         # index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
         color_index_array[pixel_index] = color_index % num_colors
-        color_index_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = color_index % num_colors
         effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = pixel_index
         color_index += 1
     fig = Figure()
@@ -1370,7 +1368,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
     effective_color_2d = colors[color_index_array[effective_pixels_2d]]
-    effective_color_2d = np.ma.masked_where(~np.isfinite(color_index_2d), effective_color_2d)
+    effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
     plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
@@ -1418,7 +1416,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
         color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
         count_index_array = np.zeros(shape=pixel_center_data.shape[0], dtype=np.uint16)
-        color_index_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.float32, fill_value=np.nan)
         effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.int32, fill_value=-1)
         color_index = 0
         for pixel_index, pixel_position in enumerate(pixel_center_data):
@@ -1427,19 +1424,18 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             # alternative:
             # actual_bin_indices = np.where((max_hits_pixel_index == pixel_index) & select_bins.reshape(-1))[0]
             # actual_bin_col_row_indices = np.column_stack(np.unravel_index(actual_bin_indices, dims=count_pixel_hits_2d_hist.shape[:2]))
-            # TODO: fix pixel size calculation
             pixel_sizes[pixel_index] = actual_bin_col_row_indices.shape[0] * x_resolution * y_resolution
-
             bin_center_data_indices = np.where(bin_center_to_pixel_center_sel == pixel_index)[0]
+            count_index_array[pixel_index] = np.count_nonzero(bin_center_data_indices)
             actual_pixel_bin_indices = bin_indices_sel[bin_center_data_indices]
-            pixel_color_indices = color_index_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+            other_pixel_indices = effective_pixels_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+            other_colors = color_index_array[other_pixel_indices]
             # change color if same color is already occurring inside pixel region
             num_repeats = 0
-            while color_index % num_colors in pixel_color_indices and num_repeats < num_colors - 1:
+            while color_index % num_colors in other_colors and num_repeats < num_colors - 1:
                 color_index += 1
                 num_repeats += 1
             color_index_array[pixel_index] = color_index % num_colors
-            color_index_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = color_index % num_colors
             effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = pixel_index
             color_index += 1
         fig = Figure()
@@ -1450,7 +1446,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
         _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
         effective_color_2d = colors[color_index_array[effective_pixels_2d]]
-        effective_color_2d = np.ma.masked_where(~np.isfinite(color_index_2d), effective_color_2d)
+        effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
         plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
