@@ -713,7 +713,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
         output_track_candidates_file=output_prealigned_track_candidates_file,
         align_to_beam=True,
         # do not set max_events here during first iteration, otherwise too few tracks after fit_tracks()
-        max_events=None)
+        max_events=max_events)
     output_track_candidates_file = None
     iteration_steps = range(max_iterations)
     for iteration_step in iteration_steps:
@@ -763,7 +763,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 output_track_candidates_file=output_track_candidates_file,
                 align_to_beam=True,
                 # do not set max_events here during first iteration, otherwise too few tracks after fit_tracks()
-                max_events=None)
+                max_events=max_events)
 
         # The quality flag of the actual align DUT depends on the alignment calculated
         # in the previous iteration, therefore this step has to be done every time
