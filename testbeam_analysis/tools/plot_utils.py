@@ -1389,6 +1389,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         y_resolution = np.diff(hist_2d_edges[1])[0]
         pixel_sizes = np.full(pixel_center_data.shape[0], dtype=np.float32, fill_value=np.nan)
         select_bins = np.sum(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1], -1), axis=2) != 0
+        # different from
+        # select_bins = count_tracks_with_hit_2d_hist[:].astype(np.int64) != 0
+        # due to hits outside the relative pixel index array
         bin_center_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
         bin_indices_sel = bin_indices[np.ravel(select_bins)]
         _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
