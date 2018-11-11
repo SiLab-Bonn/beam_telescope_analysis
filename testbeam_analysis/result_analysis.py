@@ -738,10 +738,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
                     _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
-                    count_tracks_pixel_hist += np.bincount(closest_indices)[:pixel_center_data.shape[0]]
+                    count_tracks_pixel_hist += np.bincount(closest_indices, minlength=pixel_center_data.shape[0])[:pixel_center_data.shape[0]]
                     # Pixel tracks with valid hit
                     _, closest_indices_with_hit = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_hit], intersection_y_local[select_valid_hit])))
-                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices_with_hit)[:pixel_center_data.shape[0]]
+                    count_tracks_with_hit_pixel_hist += np.bincount(closest_indices_with_hit, minlength=pixel_center_data.shape[0])[:pixel_center_data.shape[0]]
 
                     if initialize:
                         initialize = False
