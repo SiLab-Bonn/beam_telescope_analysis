@@ -566,7 +566,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=None, in_pixel=False, plot=True, gui=False, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, efficiency_regions=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=None, in_pixel=False, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -661,8 +661,23 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 hist_2d_edges = [hist_2d_x_edges, hist_2d_y_edges]
                 if plot_ranges is not None and plot_ranges[index] is not None:
                     plot_range = plot_ranges[index]
+                    if not (len(plot_range) == 2 and len(plot_range[0]) == 2 and len(plot_range[1]) == 2):
+                        raise ValueError('Parameter "plot_ranges" has wrong format')
                 else:
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
+                if efficiency_regions is not None and efficiency_regions[index] is not None:
+                    efficiency_region = efficiency_regions[index]
+                    efficiency_region_efficiency = []
+                    efficiency_region_stat = []
+                    for region in efficiency_region:
+                        efficiency_region_efficiency.append(0.0)
+                        efficiency_region_stat.append(0.0)
+                        if not (len(region) == 2 and len(region[0]) == 2 and len(region[1]) == 2):
+                            raise ValueError('Parameter "efficiency_region" has wrong format')
+                else:
+                    efficiency_region = None
+                    efficiency_region_efficiency = None
+                    efficiency_region_stat = None
                 if in_pixel is True:
                     n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
                     if len(n_bins_in_pixel) == 1:
@@ -734,6 +749,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Select data where distance between the hit and track is smaller than the given value
                     # Numpy RuntimeWarning may happen here
                     select_valid_hit[~np.isnan(distance_local)] &= (distance_local[~np.isnan(distance_local)] <= cut_distance)
+                    if efficiency_region:
+                        for region_index, region in enumerate(efficiency_region):
+                            select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
+                            select_valid_tracks_efficiency_region &= intersection_x_local > min(region[0])
+                            select_valid_tracks_efficiency_region &= intersection_x_local < max(region[0])
+                            select_valid_tracks_efficiency_region &= intersection_y_local > min(region[1])
+                            select_valid_tracks_efficiency_region &= intersection_y_local < max(region[1])
+                            efficiency_region_efficiency[region_index] = (efficiency_region_efficiency[region_index] * efficiency_region_stat[region_index] + np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])) / (efficiency_region_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region))
+                            efficiency_region_stat[region_index] = efficiency_region_stat[region_index] + select_valid_tracks_efficiency_region.shape[0]
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -913,6 +937,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         dut_extent=dut_extent,
                         hist_extent=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
                         plot_range=plot_range,
+                        efficiency_region=efficiency_region,
+                        efficiency_region_efficiency=efficiency_region_efficiency,
                         in_pixel_efficiency=in_pixel_efficiency,
                         plot_range_in_pixel=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
                         mask_zero=False,
@@ -939,6 +965,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         dut_extent=dut_extent,
                         hist_extent=hist_extent,
                         plot_range=plot_range,
+                        efficiency_region=efficiency_region,
+                        efficiency_region_efficiency=efficiency_region_efficiency,
                         in_pixel_efficiency=None,
                         plot_range_in_pixel=None,
                         mask_zero=True,
