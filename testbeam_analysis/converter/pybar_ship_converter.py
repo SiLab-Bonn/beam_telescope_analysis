@@ -330,7 +330,7 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
         logging.info('merged run %s plane %s. File saved at: %s'%(pyBARrun, plane_number, output_file))
 
 
-def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
+def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number,output_file_list=None):
     ''' merges 2 FE data files, columnwise, i.e. the new object has 160 columms and 336 rows.
         Also transforms and rotates modules according to ship telescope layout. The resulting planes are aligned relative to the beam.
     '''
@@ -348,9 +348,13 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
         nhits = 0
         with tb.open_file(output_file, 'w') as out_file:
             hits_out = out_file.create_table(out_file.root, name='Hits',
-                                                 description=np.dtype([('event_number', np.int64), ('trigger_time_stamp',np.uint64),
-                                                                       ('frame', np.uint8), ('column', np.uint16), ('row', np.uint16),
-                                                                        ('charge', np.uint16)]),
+                                                description= np.dtype([
+                                                    ('event_number', np.int64),
+                                                    ('trigger_time_stamp',np.uint64),
+                                                    ('frame', np.uint32),
+                                                    ('column', np.uint16),
+                                                    ('row', np.uint16),
+                                                    ('charge', np.uint16)]),
                                                  title='Merged hits for plane %s DC module %s' % (plane_number, module_number),
                                                  filters=tb.Filters(
                                                      complib='blosc',
@@ -358,7 +362,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
                                                      fletcher32=False))
             for hit_file in dc_files:
                 frontEndID = int(hit_file[hit_file.rfind('module_') + 7])
-                with tb.open_file(hit_file[:-3] + '_aligned.h5', 'r') as in_file:
+                with tb.open_file(hit_file[:-3] + '_interpreted_formatted_fei4.h5', 'r') as in_file:
                     hits = in_file.root.Hits[:]
                     logging.info("merging front end %s" % frontEndID)
                     if frontEndID == 0 :
@@ -401,7 +405,8 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number):
             hits_out.append(merged_hits)
 
             logging.info('merged run %s plane %s module %s. File saved at: %s'%(pyBARrun, plane_number, module_number, output_file))
-
+            if isinstance(output_file_list , list):
+                output_file_list.append(output_file)
 
 def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, output_file_list = None):
     ''' merges 2 FE data files, columnwise, i.e. the new object has 160 columms and 336 rows.
