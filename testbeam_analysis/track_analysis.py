@@ -390,7 +390,7 @@ def _get_first_dut_index(x, index, z_sorted_dut_indices):
     return -1
 
 
-def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(500, 500), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
+def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
     '''Calculate tracks and set tracks quality flag for selected DUTs.
     Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
 
@@ -435,9 +435,11 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         The material budget is defined as the thickness devided by the radiation length.
         If scattering_planes is None, no scattering plane will be added.
     quality_distances : 2-tuple or list of 2-tuples
-        X and y distance for each DUT to calculate the quality flag in um. The selected track and corresponding hit
-        has to have a smaller distance to have the quality flag to be set to 1. Any other occurence of tracks or hits from the same event
-        within this distance will prevent the quality flag to be set to 1.
+        X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
+        must have a smaller distance to have the quality flag to be set to 1.
+    reject_quality_distances : 2-tuple or list of 2-tuples
+        X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
+        within this distance will reject the quality flag.
     use_limits : bool
         If True, use column and row limits from pre-alignment for selecting the data.
     keep_data : bool
@@ -589,6 +591,25 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     for distance in quality_distances:
         if len(distance) != 2:  # check the length of the items
             raise ValueError("item in quality_distances has length != 2")
+
+    # Create reject quality distance
+    if not isinstance(reject_quality_distances, list):
+        reject_quality_distances = [reject_quality_distances] * n_duts
+    # Check iterable and length
+    if not isinstance(reject_quality_distances, Iterable):
+        raise ValueError("reject_quality_distances is no iterable")
+    elif not reject_quality_distances:  # empty iterable
+        raise ValueError("reject_quality_distances has no items")
+    # Finally check length of all arrays
+    if len(reject_quality_distances) != n_duts:  # empty iterable
+        raise ValueError("reject_quality_distances has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable), reject_quality_distances)):
+        raise ValueError("not all items in reject_quality_distances are iterable")
+    # Finally check length of all arrays
+    for distance in reject_quality_distances:
+        if len(distance) != 2:  # check the length of the items
+            raise ValueError("item in reject_quality_distances has length != 2")
 
     # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
     if not exclude_dut_hit and all(set(x) == set(select_hit_duts[0]) for x in select_hit_duts) and all(set(x) == set(select_fit_duts[0]) for x in select_fit_duts):  # and all(list(x) == list(selection_track_quality[0]) for x in selection_track_quality):
@@ -784,6 +805,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                                 fit_dut=dut_index,
                                 select_fit_duts=actual_fit_duts,
                                 quality_distances=quality_distances,
+                                reject_quality_distances=reject_quality_distances,
                                 use_limits=use_limits,
                                 keep_data=keep_data,
                                 method=method,
@@ -799,6 +821,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             fit_dut=actual_fit_dut,
                             select_fit_duts=actual_fit_duts,
                             quality_distances=quality_distances,
+                            reject_quality_distances=reject_quality_distances,
                             use_limits=use_limits,
                             keep_data=keep_data,
                             method=method,
@@ -826,7 +849,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_dut, select_fit_duts, quality_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_dut, select_fit_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
     # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     x_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     x_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
@@ -939,6 +962,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
         # print np.count_nonzero(dut_quality_flag_sel), 'dut_quality_flag_sel', dut_index
 
+        # distance to find close-by hits and tracks
+        reject_quality_distances_x = reject_quality_distances[dut_index][0]
+        reject_quality_distances_y = reject_quality_distances[dut_index][1]
         # Select tracks that are too close when extrapolated to the actual DUT
         # All selected tracks will result in a quality_flag = 0 for the actual DUT
         dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
@@ -946,8 +972,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             event_number_array=track_candidates_chunk['event_number'][good_track_selection],
             position_array_x=intersection_x_local,
             position_array_y=intersection_y_local,
-            quality_distance_x=quality_distance_x,
-            quality_distance_y=quality_distance_y,
+            max_distance_x=reject_quality_distances_x,
+            max_distance_y=reject_quality_distances_y,
             small_distance_flag_array=dut_small_track_distance_flag_sel)
         # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # unset quality flag
@@ -960,8 +986,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             event_number_array=track_candidates_chunk['event_number'],
             position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
             position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
-            quality_distance_x=quality_distance_x,
-            quality_distance_y=quality_distance_y,
+            max_distance_x=reject_quality_distances_x,
+            max_distance_y=reject_quality_distances_y,
             small_distance_flag_array=dut_small_hit_distance_flag_sel)
         # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # unset quality flag
@@ -1025,7 +1051,7 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
 
 @njit
-def _find_small_distance(event_number_array, position_array_x, position_array_y, quality_distance_x, quality_distance_y, small_distance_flag_array):
+def _find_small_distance(event_number_array, position_array_x, position_array_y, max_distance_x, max_distance_y, small_distance_flag_array):
     max_index = event_number_array.shape[0]
     index = 0
     while index < max_index:
@@ -1035,7 +1061,7 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
             while (event_index < max_index) and (event_number_array[event_index] == current_event_number):  # Loop over other event hits
                 if np.isfinite(position_array_x[index]) and np.isfinite(position_array_x[event_index]):
                     # check for samller distance
-                    if (abs(position_array_x[index] - position_array_x[event_index]) <= quality_distance_x) and (abs(position_array_y[index] - position_array_y[event_index]) <= quality_distance_y):
+                    if (abs(position_array_x[index] - position_array_x[event_index]) <= max_distance_x) and (abs(position_array_y[index] - position_array_y[event_index]) <= max_distance_y):
                         small_distance_flag_array[index] = 1
                         small_distance_flag_array[event_index] = 1
                 event_index += 1
