@@ -848,6 +848,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             select_duts=actual_align_duts,
             select_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if dut_index in select_telescope_duts else alignment_parameters) for dut_index in actual_align_duts],
             use_limits=use_limits,
+            max_iterations=10 if iteration_step == 0 else None,
             chunk_size=chunk_size)
 
         # Delete temporary files
@@ -963,7 +964,7 @@ def align_telescope(telescope_configuration, select_telescope_duts):
     telescope.save_configuration()
 
 
-def calculate_transformation(telescope_configuration, input_tracks_file, select_duts, select_parameters=None, use_limits=True, chunk_size=1000000):
+def calculate_transformation(telescope_configuration, input_tracks_file, select_duts, select_parameters=None, use_limits=True, max_iterations=None, chunk_size=1000000):
     '''Takes the tracks and calculates and stores the transformation parameters.
 
     Parameters
@@ -1072,7 +1073,10 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                 gamma_dut_start = actual_dut.rotation_gamma
                 print "n_tracks for chunk %d:" % actual_chunk, n_tracks
                 delta_t = 1.0  # TODO: optimize
-                iterations = 100
+                if max_iterations is None:
+                    iterations = 100
+                else:
+                    iterations = max_iterations
                 lin_alpha = 1.0
 
                 print "alpha, beta, gamma at start", alpha_dut_start, beta_dut_start, gamma_dut_start
