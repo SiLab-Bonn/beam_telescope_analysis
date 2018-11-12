@@ -1583,7 +1583,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_ylabel('#')
         ax.set_yscale('log')
         ax.set_xlim([-0.5, 100.5])
-        ax.hist(stat_2d_efficiency_hist.ravel()[stat_2d_efficiency_hist.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
+        ax.hist(stat_2d_efficiency_hist.ravel()[stat_2d_efficiency_hist.ravel().mask != 1], bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
         if gui:
             figs.append(fig)
         else:
@@ -1664,7 +1664,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_ylabel('#')
         ax.set_yscale('log')
         ax.set_xlim([-0.5, 100.5])
-        ax.hist(stat_pixel_efficiency_hist.compressed(), bins=101, range=(0, 100), align='left')  # Histogram not masked pixel stat_2d_efficiency_hist
+        ax.hist(stat_pixel_efficiency_hist.compressed(), bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
         if gui:
             figs.append(fig)
         else:
@@ -1733,7 +1733,7 @@ def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actu
         ax.set_ylabel('#')
         ax.set_yscale('log')
         ax.set_xlim([-0.5, 100.5])
-        ax.hist(purity.ravel()[purity.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel purity
+        ax.hist(purity.ravel()[purity.ravel().mask != 1], bins=100, range=(0, 100))  # Histogram not masked pixel purity
         if gui:
             figs.append(fig)
         else:
@@ -1748,7 +1748,7 @@ def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actu
         ax.set_ylabel('#')
         ax.set_yscale('log')
         ax.set_xlim([-0.5, 100.5])
-        ax.hist(purity_sensor.ravel()[purity_sensor.ravel().mask != 1], bins=101, range=(0, 100), align='left')  # Histogram not masked pixel purity
+        ax.hist(purity_sensor.ravel()[purity_sensor.ravel().mask != 1], bins=100, range=(0, 100))  # Histogram not masked pixel purity
         if gui:
             figs.append(fig)
         else:
