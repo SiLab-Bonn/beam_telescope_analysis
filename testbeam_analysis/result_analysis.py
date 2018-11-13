@@ -1125,7 +1125,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_group._v_attrs.extend_area = extend_area
                 dut_group._v_attrs.plot_range = plot_range
                 dut_group._v_attrs.minimum_track_density = minimum_track_density
-                dut_group._v_attrs.cut_distance = cut_distance
+                dut_group._v_attrs.cut_distance_x = cut_distance_x
+                dut_group._v_attrs.cut_distance_y = cut_distance_y
                 dut_group._v_attrs.efficiency = (eff, eff_err_min, eff_err_pl)
                 dut_group._v_attrs.dut_extent = dut_extent
                 dut_group._v_attrs.hist_extent = hist_extent
