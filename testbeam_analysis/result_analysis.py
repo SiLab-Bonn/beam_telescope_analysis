@@ -566,7 +566,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, efficiency_regions=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=None, in_pixel=False, plot=True, gui=False, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, efficiency_regions=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), in_pixel=False, plot=True, gui=False, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -591,8 +591,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         Filename of the output efficiency file. If None, the filename will be derived from the input hits file.
     minimum_track_density : uint
         Minimum track density required to consider bin for efficiency calculation.
-    cut_distances : float
-        Use only distances (between DUT hit and track hit) smaller than cut_distance.
+    cut_distances : 2-tuple or list of 2-tuples
+        X and y distance (in um) for each DUT to calculate the efficiency.
+        Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance (ellipse).
+        If None, use infinite distance.
     in_pixel : bool
         If True, calculate and plot in-pixel efficiency. Default is False.
     plot : bool
@@ -604,6 +606,25 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     '''
     telescope = Telescope(telescope_configuration)
     logging.info('=== Calculating efficiency for %d DUTs ===' % len(select_duts))
+
+    # Create cut distance
+    if not isinstance(cut_distances, list):
+        cut_distances = [cut_distances] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(cut_distances, Iterable):
+        raise ValueError("cut_distances is no iterable")
+    elif not cut_distances:  # empty iterable
+        raise ValueError("cut_distances has no items")
+    # Finally check length of all arrays
+    if len(cut_distances) != len(select_duts):  # empty iterable
+        raise ValueError("cut_distances has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, cut_distances)):
+        raise ValueError("not all items in cut_distances are iterable")
+    # Finally check length of all arrays
+    for distance in cut_distances:
+        if distance is not None and len(distance) != 2:  # check the length of the items
+            raise ValueError("item in cut_distances has length != 2")
 
     if output_efficiency_file is None:
         output_efficiency_file = os.path.splitext(input_tracks_file)[0] + '_efficiency.h5'
@@ -742,13 +763,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
 
                     select_valid_hit = ~np.isnan(hit_x_local)
-                    if cut_distances is not None and cut_distances[index] is not None:
-                        cut_distance = np.float(cut_distances[index])
+                    if cut_distances[index] is None:
+                        cut_distance_x = np.inf
+                        cut_distance_y = np.inf
                     else:
-                        cut_distance = np.inf
-                    # Select data where distance between the hit and track is smaller than the given value
-                    # Numpy RuntimeWarning may happen here
-                    select_valid_hit[~np.isnan(distance_local)] &= (distance_local[~np.isnan(distance_local)] <= cut_distance)
+                        cut_distance_x = cut_distances[index][0]
+                        cut_distance_y = cut_distances[index][1]
+                    # Select data where distance between the hit and track is smaller than the given value, use ellipse
+                    select_valid_hit[~np.isnan(distance_local)] &= ((np.square(x_residuals[~np.isnan(distance_local)]) / cut_distance_x**2) + (np.square(y_residuals[~np.isnan(distance_local)]) / cut_distance_y**2)) <= 1
                     if efficiency_region:
                         for region_index, region in enumerate(efficiency_region):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)

@@ -436,10 +436,12 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         If scattering_planes is None, no scattering plane will be added.
     quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
-        must have a smaller distance to have the quality flag to be set to 1.
+        must have a smaller distance (ellipse) to have the quality flag to be set to 1.
+        If None, use infinite distance.
     reject_quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
-        within this distance will reject the quality flag.
+        within this distance (ellipse) will reject the quality flag.
+        If None, use infinite distance.
     use_limits : bool
         If True, use column and row limits from pre-alignment for selecting the data.
     keep_data : bool
@@ -585,11 +587,11 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     if len(quality_distances) != n_duts:  # empty iterable
         raise ValueError("quality_distances has the wrong length")
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), quality_distances)):
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
         raise ValueError("not all items in quality_distances are iterable")
     # Finally check length of all arrays
     for distance in quality_distances:
-        if len(distance) != 2:  # check the length of the items
+        if distance is not None and len(distance) != 2:  # check the length of the items
             raise ValueError("item in quality_distances has length != 2")
 
     # Create reject quality distance
@@ -604,11 +606,11 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     if len(reject_quality_distances) != n_duts:  # empty iterable
         raise ValueError("reject_quality_distances has the wrong length")
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), reject_quality_distances)):
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, reject_quality_distances)):
         raise ValueError("not all items in reject_quality_distances are iterable")
     # Finally check length of all arrays
     for distance in reject_quality_distances:
-        if len(distance) != 2:  # check the length of the items
+        if distance is not None and len(distance) != 2:  # check the length of the items
             raise ValueError("item in reject_quality_distances has length != 2")
 
     # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
@@ -953,18 +955,25 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         if limit_y_local is not None and np.isfinite(limit_y_local[1]):
             dut_quality_flag_sel[select_finite] &= (hit_y_local[select_finite] <= limit_y_local[1])
         # distance for quality flag calculation
-        quality_distance_x = quality_distances[dut_index][0]
-        quality_distance_y = quality_distances[dut_index][1]
-        # select tracks within min track distance limits and set quality flag
-        dut_quality_flag_sel[select_finite] &= ((np.abs(intersection_x_local[select_finite] - hit_x_local[select_finite]) <= quality_distance_x) &
-                                                (np.abs(intersection_y_local[select_finite] - hit_y_local[select_finite]) <= quality_distance_y))
+        if quality_distances[dut_index] is None:
+            quality_distance_x = np.inf
+            quality_distance_y = np.inf
+        else:
+            quality_distance_x = quality_distances[dut_index][0]
+            quality_distance_y = quality_distances[dut_index][1]
+        # select tracks within min track distance limits and set quality flag, use ellipse
+        dut_quality_flag_sel[select_finite] &= ((np.square(intersection_x_local[select_finite] - hit_x_local[select_finite]) / quality_distance_x**2) + (np.square(intersection_y_local[select_finite] - hit_y_local[select_finite]) / quality_distance_y**2)) <= 1
         # print "dut_quality_flag_sel", dut_quality_flag_sel, dut_quality_flag_sel.dtype
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
         # print np.count_nonzero(dut_quality_flag_sel), 'dut_quality_flag_sel', dut_index
 
         # distance to find close-by hits and tracks
-        reject_quality_distances_x = reject_quality_distances[dut_index][0]
-        reject_quality_distances_y = reject_quality_distances[dut_index][1]
+        if reject_quality_distances[dut_index] is None:
+            reject_quality_distance_x = np.inf
+            reject_quality_distance_y = np.inf
+        else:
+            reject_quality_distance_x = reject_quality_distances[dut_index][0]
+            reject_quality_distance_y = reject_quality_distances[dut_index][1]
         # Select tracks that are too close when extrapolated to the actual DUT
         # All selected tracks will result in a quality_flag = 0 for the actual DUT
         dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
@@ -972,8 +981,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             event_number_array=track_candidates_chunk['event_number'][good_track_selection],
             position_array_x=intersection_x_local,
             position_array_y=intersection_y_local,
-            max_distance_x=reject_quality_distances_x,
-            max_distance_y=reject_quality_distances_y,
+            max_distance_x=reject_quality_distance_x,
+            max_distance_y=reject_quality_distance_y,
             small_distance_flag_array=dut_small_track_distance_flag_sel)
         # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # unset quality flag
@@ -986,8 +995,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             event_number_array=track_candidates_chunk['event_number'],
             position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
             position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
-            max_distance_x=reject_quality_distances_x,
-            max_distance_y=reject_quality_distances_y,
+            max_distance_x=reject_quality_distance_x,
+            max_distance_y=reject_quality_distance_y,
             small_distance_flag_array=dut_small_hit_distance_flag_sel)
         # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # unset quality flag
@@ -1060,8 +1069,8 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
             event_index = index + 1
             while (event_index < max_index) and (event_number_array[event_index] == current_event_number):  # Loop over other event hits
                 if np.isfinite(position_array_x[index]) and np.isfinite(position_array_x[event_index]):
-                    # check for samller distance
-                    if (abs(position_array_x[index] - position_array_x[event_index]) <= max_distance_x) and (abs(position_array_y[index] - position_array_y[event_index]) <= max_distance_y):
+                    # check for samller distance, use ellipse
+                    if ((np.square(position_array_x[index] - position_array_x[event_index]) / max_distance_x**2) + (np.square(position_array_y[index] - position_array_y[event_index]) / max_distance_y**2)) <= 1:
                         small_distance_flag_array[index] = 1
                         small_distance_flag_array[event_index] = 1
                 event_index += 1
