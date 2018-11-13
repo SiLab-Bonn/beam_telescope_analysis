@@ -533,48 +533,6 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 #         if len(hit_dut) < 2:  # check the length of the items
 #             raise ValueError("item in select_hit_duts has length < 2")
 
-
-#     # Create track, hit selection
-#     if selection_track_quality is None:  # If None, require no quality hit
-# #         select_hit_duts = range(n_duts)
-#         selection_track_quality = []
-#     # Check iterable and length
-#     if not isinstance(selection_track_quality, Iterable):
-#         raise ValueError("selection_track_quality is no iterable")
-# #     elif not selection_track_quality:  # empty iterable
-# #         raise ValueError("selection_track_quality has no items")
-#     # Check if only non-iterable in iterable
-#     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-#         selection_track_quality = [selection_track_quality[:] for _ in select_duts]
-#     # Check if only iterable in iterable
-#     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
-#         raise ValueError("not all items in selection_track_quality are iterable")
-#     # Finally check length of all arrays
-#     if len(selection_track_quality) != len(select_duts):  # empty iterable
-#         raise ValueError("selection_track_quality has the wrong length")
-
-
-#     # Create track, hit selection
-#     if not isinstance(selection_track_quality, Iterable):  # all items the same, special case for selection_track_quality
-#         selection_track_quality = [[selection_track_quality] * len(hit_duts) for hit_duts in select_hit_duts]  # every hit DUTs require a track quality value
-#     # Check iterable and length
-#     if not isinstance(selection_track_quality, Iterable):
-#         raise ValueError("selection_track_quality is no iterable")
-#     elif not selection_track_quality:  # empty iterable
-#         raise ValueError("selection_track_quality has no items")
-#     # Check if only non-iterable in iterable
-#     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-#         selection_track_quality = [selection_track_quality for _ in select_duts]
-#     # Check if only iterable in iterable
-#     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
-#         raise ValueError("not all items in selection_track_quality are iterable")
-#     # Finally check length of all arrays
-#     if len(selection_track_quality) != len(select_duts):  # empty iterable
-#         raise ValueError("selection_track_quality has the wrong length")
-#     for index, track_quality in enumerate(selection_track_quality):
-#         if len(track_quality) != len(select_hit_duts[index]):  # check the length of each items
-#             raise ValueError("item in selection_track_quality and select_hit_duts does not have the same length")
-
     # Create quality distance
     if not isinstance(quality_distances, list):
         quality_distances = [quality_distances] * n_duts

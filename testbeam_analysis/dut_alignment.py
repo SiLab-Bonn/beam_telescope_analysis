@@ -459,7 +459,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(500, 500), use_limits=True, plot=False, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -523,9 +523,13 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         The material budget is defined as the thickness devided by the radiation length.
         If scattering_planes is None, no scattering plane will be added.
     quality_distances : 2-tuple or list of 2-tuples
-        X and y distance for each DUT to calculate the quality flag in um. The selected track and corresponding hit
-        has to have a smaller distance to have the quality flag to be set to 1. Any other occurence of tracks or hits from the same event
-        within this distance will prevent the quality flag to be set to 1.
+        X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
+        must have a smaller distance (ellipse) to have the quality flag to be set to 1.
+        If None, use infinite distance.
+    reject_quality_distances : 2-tuple or list of 2-tuples
+        X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
+        within this distance (ellipse) will reject the quality flag.
+        If None, use infinite distance.
     use_limits : bool
         If True, use column and row limits from pre-alignment for selecting the data.
     plot : bool
@@ -623,27 +627,6 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
-#     # Create track, hit selection
-#     if not isinstance(selection_track_quality, Iterable):  # all items the same, special case for selection_track_quality
-#         selection_track_quality = [[selection_track_quality] * len(hit_duts) for hit_duts in select_hit_duts]  # every hit DUTs require a track quality value
-#     # Check iterable and length
-#     if not isinstance(selection_track_quality, Iterable):
-#         raise ValueError("selection_track_quality is no iterable")
-#     elif not selection_track_quality:  # empty iterable
-#         raise ValueError("selection_track_quality has no items")
-#     # Check if only non-iterable in iterable
-#     if all(map(lambda val: not isinstance(val, Iterable), selection_track_quality)):
-#         selection_track_quality = [selection_track_quality for _ in align_duts]
-#     # Check if only iterable in iterable
-#     if not all(map(lambda val: isinstance(val, Iterable), selection_track_quality)):
-#         raise ValueError("not all items in selection_track_quality are iterable")
-#     # Finally check length of all arrays
-#     if len(selection_track_quality) != len(align_duts):  # empty iterable
-#         raise ValueError("selection_track_quality has the wrong length")
-#     for index, track_quality in enumerate(selection_track_quality):
-#         if len(track_quality) != len(select_hit_duts[index]):  # check the length of each items
-#             raise ValueError("item in selection_track_quality and select_hit_duts does not have the same length")
-
     # Create quality distance
     if not isinstance(quality_distances, list):
         quality_distances = [quality_distances] * n_duts
@@ -656,12 +639,31 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     if len(quality_distances) != n_duts:  # empty iterable
         raise ValueError("quality_distances has the wrong length")
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), quality_distances)):
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
         raise ValueError("not all items in quality_distances are iterable")
     # Finally check length of all arrays
     for distance in quality_distances:
-        if len(distance) != 2:  # check the length of the items
+        if distance is not None and len(distance) != 2:  # check the length of the items
             raise ValueError("item in quality_distances has length != 2")
+
+    # Create reject quality distance
+    if not isinstance(reject_quality_distances, list):
+        reject_quality_distances = [reject_quality_distances] * n_duts
+    # Check iterable and length
+    if not isinstance(reject_quality_distances, Iterable):
+        raise ValueError("reject_quality_distances is no iterable")
+    elif not reject_quality_distances:  # empty iterable
+        raise ValueError("reject_quality_distances has no items")
+    # Finally check length of all arrays
+    if len(reject_quality_distances) != n_duts:  # empty iterable
+        raise ValueError("reject_quality_distances has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, reject_quality_distances)):
+        raise ValueError("not all items in reject_quality_distances are iterable")
+    # Finally check length of all arrays
+    for distance in reject_quality_distances:
+        if distance is not None and len(distance) != 2:  # check the length of the items
+            raise ValueError("item in reject_quality_distances has length != 2")
 
     if not isinstance(max_iterations, Iterable):
         max_iterations = [max_iterations] * len(align_duts)
@@ -695,6 +697,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
             quality_distances=quality_distances,
+            reject_quality_distances=reject_quality_distances,
             use_limits=use_limits,
             plot=plot,
             chunk_size=chunk_size)
@@ -702,7 +705,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
     alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
@@ -712,7 +715,6 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
         input_merged_file=merged_file,
         output_track_candidates_file=output_prealigned_track_candidates_file,
         align_to_beam=True,
-        # do not set max_events here during first iteration, otherwise too few tracks after fit_tracks()
         max_events=max_events)
     output_track_candidates_file = None
     iteration_steps = range(max_iterations)
@@ -761,7 +763,6 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 input_merged_file=merged_file,
                 output_track_candidates_file=output_track_candidates_file,
                 align_to_beam=True,
-                # do not set max_events here during first iteration, otherwise too few tracks after fit_tracks()
                 max_events=max_events)
 
         # The quality flag of the actual align DUT depends on the alignment calculated
@@ -772,7 +773,6 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             telescope_configuration=output_telescope_configuration,
             input_track_candidates_file=output_prealigned_track_candidates_file if iteration_step == 0 else output_track_candidates_file,
             output_tracks_file=output_tracks_file,
-            # max_events=max_events,
             select_duts=actual_align_duts,
             select_fit_duts=actual_fit_duts,
             select_hit_duts=actual_hit_duts,
@@ -782,6 +782,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
             quality_distances=quality_distances,
+            reject_quality_distances=reject_quality_distances,
             use_limits=use_limits,
             plot=plot,
             chunk_size=chunk_size)
