@@ -579,7 +579,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         Selecting DUTs that will be processed.
     input_cluster_files : list of strings
         Filenames of the input cluster files with ClusterHits table for each selected DUT.
-    resolutions : list or tuple
+    resolutions : 2-tuple or list of 2-tuples
         Resolution of the histogram in x and y direction (in um) for each selected DUT.
         If None, the resolution will be set to the pixel size.
     n_bins_in_pixel : iterable
@@ -607,8 +607,27 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     telescope = Telescope(telescope_configuration)
     logging.info('=== Calculating efficiency for %d DUTs ===' % len(select_duts))
 
+    # Create resolutions array
+    if isinstance(resolutions, tuple) or resolutions is None:
+        resolutions = [resolutions] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(resolutions, Iterable):
+        raise ValueError("resolutions is no iterable")
+    elif not resolutions:  # empty iterable
+        raise ValueError("resolutions has no items")
+    # Finally check length of all arrays
+    if len(resolutions) != len(select_duts):  # empty iterable
+        raise ValueError("resolutions has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, resolutions)):
+        raise ValueError("not all items in resolutions are iterable")
+    # Finally check length of all arrays
+    for distance in resolutions:
+        if distance is not None and len(distance) != 2:  # check the length of the items
+            raise ValueError("item in resolutions has length != 2")
+
     # Create cut distance
-    if not isinstance(cut_distances, list):
+    if isinstance(cut_distances, tuple) or cut_distances is None:
         cut_distances = [cut_distances] * len(select_duts)
     # Check iterable and length
     if not isinstance(cut_distances, Iterable):
@@ -653,6 +672,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
 
                 # Calculate histogram properties (bins size and number of bins)
                 resolution = resolutions[index]
+                if resolution is None:
+                    resolution = telescope[actual_dut_index].pixel_size
                 extend_area = extend_areas[index]
                 # DUT size
                 dut_x_extent = telescope[actual_dut_index].x_extent(global_position=False)

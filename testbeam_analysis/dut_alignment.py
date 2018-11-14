@@ -628,7 +628,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
     # Create quality distance
-    if not isinstance(quality_distances, list):
+    if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
@@ -647,7 +647,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             raise ValueError("item in quality_distances has length != 2")
 
     # Create reject quality distance
-    if not isinstance(reject_quality_distances, list):
+    if isinstance(reject_quality_distances, tuple) or reject_quality_distances is None:
         reject_quality_distances = [reject_quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(reject_quality_distances, Iterable):

@@ -534,7 +534,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 #             raise ValueError("item in select_hit_duts has length < 2")
 
     # Create quality distance
-    if not isinstance(quality_distances, list):
+    if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
@@ -553,7 +553,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
             raise ValueError("item in quality_distances has length != 2")
 
     # Create reject quality distance
-    if not isinstance(reject_quality_distances, list):
+    if isinstance(reject_quality_distances, tuple) or reject_quality_distances is None:
         reject_quality_distances = [reject_quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(reject_quality_distances, Iterable):
