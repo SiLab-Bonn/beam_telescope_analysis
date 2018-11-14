@@ -674,7 +674,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 resolution = resolutions[index]
                 if resolution is None:
                     resolution = telescope[actual_dut_index].pixel_size
-                extend_area = extend_areas[index]
+                if extend_areas is not None and extend_areas[index] is not None:
+                    extend_area = extend_areas[index]
+                else:
+                    extend_area = None
                 # DUT size
                 dut_x_extent = telescope[actual_dut_index].x_extent(global_position=False)
                 dut_x_size = dut_x_extent[1] - dut_x_extent[0]
