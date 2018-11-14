@@ -592,7 +592,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     minimum_track_density : uint
         Minimum track density required to consider bin for efficiency calculation.
     cut_distances : 2-tuple or list of 2-tuples
-        X and y distance (in um) for each DUT to calculate the efficiency.
+        X and y distance (in um) for each selected DUT to calculate the efficiency.
         Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance (ellipse).
         If None, use infinite distance.
     in_pixel : bool
