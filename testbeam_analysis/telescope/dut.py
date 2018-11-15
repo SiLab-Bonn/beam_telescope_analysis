@@ -124,6 +124,12 @@ class Dut(object):
     def global_to_local_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
         raise NotImplementedError
 
+    def index_to_global_position(self, index, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        raise NotImplementedError
+
+    def global_position_to_index(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        raise NotImplementedError
+
 
 class RectangularPixelDut(Dut):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget", "column_size", "row_size", "n_columns", "n_rows", "column_limit", "row_limit"]
@@ -307,11 +313,11 @@ class RectangularPixelDut(Dut):
             raise RuntimeError('The local z positions contain values z!=0.')
         return x, y, z
 
-    def index_to_global_position(self, column, row):
-        return self.local_to_global_position(*self.index_to_local_position(column=column, row=row))
+    def index_to_global_position(self, column, row, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        return self.local_to_global_position(*self.index_to_local_position(column=column, row=row), translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma)
 
-    def global_position_to_index(self, x, y, z):
-        return self.local_position_to_index(*self.global_to_local_position(x=x, y=y, z=z))
+    def global_position_to_index(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        return self.local_position_to_index(*self.global_to_local_position(x=x, y=y, z=z, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma))
 
 
 class FEI4(RectangularPixelDut):
@@ -390,7 +396,7 @@ class Diamond3DpCVD(FEI4):
         y[hit_selection_3_1] -= 25
         # select hexagonal pixels (115.5um x 133.3um)
         hit_selection = (column >= (self.sensor_position[0])) & (column < (self.sensor_position[0] + 12)) & (row >= (self.sensor_position[1] + 30)) & (row < (self.sensor_position[1] + 62))
-        #defects
+        # defects
         hit_selection &= ~((column >= (self.sensor_position[0] + 10)) & (column < (self.sensor_position[0] + 12)) & (row == (self.sensor_position[1] + 30)))
         hit_selection &= ~((column >= (self.sensor_position[0] + 10)) & (column < (self.sensor_position[0] + 12)) & (row >= (self.sensor_position[1] + 32)) & (row < (self.sensor_position[1] + 35)))
         hit_selection_0 = hit_selection & (np.mod(column - self.sensor_position[0], 4) == 0)
