@@ -665,79 +665,54 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                 output_pdf.savefig(fig)
 
 
-def plot_events(input_tracks_file, input_alignment_file, event_range, use_prealignment, select_duts, n_pixels, pixel_size, dut_names=None, output_pdf_file=None, gui=False):
+def plot_events(telescope_configuration, input_tracks_file, select_duts, event_range, output_pdf_file=None, gui=False, chunk_size=1000000):
     '''Plots the tracks (or track candidates) of the events in the given event range.
 
     Parameters
     ----------
+    telescope_configuration : string
+        Filename of the telescope configuration file.
     input_tracks_file : string
         Filename of the input tracks file.
-    input_alignment_file : string
-        Filename of the input aligment file.
-    event_range : iterable
-        Tuple of start event number and stop event number (excluding), e.g. (0, 100).
-    use_prealignment : bool
-        If True, use pre-alignment; if False, use alignment.
     select_duts : iterable
         Selecting DUTs that will be processed.
-    dut_names : iterable
-        Names of the DUTs. If None, generic DUT names will be used.
-    n_pixels : iterable of tuples
-        One tuple per DUT describing the number of pixels in column, row direction
-        e.g. for 2 DUTs: n_pixels = [(80, 336), (80, 336)]
-    pixel_size : iterable
-        Tuple of the pixel size for column and row for every plane, e.g. [[250, 50], [250, 50]].
+    event_range : 2-tuple
+        Tuple of start event number and stop event number (excluding), e.g. (0, 100).
     output_pdf_file : string
         Filename of the output PDF file. If None, the filename is derived from the input file.
     gui: bool
         Determines whether to plot directly onto gui
-    n_tracks: uint
-        plots all tracks from first to n_tracks, if amount of tracks less than n_tracks, plot all
-        if not None, event_range has no effect.
     '''
+    telescope = Telescope(telescope_configuration)
+    n_duts = len(telescope)
+
     if not output_pdf_file:
         output_pdf_file = os.path.splitext(input_tracks_file)[0] + '_events.pdf'
 
     if gui:
         figs = []
 
-    with tb.open_file(input_alignment_file, mode="r") as in_file_h5:  # Open file with alignment data
-        if use_prealignment:
-            logging.info('Use pre-alignment data')
-            prealignment = in_file_h5.root.PreAlignment[:]
-            n_duts = prealignment.shape[0]
-        else:
-            logging.info('Use alignment data')
-            alignment = in_file_h5.root.Alignment[:]
-            n_duts = alignment.shape[0]
-
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
             for actual_dut_index in select_duts:
-                logging.info('Plotting events for DUT%d', actual_dut_index)
-
-                dut_name = dut_names[actual_dut_index] if dut_names else ("DUT" + str(actual_dut_index))
-
-                array = in_file_h5.get_node(in_file_h5.root, name='Tracks_DUT%d' % actual_dut_index)[:]
-                tracks_chunk = testbeam_analysis.tools.analysis_utils.get_data_in_event_range(array, event_range[0], event_range[-1])
-                if tracks_chunk.shape[0] == 0:
-                    raise ValueError('No events found in the given range, cannot plot events!')
+                dut_name = telescope[actual_dut_index].name
+                logging.info('Plotting events for %s', dut_name)
 
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111, projection='3d')
+                colors = cycle('bgrcmyk')
 
+                min_z = 0.0
+                max_z = 0.0
                 for dut_index in range(0, n_duts):
-                    sensor_size = np.array(pixel_size[actual_dut_index]) * n_pixels[actual_dut_index]
-                    x, y = np.meshgrid([-sensor_size[0] / 2.0, sensor_size[0] / 2.0], [-sensor_size[1] / 2.0, sensor_size[1] / 2.0])
-                    alignment_no_rot = alignment.copy()
-                    # change alpha, beta to 0 to make plotting of DUTs nicer
-                    alignment_no_rot['alpha'] = 0.0
-                    alignment_no_rot['beta'] = 0.0
-                    plane_x, plane_y, plane_z = testbeam_analysis.tools.geometry_utils.apply_alignment(x.flatten(), y.flatten(), np.zeros(x.size),
-                                                                                                       dut_index=dut_index,
-                                                                                                       alignment=alignment_no_rot,
-                                                                                                       inverse=False)
+                    actual_dut = telescope[dut_index]
+                    plane_x, plane_y, plane_z = actual_dut.index_to_global_position(
+                        column=[0.5, 0.5, actual_dut.n_columns + 0.5, actual_dut.n_columns + 0.5],
+                        row=[0.5, actual_dut.n_rows + 0.5, 0.5, actual_dut.n_rows + 0.5],
+                        # reduce plotting clutter
+                        rotation_alpha=0.0,
+                        rotation_beta=0.0)
                     plane_x = plane_x * 1.e-3  # in mm
                     plane_y = plane_y * 1.e-3  # in mm
                     plane_z = plane_z * 1.e-3  # in mm
@@ -745,48 +720,60 @@ def plot_events(input_tracks_file, input_alignment_file, event_range, use_preali
                     plane_y = plane_y.reshape(2, -1)
                     plane_z = plane_z.reshape(2, -1)
                     ax.plot_surface(plane_x, plane_y, plane_z, color='lightgray', alpha=0.3, linewidth=1.0, zorder=-1)
+                    min_z = min(min_z, actual_dut.translation_z * 1.e-3)
+                    max_z = max(max_z, actual_dut.translation_z * 1.e-3)
 
-                colors = cycle('bgrcmyk')
-                for track in tracks_chunk:
-                    color = next(colors)
-                    x, y, z = [], [], []
-                    for dut_index in range(0, n_duts):
-                        # Coordinates in global coordinate system (x, y, z)
-                        hit_x_local, hit_y_local, hit_z_local = track['x_dut_%d' % dut_index], track['y_dut_%d' % dut_index], track['z_dut_%d' % dut_index]
+                # Loop over the tracks
+                tracks_node = in_file_h5.get_node(in_file_h5.root, name='Tracks_DUT%d' % actual_dut_index)
+                for tracks_chunk, index in testbeam_analysis.tools.analysis_utils.data_aligned_at_events(tracks_node, start_event_number=event_range[0], stop_event_number=event_range[1], fail_on_missing_events=False, chunk_size=chunk_size):
+                    for track in tracks_chunk:
+                        color = next(colors)
+                        x, y, z = [], [], []
+                        for dut_index in range(0, n_duts):
+                            actual_dut = telescope[dut_index]
+                            # Coordinates in global coordinate system (x, y, z)
+                            hit_x_local, hit_y_local, hit_z_local = track['x_dut_%d' % dut_index], track['y_dut_%d' % dut_index], track['z_dut_%d' % dut_index]
+                            hit_x, hit_y, hit_z = actual_dut.local_to_global_position(
+                                x=hit_x_local,
+                                y=hit_y_local,
+                                z=hit_z_local)
+                            hit_x = hit_x * 1.e-3  # in mm
+                            hit_y = hit_y * 1.e-3  # in mm
+                            hit_z = hit_z * 1.e-3  # in mm
+                            x.extend(hit_x)
+                            y.extend(hit_y)
+                            z.extend(hit_z)
 
-                        if use_prealignment:
-                            hit_x, hit_y, hit_z = testbeam_analysis.tools.geometry_utils.apply_alignment(hit_x_local, hit_y_local, hit_z_local,
-                                                                                                         dut_index=dut_index,
-                                                                                                         prealignment=prealignment,
-                                                                                                         inverse=False)
+                        if np.isfinite(track['offset_x']):
+                            track_offset_x, track_offset_y, track_offset_z = telescope[actual_dut_index].local_to_global_position(
+                                x=track['offset_x'],
+                                y=track['offset_y'],
+                                z=track['offset_z'])
+                            # convert to mm
+                            offset = np.column_stack((track_offset_x, track_offset_y, track_offset_z)) * 1.e-3
+                            track_slope_x, track_slope_y, track_slope_z = telescope[actual_dut_index].local_to_global_position(
+                                x=track['slope_x'],
+                                y=track['slope_y'],
+                                z=track['slope_z'],
+                                # manually set translation and rotation to avoid z=0 error check and no translation for the slopes
+                                translation_x=0.0,
+                                translation_y=0.0,
+                                translation_z=0.0,
+                                rotation_alpha=telescope[actual_dut_index].rotation_alpha,
+                                rotation_beta=telescope[actual_dut_index].rotation_beta,
+                                rotation_gamma=telescope[actual_dut_index].rotation_gamma)
+                            slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
+                            linepts = offset + slope * np.mgrid[min_z - telescope[actual_dut_index].translation_z * 1.e-3 - 10:max_z - telescope[actual_dut_index].translation_z * 1.e-3 + 10:2j][:, np.newaxis]
+                            no_fit = False
                         else:
-                            hit_x, hit_y, hit_z = testbeam_analysis.tools.geometry_utils.apply_alignment(hit_x_local, hit_y_local, hit_z_local,
-                                                                                                         dut_index=dut_index,
-                                                                                                         alignment=alignment,
-                                                                                                         inverse=False)
+                            no_fit = True
 
-                        hit_x = hit_x * 1.e-3  # in mm
-                        hit_y = hit_y * 1.e-3  # in mm
-                        hit_z = hit_z * 1.e-3  # in mm
-                        x.extend(hit_x)
-                        y.extend(hit_y)
-                        z.extend(hit_z)
+                        if no_fit is False:
+                            ax.plot(x, y, z, 's' if track['hit_flag'] == track['quality_flag'] else 'o', color=color)
+                            ax.plot3D(*linepts.T, color=color)
+                        else:
+                            ax.plot(x, y, z, 'x', color=color)
 
-                    if np.isfinite(track['offset_x']):
-                        offset = np.array((track['offset_x'], track['offset_y'], track['offset_z']))
-                        slope = np.array((track['slope_x'], track['slope_y'], track['slope_z']))
-                        linepts = offset * 1.e-3 + slope * 1.e-3 * np.mgrid[-150000:150000:2000j][:, np.newaxis]
-                        no_fit = False
-                    else:
-                        no_fit = True
-
-                    if no_fit is False:
-                        ax.plot(x, y, z, 's' if track['hit_flag'] == track['quality_flag'] else 'o', color=color)
-                        ax.plot3D(*linepts.T, color=color)
-                    else:
-                        ax.plot(x, y, z, 'x', color=color)
-
-#                 ax.set_zlim(min(z), max(z))
                 ax.set_xlabel('x [mm]')
                 ax.set_ylabel('y [mm]')
                 ax.set_zlabel('z [mm]')
