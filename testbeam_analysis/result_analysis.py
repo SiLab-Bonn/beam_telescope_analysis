@@ -582,6 +582,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     resolutions : 2-tuple or list of 2-tuples
         Resolution of the histogram in x and y direction (in um) for each selected DUT.
         If None, the resolution will be set to the pixel size.
+    extend_areas : 2-tuple or list of 2-tuples
+        Extending the area of the histograms in x and y direction (in um) for each selected DUT.
+        If None, only the active are will be plotted.
+    plot_ranges : 2-tuple of 2-tuples or list of 2-tuple of 2-tuples
+        Plot range in x and y direction (in um) for each selected DUT.
+        If None, use default values (i.e., positive direction of the x axis to the right and of y axis to the top, including extended area).
+    efficiency_regions : tuple of 2-tuple of 2-tuples or list of tuples of 2-tuple of 2-tuples
+        Fiducial region in x and y direction (in um) for each selected DUT.
+        The efficiency will be calculated plotted for each region individually.
     n_bins_in_pixel : iterable
         Number of bins used for in-pixel efficiency calculation. Give one tuple (n_bins_x, n_bins_y) for every plane or list of tuples for different planes.
         Only needed if in_pixel is True.
@@ -622,9 +631,74 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, resolutions)):
         raise ValueError("not all items in resolutions are iterable")
     # Finally check length of all arrays
-    for distance in resolutions:
-        if distance is not None and len(distance) != 2:  # check the length of the items
+    for resolution in resolutions:
+        if resolution is not None and len(resolution) != 2:  # check the length of the items
             raise ValueError("item in resolutions has length != 2")
+
+    # Create extend_areas array
+    if isinstance(extend_areas, tuple) or extend_areas is None:
+        extend_areas = [extend_areas] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(extend_areas, Iterable):
+        raise ValueError("extend_areas is no iterable")
+    elif not extend_areas:  # empty iterable
+        raise ValueError("extend_areas has no items")
+    # Finally check length of all arrays
+    if len(extend_areas) != len(select_duts):  # empty iterable
+        raise ValueError("extend_areas has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_areas)):
+        raise ValueError("not all items in extend_areas are iterable")
+    # Finally check length of all arrays
+    for extend_area in extend_areas:
+        if extend_area is not None and len(extend_area) != 2:  # check the length of the items
+            raise ValueError("item in extend_areas has length != 2")
+
+    # Create plot_ranges array
+    if isinstance(plot_ranges, tuple) or plot_ranges is None:
+        plot_ranges = [plot_ranges] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(plot_ranges, Iterable):
+        raise ValueError("plot_ranges is no iterable")
+    elif not plot_ranges:  # empty iterable
+        raise ValueError("plot_ranges has no items")
+    # Finally check length of all arrays
+    if len(plot_ranges) != len(select_duts):  # empty iterable
+        raise ValueError("plot_ranges has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, plot_ranges)):
+        raise ValueError("not all items in plot_ranges are iterable")
+    # Finally check length of all arrays
+    for plot_range in plot_ranges:
+        if plot_range is not None:
+            if len(plot_range) != 2:  # check the length of the items
+                raise ValueError("item in plot_ranges has length != 2")
+            for plot_range_direction in plot_range:
+                if len(plot_range_direction) != 2:  # check the length of the items
+                    raise ValueError("item in plot_ranges is not 2-tuple of 2-tuples")
+
+    # Create efficiency_regions array
+    if isinstance(efficiency_regions, tuple) or efficiency_regions is None:
+        efficiency_regions = [efficiency_regions] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(efficiency_regions, Iterable):
+        raise ValueError("efficiency_regions is no iterable")
+    elif not efficiency_regions:  # empty iterable
+        raise ValueError("efficiency_regions has no items")
+    # Finally check length of all arrays
+    if len(efficiency_regions) != len(select_duts):  # empty iterable
+        raise ValueError("efficiency_regions has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, efficiency_regions)):
+        raise ValueError("not all items in efficiency_regions are iterable")
+    # Finally check length of all arrays
+    for plot_range in efficiency_regions:
+        if plot_range is not None:
+            if len(plot_range) != 2:  # check the length of the items
+                raise ValueError("item in efficiency_regions has length != 2")
+            for plot_range_direction in plot_range:
+                if len(plot_range_direction) != 2:  # check the length of the items
+                    raise ValueError("item in efficiency_regions is not 2-tuple of 2-tuples")
 
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
@@ -674,10 +748,11 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 resolution = resolutions[index]
                 if resolution is None:
                     resolution = telescope[actual_dut_index].pixel_size
-                if extend_areas is not None and extend_areas[index] is not None:
-                    extend_area = extend_areas[index]
-                else:
-                    extend_area = None
+                if resolution[0] is None:
+                    resolution[0] = telescope[actual_dut_index].pixel_size[0]
+                if resolution[1] is None:
+                    resolution[1] = telescope[actual_dut_index].pixel_size[1]
+                extend_area = extend_areas[index]
                 # DUT size
                 dut_x_extent = telescope[actual_dut_index].x_extent(global_position=False)
                 dut_x_size = dut_x_extent[1] - dut_x_extent[0]
@@ -688,14 +763,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 # DUT hist size
                 dut_x_center = 0.0
                 dut_hist_x_size = math.ceil(dut_x_size / resolution[0]) * resolution[0]
-                if extend_area is not None:
-                    dut_hist_x_extent_area = math.ceil(extend_area / resolution[0]) * resolution[0] * 2.0
+                if extend_area is not None and extend_area[0] is not None:
+                    dut_hist_x_extent_area = math.ceil(extend_area[0] / resolution[0]) * resolution[0] * 2.0
                     dut_hist_x_size += dut_hist_x_extent_area
                 dut_hist_x_extent = [dut_x_center - dut_hist_x_size / 2.0, dut_x_center + dut_hist_x_size / 2.0]
                 dut_y_center = 0.0
                 dut_hist_y_size = math.ceil(dut_y_size / resolution[1]) * resolution[1]
-                if extend_area is not None:
-                    dut_hist_y_extent_area = math.ceil(extend_area / resolution[1]) * resolution[1] * 2.0
+                if extend_area is not None and extend_area[1] is not None:
+                    dut_hist_y_extent_area = math.ceil(extend_area[1] / resolution[1]) * resolution[1] * 2.0
                     dut_hist_y_size += dut_hist_y_extent_area
                 dut_hist_y_extent = [dut_y_center - dut_hist_y_size / 2.0, dut_y_center + dut_hist_y_size / 2.0]
                 hist_extent = [dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]]
@@ -704,23 +779,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 hist_2d_x_edges = np.linspace(dut_hist_x_extent[0], dut_hist_x_extent[1], hist_2d_x_n_bins + 1, endpoint=True)
                 hist_2d_y_edges = np.linspace(dut_hist_y_extent[0], dut_hist_y_extent[1], hist_2d_y_n_bins + 1, endpoint=True)
                 hist_2d_edges = [hist_2d_x_edges, hist_2d_y_edges]
-                if plot_ranges is not None and plot_ranges[index] is not None:
-                    plot_range = plot_ranges[index]
-                    if not (len(plot_range) == 2 and len(plot_range[0]) == 2 and len(plot_range[1]) == 2):
-                        raise ValueError('Parameter "plot_ranges" has wrong format')
-                else:
+                plot_range = plot_ranges[index]
+                if plot_range is None:
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
-                if efficiency_regions is not None and efficiency_regions[index] is not None:
-                    efficiency_region = efficiency_regions[index]
+                efficiency_region = efficiency_regions[index]
+                if efficiency_region is not None:
                     efficiency_region_efficiency = []
                     efficiency_region_stat = []
                     for region in efficiency_region:
                         efficiency_region_efficiency.append(0.0)
                         efficiency_region_stat.append(0.0)
-                        if not (len(region) == 2 and len(region[0]) == 2 and len(region[1]) == 2):
-                            raise ValueError('Parameter "efficiency_region" has wrong format')
                 else:
-                    efficiency_region = None
                     efficiency_region_efficiency = None
                     efficiency_region_stat = None
                 if in_pixel is True:
@@ -787,15 +856,16 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
 
                     select_valid_hit = ~np.isnan(hit_x_local)
-                    if cut_distances[index] is None:
-                        cut_distance_x = np.inf
-                        cut_distance_y = np.inf
-                    else:
-                        cut_distance_x = cut_distances[index][0]
-                        cut_distance_y = cut_distances[index][1]
+                    cut_distance = cut_distances[index]
+                    if cut_distance is None:
+                        cut_distance = (np.inf, np.inf)
+                    if cut_distance[0] is None:
+                        cut_distance[0] = np.inf
+                    if cut_distance[1] is None:
+                        cut_distance[1] = np.inf
                     # Select data where distance between the hit and track is smaller than the given value, use ellipse
-                    select_valid_hit[~np.isnan(distance_local)] &= ((np.square(x_residuals[~np.isnan(distance_local)]) / cut_distance_x**2) + (np.square(y_residuals[~np.isnan(distance_local)]) / cut_distance_y**2)) <= 1
-                    if efficiency_region:
+                    select_valid_hit[~np.isnan(distance_local)] &= ((np.square(x_residuals[~np.isnan(distance_local)]) / cut_distance[0]**2) + (np.square(y_residuals[~np.isnan(distance_local)]) / cut_distance[1]**2)) <= 1
+                    if efficiency_region is not None:
                         for region_index, region in enumerate(efficiency_region):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
                             select_valid_tracks_efficiency_region &= intersection_x_local > min(region[0])
@@ -1149,8 +1219,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_group._v_attrs.extend_area = extend_area
                 dut_group._v_attrs.plot_range = plot_range
                 dut_group._v_attrs.minimum_track_density = minimum_track_density
-                dut_group._v_attrs.cut_distance_x = cut_distance_x
-                dut_group._v_attrs.cut_distance_y = cut_distance_y
+                dut_group._v_attrs.cut_distance = cut_distance
                 dut_group._v_attrs.efficiency = (eff, eff_err_min, eff_err_pl)
                 dut_group._v_attrs.dut_extent = dut_extent
                 dut_group._v_attrs.hist_extent = hist_extent
