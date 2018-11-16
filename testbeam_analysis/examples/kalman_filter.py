@@ -82,13 +82,16 @@ is the smoothed Kalman Gain matrix. The covariance matrix of the smooted estimat
 .. math:: \\boldsymbol{C}^n_k = \\boldsymbol{C}_k^k + \\boldsymbol{A}_k (\\boldsymbol{C}^n_{k + 1} - \\boldsymbol{C}^k_{k + 1}) \\boldsymbol{A}_k^\\mathrm{T}.
 '''
 
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 import inspect
 
+import numpy as np
 from scipy.optimize import curve_fit
+from matplotlib.backends.backend_agg import FigureCanvas
+from matplotlib.figure import Figure
+
 from testbeam_analysis import track_analysis
+from testbeam_analysis.telescope.telescope import Telescope
 
 
 def straight_line(x, slope, offset):
@@ -101,137 +104,147 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     tests_data_folder = os.path.join(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))), 'data')
 
     # Create output subfolder where all output data and plots are stored
-    output_folder = os.path.join(tests_data_folder, 'output_kalman')
+    output_folder = os.path.join(tests_data_folder, 'output_kalman_filter')
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # pixel size of sensor
-    pixel_size = np.array([(18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (250., 50.)])
-    # number of pixels of each sensor
-    n_pixels = np.array([(576, 1152), (576, 1152), (576, 1152), (576, 1152), (576, 1152), (576, 1152), (80, 336)])
+    z_positions = [0.0, 29900.0, 60300.0, 82100.0, 118700.0, 160700.0, 197800.0]
+    material_budget = [100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 250.0 / 93700]
+    telescope = Telescope()
+    telescope.add_dut(dut_type="Mimosa26", dut_id=0, translation_x=0, translation_y=0, translation_z=z_positions[0], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[0], name="Telescope 1")
+    telescope.add_dut(dut_type="Mimosa26", dut_id=1, translation_x=0, translation_y=0, translation_z=z_positions[1], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[1], name="Telescope 2")
+    telescope.add_dut(dut_type="Mimosa26", dut_id=2, translation_x=0, translation_y=0, translation_z=z_positions[2], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[2], name="Telescope 3")
+    telescope.add_dut(dut_type="Mimosa26", dut_id=3, translation_x=0, translation_y=0, translation_z=z_positions[3], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[3], name="Telescope 4")
+    telescope.add_dut(dut_type="Mimosa26", dut_id=4, translation_x=0, translation_y=0, translation_z=z_positions[4], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[4], name="Telescope 5")
+    telescope.add_dut(dut_type="Mimosa26", dut_id=5, translation_x=0, translation_y=0, translation_z=z_positions[5], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[5], name="Telescope 6")
+    telescope.add_dut(dut_type="FEI4", dut_id=6, translation_x=0, translation_y=0, translation_z=z_positions[6], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[6], name="FEI4 Reference")
 
     # pixel resolution: need error on measurements. For real data, the error comes from
     # the cluster position errors which depends on cluster size
+    pixel_size = np.array([(18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (18.5, 18.5), (250.0, 50.)])
     pixel_resolution = pixel_size / np.sqrt(12)
 
-    # measurements: (x, y, z, x_err, y_err), data is taken from measurement
-    measurements = np.array([[[-1229.22372954, 2828.19616302, 0., pixel_resolution[0][0], pixel_resolution[0][1], 0.],
-                              [-1254.51224282, 2827.4291421, 29900., pixel_resolution[1][0], pixel_resolution[1][1], 0.],
-                              [-1285.6117892, 2822.34536687, 60300., pixel_resolution[2][0], pixel_resolution[2][1], 0.],
-                              [-1311.31083616, 2823.56121414, 82100., pixel_resolution[3][0], pixel_resolution[3][1], 0.],
-                              [-1335.8529645, 2828.43359043, 118700., pixel_resolution[4][0], pixel_resolution[4][1], 0.],
-                              [-1357.81872222, 2840.86947964, 160700., pixel_resolution[5][0], pixel_resolution[5][1], 0.],
-                              [-1396.35698339, 2843.76799577, 197800., pixel_resolution[6][0], pixel_resolution[6][1], 0.]]])
+    # measurements: (x, y, z, x_err, y_err, z_err), data is taken from measurement
+    measurements = np.array([[[-1229.22372954, 2828.19616302, 0.0, pixel_resolution[0][0], pixel_resolution[0][1], 0.0],
+                              [-1254.51224282, 2827.4291421, 29900.0, pixel_resolution[1][0], pixel_resolution[1][1], 0.0],
+                              [-1285.6117892, 2822.34536687, 60300.0, pixel_resolution[2][0], pixel_resolution[2][1], 0.0],
+                              [-1311.31083616, 2823.56121414, 82100.0, pixel_resolution[3][0], pixel_resolution[3][1], 0.0],
+                              [-1335.8529645, 2828.43359043, 118700.0, pixel_resolution[4][0], pixel_resolution[4][1], 0.0],
+                              [-1357.81872222, 2840.86947964, 160700.0, pixel_resolution[5][0], pixel_resolution[5][1], 0.0],
+                              [-1396.35698339, 2843.76799577, 197800.0, pixel_resolution[6][0], pixel_resolution[6][1], 0.0]]])
 
-    # copy of measurements for plotting, needed if actual measurements contains NaNs
-    measurements_plot = np.array([[[-1229.22372954, 2828.19616302, 0.],
-                                   [-1254.51224282, 2827.4291421, 29900.],
-                                   [-1285.6117892, 2822.34536687, 60300.],
-                                   [-1311.31083616, 2823.56121414, 82100.],
-                                   [-1335.8529645, 2828.43359043, 118700.],
-                                   [-1357.81872222, 2840.86947964, 160700.],
-                                   [-1396.35698339, 2843.76799577, 197800.]]])
-
-    # pre-alignment data
-    prealignment = {'z': [0., 29900., 60300., 82100., 118700., 160700., 197800.]}
-
-    # duts to fit tracks for
-    fit_duts = np.array([0])
-    # dut_fit_selection
-    dut_fit_selection = 126  # E.g. 61 corresponds to 0b111101 which means that DUT 1 and DUT 6 are treated as missing meas..
-    # intialize arrays for storing data
-    track_estimates_chunk_all = np.zeros((fit_duts.shape[0], measurements.shape[1], 6))
-    chi2s = np.zeros((fit_duts.shape[0], 1))
-    fit_results_x = np.zeros((fit_duts.shape[0], 2))
-    fit_results_y = np.zeros((fit_duts.shape[0], 2))
-    x_errs_all = np.zeros((fit_duts.shape[0], measurements.shape[1],))
-    y_errs_all = np.zeros((fit_duts.shape[0], measurements.shape[1],))
-    # select dut tracks to plot
-    plot_dut = np.array([0])
-
-    if plot_dut not in fit_duts:
-        raise ValueError('Plot DUT is not in fit duts. Please select another DUT.')
+    # select fit DUTs
+    select_fit_duts = 126  # E.g. 61 corresponds to 0b111101 which means that DUT 1 and DUT 6 are treated as missing measurement.
 
     dut_list = np.full(shape=(measurements.shape[1]), fill_value=np.nan)
     for index in range(measurements.shape[1]):
         dut_n = index
-        if np.bitwise_and(1 << index, dut_fit_selection) == 2 ** index:
+        if np.bitwise_and(1 << index, select_fit_duts) == 2 ** index:
             dut_list[dut_n] = dut_n
+    # DUTs which are used for fit
     fit_selection = dut_list[~np.isnan(dut_list)].astype(int)
+    # DUTs which are not used for fit
+    no_fit_selection = list(set(range(len(telescope))) - set(fit_selection))
 
-    for fit_dut_index, actual_fit_dut in enumerate(fit_duts):
-        track_estimates_chunk, chi2, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
-            track_hits=measurements,
-            dut_fit_selection=dut_fit_selection,
-            pixel_size=pixel_size,
-            n_pixels=n_pixels,
-            z_positions=prealignment['z'],
-            alignment=prealignment,
-            use_prealignment=True,
-            beam_energy=2500.,
-            material_budget=[100. / 125390., 100. / 125390., 100. / 125390., 100. / 125390.,
-                             100. / 125390., 100. / 125390., 250. / 93700],
-            add_scattering_plane=False)
+    offsets, slopes, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
+        track_hits=measurements,
+        telescope=telescope,
+        select_fit_duts=fit_selection,
+        particle_mass=0.511,
+        beam_energy=2500.0,
+        scattering_planes=None)
 
-        # interpolate hits with straight line
-        fit_x, _ = curve_fit(straight_line, measurements_plot[0, :, -1][fit_selection] / 1000., measurements[0, :, 0][fit_selection])
-        fit_y, _ = curve_fit(straight_line, measurements_plot[0, :, -1][fit_selection] / 1000., measurements[0, :, 1][fit_selection])
+    # offsets = track_estimates_chunk[:, :len(telescope), :3]
 
-        # store
-        track_estimates_chunk_all[fit_dut_index] = track_estimates_chunk
-        chi2s[fit_dut_index] = chi2
-        x_errs_all[fit_dut_index] = x_errs
-        y_errs_all[fit_dut_index] = y_errs
-        fit_results_x[fit_dut_index] = fit_x
-        fit_results_y[fit_dut_index] = fit_y
+    # slopes = track_estimates_chunk[:, :len(telescope), 3:]
 
-        if actual_fit_dut in plot_dut:  # plot only for selected DUT
+    # interpolate hits with straight line
+    fit_x, _ = curve_fit(straight_line, measurements[0, :, 2][fit_selection] / 1000.0, measurements[0, :, 0][fit_selection])
+    fit_y, _ = curve_fit(straight_line, measurements[0, :, 2][fit_selection] / 1000.0, measurements[0, :, 1][fit_selection])
+    z_range = np.linspace(min(measurements[0, :, 2]), max(measurements[0, :, 2]), 2) / 1000.0
 
-            # duts which are unused for fit
-            unused_duts = np.setdiff1d(range(measurements_plot.shape[1]), fit_selection)
-            x_fit = np.arange(measurements_plot[0, :, -1][0], measurements_plot[0, :, -1][-1], 1.) / 1000.
+    # plot tracks in x-direction
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    ax.set_title('Track projection on xz-plane')
+    ax.set_xlabel('z [mm]')
+    ax.set_ylabel('x [$\mathrm{\mu}$m]')
+    ax.grid()
 
-            # plot tracks in x-direction
-            plt.title('Tracks in x-direction for DUT%d' % plot_dut)
-            plt.xlabel('z [mm]')
-            plt.ylabel('x [$\mathrm{\mu}$m]')
-            plt.grid()
+    ax.errorbar(
+        offsets[0, :, 2] / 1000.0,
+        offsets[0, :, 0],
+        yerr=x_errs[0],
+        marker='o',
+        linestyle='-',
+        label='Smoothed estimates',
+        color='green',
+        zorder=3)
+    ax.errorbar(
+        offsets[0, :, 2][no_fit_selection] / 1000.0,
+        offsets[0, :, 0][no_fit_selection],
+        yerr=x_errs[0][no_fit_selection],
+        marker='o',
+        label='Smoothed estimates (not fit)',
+        color='indianred',
+        zorder=4)
+    ax.plot(
+        measurements[0, :, 2] / 1000.0,
+        measurements[0, :, 0],
+        marker='o',
+        linestyle='-',
+        label='Hit positions',
+        color='steelblue',
+        zorder=2)
+    ax.plot(
+        z_range,
+        straight_line(z_range, fit_x[0], fit_x[1]),
+        label='Straight Line Fit',
+        color='darkorange',
+        zorder=1)
+    ax.legend()
+    fig.savefig(os.path.join(output_folder, 'kalman_track_x.pdf'))
 
-            plt.errorbar(measurements_plot[0, :, -1] / 1000.,
-                         track_estimates_chunk_all[np.where(fit_duts == plot_dut)[0], :, 0].reshape(measurements.shape[1],),
-                         yerr=x_errs_all[np.where(fit_duts == plot_dut)[0]].reshape(measurements.shape[1],),
-                         marker='o', linestyle='-', label='Smoothed estimates', zorder=2)
-            plt.plot(measurements[0, :, -1][unused_duts] / 1000.,
-                     track_estimates_chunk_all[np.where(fit_duts == plot_dut)[0], unused_duts, 0].reshape(len(unused_duts),),
-                     'o', color='indianred', zorder=4)
-            plt.plot(measurements[0, :, -1] / 1000.,
-                     measurements_plot[0, :, 0],
-                     marker='o', linestyle='-', label='Hit positions', color='green', zorder=3)
-            plt.plot(x_fit,
-                     straight_line(x_fit, fit_results_x[np.where(fit_duts == plot_dut)[0], 0], fit_results_x[np.where(fit_duts == plot_dut)[0], 1]),
-                     label='Straight Line Fit', zorder=1)
-            plt.legend()
-            plt.savefig(os.path.join(output_folder, 'kalman_tracks_x_DUT%d.pdf' % actual_fit_dut))
-            plt.close()
+    # plot tracks in x-direction
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    ax.set_title('Track projection on yz-plane')
+    ax.set_xlabel('z [mm]')
+    ax.set_ylabel('y [$\mathrm{\mu}$m]')
+    ax.grid()
 
-            # plot tracks in y-direction
-            plt.title('Tracks in y-direction for DUT%d' % plot_dut)
-            plt.xlabel('z [mm]')
-            plt.ylabel('y [$\mathrm{\mu}$m]')
-            plt.grid()
-            plt.errorbar(measurements_plot[0, :, -1] / 1000.,
-                         track_estimates_chunk_all[np.where(fit_duts == plot_dut)[0], :, 1].reshape(measurements.shape[1],),
-                         yerr=y_errs_all[np.where(fit_duts == plot_dut)[0]].reshape(measurements.shape[1],),
-                         marker='o', linestyle='-', label='Smoothed estimates', zorder=2)
-            plt.plot(measurements_plot[0, :, -1][unused_duts] / 1000.,
-                     track_estimates_chunk_all[np.where(fit_duts == plot_dut)[0], unused_duts, 1].reshape(len(unused_duts), ),
-                     'o', color='indianred', zorder=4)
-            plt.plot(measurements_plot[0, :, -1] / 1000.,
-                     measurements_plot[0, :, 1],
-                     marker='o', linestyle='-', label='Hit positions', zorder=3)
-            plt.plot(x_fit,
-                     straight_line(x_fit, fit_results_y[np.where(fit_duts == plot_dut)[0], 0], fit_results_y[np.where(fit_duts == plot_dut)[0], 1]),
-                     label='Straight Line Fit', zorder=1)
-            plt.legend()
-            plt.savefig(os.path.join(output_folder, 'kalman_tracks_y_DUT%d.pdf' % actual_fit_dut))
-            plt.close()
+    ax.errorbar(
+        offsets[0, :, 2] / 1000.0,
+        offsets[0, :, 1],
+        yerr=y_errs[0],
+        marker='o',
+        linestyle='-',
+        label='Smoothed estimates',
+        color='green',
+        zorder=3)
+    ax.errorbar(
+        offsets[0, :, 2][no_fit_selection] / 1000.0,
+        offsets[0, :, 1][no_fit_selection],
+        yerr=y_errs[0][no_fit_selection],
+        marker='o',
+        label='Smoothed estimates (not fit)',
+        color='indianred',
+        zorder=4)
+    ax.plot(
+        measurements[0, :, 2] / 1000.0,
+        measurements[0, :, 1],
+        marker='o',
+        linestyle='-',
+        label='Hit positions',
+        color='steelblue',
+        zorder=2)
+    ax.plot(
+        z_range,
+        straight_line(z_range, fit_y[0], fit_y[1]),
+        label='Straight Line Fit',
+        color='darkorange',
+        zorder=1)
+    ax.legend()
+    fig.savefig(os.path.join(output_folder, 'kalman_track_y.pdf'))
