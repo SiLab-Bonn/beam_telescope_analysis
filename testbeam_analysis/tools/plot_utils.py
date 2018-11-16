@@ -724,8 +724,11 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                     max_z = max(max_z, actual_dut.translation_z * 1.e-3)
 
                 # Loop over the tracks
+                events = 0
+                tracks = 0
                 tracks_node = in_file_h5.get_node(in_file_h5.root, name='Tracks_DUT%d' % actual_dut_index)
                 for tracks_chunk, index in testbeam_analysis.tools.analysis_utils.data_aligned_at_events(tracks_node, start_event_number=event_range[0], stop_event_number=event_range[1], fail_on_missing_events=False, chunk_size=chunk_size):
+                    events += len(set(tracks_chunk["event_number"]))
                     for track in tracks_chunk:
                         color = next(colors)
                         x, y, z = [], [], []
@@ -745,6 +748,7 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                             z.extend(hit_z)
 
                         if np.isfinite(track['offset_x']):
+                            tracks += 1
                             track_offset_x, track_offset_y, track_offset_z = telescope[actual_dut_index].local_to_global_position(
                                 x=track['offset_x'],
                                 y=track['offset_y'],
@@ -777,7 +781,7 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                 ax.set_xlabel('x [mm]')
                 ax.set_ylabel('y [mm]')
                 ax.set_zlabel('z [mm]')
-                ax.set_title('%d tracks of %d events for %s' % (tracks_chunk.shape[0], np.unique(tracks_chunk['event_number']).shape[0], dut_name))
+                ax.set_title('%d tracks in %d events for %s' % (tracks, events, dut_name))
 
                 if gui:
                     figs.append(fig)
