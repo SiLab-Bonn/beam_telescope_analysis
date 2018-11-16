@@ -735,7 +735,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 actual_hit_duts = [list((set(select_hit_duts) | set(select_telescope_duts)) | set([dut_index])) for dut_index in actual_align_duts]
                 actual_quality_duts = actual_hit_duts
                 # gradually decrease quality distance for telescope DUTs to ensure enough data is available for alignment
-                fit_quality_distances = np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)
+                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
             # Regular case for fit DUTs
             elif (set(align_duts) & set(select_fit_duts)):
                 align_telescope(
@@ -748,7 +748,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
                 actual_quality_duts = actual_hit_duts
                 # gradually decrease quality distance for telescope DUTs to ensure enough data is available for alignment
-                fit_quality_distances = np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)
+                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
             # Regular case for non-fit DUTs
             else:
                 # aligning non-fit DUTs needs some adjustments to the parameters
