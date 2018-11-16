@@ -628,6 +628,7 @@ def plot_hough(dut_pos, data, accumulator, offset, slope, dut_pos_limit, theta_e
 
 def plot_checks(input_corr_file, output_pdf_file=None):
     '''Takes the hit check histograms and plots them.
+
     Parameters
     ----------
     input_corr_file : string
@@ -636,7 +637,6 @@ def plot_checks(input_corr_file, output_pdf_file=None):
         Filename of the output PDF file. If None, the filename is derived from
         the input file.
     '''
-
     if not output_pdf_file:
         output_pdf_file = os.path.splitext(input_corr_file)[0] + '.pdf'
 
@@ -659,9 +659,9 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                     ax.plot(data, '-')
                 if len(data.shape) == 2:  # 2 d data (correlation)
                     im = ax.imshow(data.T, origin="lower", cmap=cmap, norm=norm, aspect="auto", interpolation='none')
+                    # do not append to axis to preserve aspect ratio
+                    fig.colorbar(im, cmap=cmap, norm=norm, fraction=0.04, pad=0.05)
                 ax.set_title("%s" % node.title)
-                # do not append to axis to preserve aspect ratio
-                fig.colorbar(im, cmap=cmap, norm=norm, fraction=0.04, pad=0.05)
                 output_pdf.savefig(fig)
 
 
