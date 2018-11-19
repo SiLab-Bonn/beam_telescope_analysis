@@ -588,7 +588,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     plot_ranges : 2-tuple of 2-tuples or list of 2-tuple of 2-tuples
         Plot range in x and y direction (in um) for each selected DUT.
         If None, use default values (i.e., positive direction of the x axis to the right and of y axis to the top, including extended area).
-    efficiency_regions : tuple of 2-tuple of 2-tuples or list of tuples of 2-tuple of 2-tuples
+    efficiency_regions : tuple of tuples of 2-tuples or list of lists of tuples of 2-tuples
         Fiducial region in x and y direction (in um) for each selected DUT.
         The efficiency will be calculated plotted for each region individually.
     n_bins_in_pixel : iterable
@@ -692,13 +692,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, efficiency_regions)):
         raise ValueError("not all items in efficiency_regions are iterable")
     # Finally check length of all arrays
-    for plot_range in efficiency_regions:
-        if plot_range is not None:
-            if len(plot_range) != 2:  # check the length of the items
-                raise ValueError("item in efficiency_regions has length != 2")
-            for plot_range_direction in plot_range:
-                if len(plot_range_direction) != 2:  # check the length of the items
-                    raise ValueError("item in efficiency_regions is not 2-tuple of 2-tuples")
+    for regions in efficiency_regions:
+        if regions is not None:
+            for region in regions:
+                if len(region) != 2:  # check the length of the items
+                    raise ValueError("item in efficiency_regions has length != 2")
+                for region_direction in region:
+                    if len(region_direction) != 2:  # check the length of the items
+                        raise ValueError("item in efficiency_regions is not list of tuples of 2-tuples")
 
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
