@@ -123,7 +123,15 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
                     else:
                         out_dtype.append((name, dtype))
             out_dtype = np.dtype(out_dtype)
-            out_table = out_file_h5.create_table(out_file_h5.root, name=node.name, description=out_dtype, title=node.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+            out_table = out_file_h5.create_table(
+                where=out_file_h5.root,
+                name=node.name,
+                description=out_dtype,
+                title=node.title,
+                filters=tb.Filters(
+                    complib='blosc',
+                    complevel=5,
+                    fletcher32=False))
 
             progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=node.shape[0], term_width=80)
             progress_bar.start()
@@ -550,7 +558,16 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
         pixel_mask = np.ma.getmaskarray(occupancy)
 
         # Create masked pixels array
-        masked_pixel_table = out_file_h5.create_carray(out_file_h5.root, name=pixel_mask_name, title='Pixel Mask', atom=tb.Atom.from_dtype(pixel_mask.dtype), shape=pixel_mask.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        masked_pixel_table = out_file_h5.create_carray(
+            where=out_file_h5.root,
+            name=pixel_mask_name,
+            title='Pixel Mask',
+            atom=tb.Atom.from_dtype(pixel_mask.dtype),
+            shape=pixel_mask.shape,
+            filters=tb.Filters(
+                complib='blosc',
+                complevel=5,
+                fletcher32=False))
         masked_pixel_table[:] = pixel_mask
 
     if plot:
@@ -1449,7 +1466,15 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
 
     # Merge the cluster data from different DUTs into one table
     with tb.open_file(output_merged_file, mode='w') as out_file_h5:
-        merged_cluster_table = out_file_h5.create_table(out_file_h5.root, name='MergedClusters', description=np.dtype(description), title='Merged cluster on event number', filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        merged_cluster_table = out_file_h5.create_table(
+            where=out_file_h5.root,
+            name='MergedClusters',
+            description=np.dtype(description),
+            title='Merged cluster on event number',
+            filters=tb.Filters(
+                complib='blosc',
+                complevel=5,
+                fletcher32=False))
         with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
             progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=in_file_h5.root.Clusters.shape[0], term_width=80)
             progress_bar.start()

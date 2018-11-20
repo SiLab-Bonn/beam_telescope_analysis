@@ -343,12 +343,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_x_res = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_x_residuals_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_x_residuals_hist.dtype),
                     shape=local_x_residuals_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_x_res.attrs.xedges = local_x_residuals_hist_edges
                 out_local_x_res.attrs.fit_coeff = fit_local_x_res
                 out_local_x_res.attrs.fit_cov = cov_local_x_res
@@ -370,12 +373,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_y_res = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_y_residuals_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in Y direction for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_y_residuals_hist.dtype),
                     shape=local_y_residuals_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_y_res.attrs.yedges = local_y_residuals_hist_edges
                 out_local_y_res.attrs.fit_coeff = fit_local_y_res
                 out_local_y_res.attrs.fit_cov = cov_local_y_res
@@ -406,12 +412,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_x_residuals_x_pos = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_x_residuals_x_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the X position for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_x_residuals_x_pos_hist.dtype),
                     shape=local_x_residuals_x_pos_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_x_residuals_x_pos.attrs.xedges = x_pos_hist_edges
                 out_local_x_residuals_x_pos.attrs.yedges = local_x_residuals_hist_edges
                 out_local_x_residuals_x_pos.attrs.fit_coeff = fit_local_x_residuals_x_pos
@@ -443,12 +452,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_y_residuals_y_pos = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_y_residuals_y_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in Y direction as a function of the Y position for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_y_residuals_y_pos_hist.dtype),
                     shape=local_y_residuals_y_pos_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_y_residuals_y_pos.attrs.xedges = y_pos_hist_edges
                 out_local_y_residuals_y_pos.attrs.yedges = local_y_residuals_hist_edges
                 out_local_y_residuals_y_pos.attrs.fit_coeff = fit_local_y_residuals_y_pos
@@ -480,12 +492,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_x_residuals_y_pos_pos = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_y_residuals_x_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the Y position for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_y_residuals_x_pos_hist.dtype),
                     shape=local_y_residuals_x_pos_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_x_residuals_y_pos_pos.attrs.xedges = x_pos_hist_edges
                 out_local_x_residuals_y_pos_pos.attrs.yedges = local_y_residuals_hist_edges
                 out_local_x_residuals_y_pos_pos.attrs.fit_coeff = fit_local_y_residuals_x_pos
@@ -517,12 +532,15 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     figs=figs
                 )
                 out_local_x_residuals_y_pos = out_file_h5.create_carray(
-                    out_file_h5.root,
+                    where=out_file_h5.root,
                     name='local_x_residuals_y_pos_DUT%d' % (actual_dut_index),
                     title='Local residual distribution in X direction as a function of the Y position for %s' % (actual_dut.name),
                     atom=tb.Atom.from_dtype(local_x_residuals_y_pos_hist.dtype),
                     shape=local_x_residuals_y_pos_hist.shape,
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 out_local_x_residuals_y_pos.attrs.xedges = y_pos_hist_edges
                 out_local_x_residuals_y_pos.attrs.yedges = local_x_residuals_hist_edges
                 out_local_x_residuals_y_pos.attrs.fit_coeff = fit_local_x_residuals_y_pos
@@ -1390,12 +1408,48 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
 
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT%d' % actual_dut_index)
 
-                out_purity = out_file_h5.create_carray(dut_group, name='Purity', title='Purity map for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.dtype), shape=purity.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_purity_mask = out_file_h5.create_carray(dut_group, name='Purity_mask', title='Masked pixel map for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(purity.mask.dtype), shape=purity.mask.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_purity = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='Purity',
+                    title='Purity map for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(purity.dtype),
+                    shape=purity.T.shape,
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
+                out_purity_mask = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='Purity_mask',
+                    title='Masked pixel map for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(purity.mask.dtype),
+                    shape=purity.mask.T.shape,
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
 
                 # For correct statistical error calculation the number of pure hits over total hits is needed
-                out_pure_hits = out_file_h5.create_carray(dut_group, name='Pure_hits', title='Passing events for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_pure_hit_hist.dtype), shape=total_pure_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
-                out_total_total = out_file_h5.create_carray(dut_group, name='Total_hits', title='Total events for DUT%d' % actual_dut_index, atom=tb.Atom.from_dtype(total_hit_hist.dtype), shape=total_hit_hist.T.shape, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                out_pure_hits = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='Pure_hits',
+                    title='Passing events for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(total_pure_hit_hist.dtype),
+                    shape=total_pure_hit_hist.T.shape,
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
+                out_total_total = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='Total_hits',
+                    title='Total events for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(total_hit_hist.dtype),
+                    shape=total_hit_hist.T.shape,
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
 
                 pure_hits.append(total_pure_hit_hist.sum())
                 total_hits.append(total_hit_hist.sum())
@@ -1694,14 +1748,20 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     atom=tb.Float32Atom(),
                     shape=(0,),
                     title='Reference column residuals',
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 x_residuals_earray = out_file_h5.create_earray(
                     where=out_file_h5.root,
                     name='Column_residuals_DUT%d' % actual_dut,
                     atom=tb.Float32Atom(),
                     shape=(0, plot_n_bins[index][0]),
                     title='Column residuals',
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 x_residuals_earray.attrs.edges = x_edges
                 ref_y_residuals_earray = out_file_h5.create_earray(
                     where=out_file_h5.root,
@@ -1709,14 +1769,20 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     atom=tb.Float32Atom(),
                     shape=(0,),
                     title='Reference row residuals',
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 y_residuals_earray = out_file_h5.create_earray(
                     where=out_file_h5.root,
                     name='Row_residuals_DUT%d' % actual_dut,
                     atom=tb.Float32Atom(),
                     shape=(0, plot_n_bins[index][1]),
                     title='Row residuals',
-                    filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
                 y_residuals_earray.attrs.edges = y_edges
                 if use_fit_limits:
                     fit_limit_x_local, fit_limit_y_local = fit_limits[actual_dut][0], fit_limits[actual_dut][1]

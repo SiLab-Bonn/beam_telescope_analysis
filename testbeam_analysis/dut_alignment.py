@@ -130,7 +130,15 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
         with tb.open_file(output_file, mode='w') as out_file_h5:
             for node in in_file_h5.root:  # Loop over potential hit tables in data file
                 logging.info('== Apply alignment to node %s ==', node.name)
-                hits_aligned_table = out_file_h5.create_table(out_file_h5.root, name=node.name, description=node.dtype, title=node.title, filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+                hits_aligned_table = out_file_h5.create_table(
+                    where=out_file_h5.root,
+                    name=node.name,
+                    description=node.dtype,
+                    title=node.title,
+                    filters=tb.Filters(
+                        complib='blosc',
+                        complevel=5,
+                        fletcher32=False))
 
                 progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=node.shape[0], term_width=80)
                 progress_bar.start()
