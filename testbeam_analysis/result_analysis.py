@@ -1203,7 +1203,11 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         name='count_pixel_hits_2d_hist',
                         title='count_pixel_hits_2d_hist for DUT%d' % actual_dut_index,
                         atom=tb.Atom.from_dtype(count_pixel_hits_2d_hist.dtype),
-                        shape=count_pixel_hits_2d_hist.shape)
+                        shape=count_pixel_hits_2d_hist.shape,
+                        filters=tb.Filters(
+                            complib='blosc',
+                            complevel=5,
+                            fletcher32=False))
                     out_count_pixel_hits_2d_hist[:] = count_pixel_hits_2d_hist
 
                 if in_pixel is True:
