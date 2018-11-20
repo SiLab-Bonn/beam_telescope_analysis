@@ -417,7 +417,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         The select_fit_duts is a subset of select_hit_duts.
     exclude_dut_hit : bool
         Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
-        If False, use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available.
+        If False, use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
         If True, do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
     method : string
         Available methods are 'kalman', which uses a Kalman Filter for track calculation, and 'fit', which uses a simple
