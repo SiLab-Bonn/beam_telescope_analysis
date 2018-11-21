@@ -419,16 +419,16 @@ class FEI4DCModule(RectangularPixelDut):
            raise ValueError("Column/row out of limits.")
        inner_pixels1 = np.where(column == 80)
        inner_pixels2 = np.where(column == 81)
-       x[inner_pixels1] -= 100
-       x[inner_pixels2] += 100
+       x[inner_pixels1] -= 100.0
+       x[inner_pixels2] += 100.0
        outer_pixels1 = np.where(column == 1)
        outer_pixels2 = np.where(column == 160)
-       x[outer_pixels1] -= 125
-       x[outer_pixels2] += 125
+       x[outer_pixels1] -= 125.0
+       x[outer_pixels2] += 125.0
        matrix1 = np.where((1 < column) & (column < 80))
        matrix2 = np.where((81 < column) & (column < 160))
-       x[matrix1] -= 200
-       x[matrix2] += 200
+       x[matrix1] -= 200.0
+       x[matrix2] += 200.0
        # x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
        # y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
        # z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
