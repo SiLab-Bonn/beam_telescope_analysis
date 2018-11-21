@@ -535,6 +535,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         must have a smaller distance (ellipse) to have the quality flag to be set to 1.
         The purpose of quality_distances is to find good tracks for the alignment.
         A good start value is 1-2x the pixel pitch for large pixels and high-energy beams and 5-10x the pixel pitch for small pixels and low-energy beams.
+        A too small value will remove good tracks, a too large value will allow bad tracks. A cut on the track chi2 will have a similar effect.
         If None, use infinite distance.
     reject_quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
