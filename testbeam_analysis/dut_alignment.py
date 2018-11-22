@@ -467,7 +467,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=False, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=False, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -530,12 +530,17 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             rotation_alpha/rotation_beta/rotation_gamma: alpha/beta/gamma angle of scattering plane (in radians)
         The material budget is defined as the thickness devided by the radiation length.
         If scattering_planes is None, no scattering plane will be added.
+    track_chi2 : float or list
+        Setting the limit on the track chi^2. If None or 0.0, no cut will be applied.
+        A smaller value reduces the number of tracks for the alignment.
+        A large value increases the number of tracks but at the cost of alignment efficiency bacause of potentially bad tracks.
+        A good start value is 5.0 to 10.0 for high energy beams and 15.0 to 50.0 for low energy beams.
     quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
         must have a smaller distance (ellipse) to have the quality flag to be set to 1.
         The purpose of quality_distances is to find good tracks for the alignment.
         A good start value is 1-2x the pixel pitch for large pixels and high-energy beams and 5-10x the pixel pitch for small pixels and low-energy beams.
-        A too small value will remove good tracks, a too large value will allow bad tracks. A cut on the track chi2 will have a similar effect.
+        A too small value will remove good tracks, a too large value will allow bad tracks. A cut on the track chi^2 will have a similar effect.
         If None, use infinite distance.
     reject_quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
@@ -639,6 +644,12 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
+    if not isinstance(track_chi2, Iterable):
+        track_chi2 = [track_chi2] * len(align_duts)
+    # Finally check length of all arrays
+    if len(track_chi2) != len(track_chi2):  # empty iterable
+        raise ValueError("track_chi2 has the wrong length")
+
     # Create quality distance
     if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
@@ -708,6 +719,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             beam_energy=beam_energy,
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
+            track_chi2=track_chi2[index],
             quality_distances=quality_distances,
             reject_quality_distances=reject_quality_distances,
             use_limits=use_limits,
@@ -717,7 +729,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
     alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
@@ -821,7 +833,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             select_hit_duts=actual_hit_duts,
             select_quality_duts=actual_quality_duts,
             # Select good tracks und limit cluster size to 4
-            condition=[('' if (set(align_duts) & set(select_fit_duts)) else '(track_chi2 < 5) &') + '(n_hits_dut_{0} <= 4)'.format(dut_index) for dut_index in actual_align_duts],
+            condition=[(('(track_chi2 < %f) & ' % track_chi2) if track_chi2 else '') + '(n_hits_dut_{0} <= 4)'.format(dut_index) for dut_index in actual_align_duts],
             max_events=None,
             chunk_size=chunk_size)
 
