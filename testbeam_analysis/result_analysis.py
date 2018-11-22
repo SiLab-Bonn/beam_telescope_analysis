@@ -141,7 +141,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                             min_difference, max_difference = np.min(difference_local_limit_xy[:, 0]), np.max(difference_local_limit_xy[:, 0])
                             nbins = np.arange(min_difference - (actual_dut.column_size / nbins_per_pixel), max_difference + 2 * (actual_dut.column_size / nbins_per_pixel), actual_dut.column_size / nbins_per_pixel)
                         else:
-                            nbins = "auto"
+                            nbins = "sturges"
                         hist, edges = np.histogram(difference_local_limit_xy[:, 0], bins=nbins)
                         edge_center = (edges[1:] + edges[:-1]) / 2.0
                         try:
@@ -157,7 +157,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                             min_difference, max_difference = np.min(difference_local_limit_xy[:, 1]), np.max(difference_local_limit_xy[:, 1])
                             nbins = np.arange(min_difference - (actual_dut.row_size / nbins_per_pixel), max_difference + 2 * (actual_dut.row_size / nbins_per_pixel), actual_dut.row_size / nbins_per_pixel)
                         else:
-                            nbins = "auto"
+                            nbins = "sturges"
                         hist, edges = np.histogram(difference_local_limit_xy[:, 1], bins=nbins)
                         edge_center = (edges[1:] + edges[:-1]) / 2.0
                         try:
