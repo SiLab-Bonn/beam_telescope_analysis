@@ -537,14 +537,14 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         A good start value is 5.0 to 10.0 for high energy beams and 15.0 to 50.0 for low energy beams.
     quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
-        must have a smaller distance (ellipse) to have the quality flag to be set to 1.
+        must have a smaller distance to have the quality flag to be set to 1.
         The purpose of quality_distances is to find good tracks for the alignment.
         A good start value is 1-2x the pixel pitch for large pixels and high-energy beams and 5-10x the pixel pitch for small pixels and low-energy beams.
         A too small value will remove good tracks, a too large value will allow bad tracks. A cut on the track chi^2 will have a similar effect.
         If None, use infinite distance.
     reject_quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. Any other occurence of tracks or hits from the same event
-        within this distance (ellipse) will reject the quality flag.
+        within this distance will reject the quality flag.
         The purpose of reject_quality_distances is to remove tracks from alignment that could be potentially fake tracks (noisy detector / high beam density).
         If None, use infinite distance.
     use_limits : bool

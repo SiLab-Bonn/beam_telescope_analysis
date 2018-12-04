@@ -620,7 +620,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         Minimum track density required to consider bin for efficiency calculation.
     cut_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each selected DUT to calculate the efficiency.
-        Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance (ellipse).
+        Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance.
         If None, use infinite distance.
     in_pixel : bool
         If True, calculate and plot in-pixel efficiency. Default is False.
@@ -873,8 +873,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     x_residuals = hit_x_local - intersection_x_local
                     y_residuals = hit_y_local - intersection_y_local
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
+                    select_valid_hit = np.isfinite(hit_x_local)
+                    select_finite_distance = np.isfinite(distance_local)
 
-                    select_valid_hit = ~np.isnan(hit_x_local)
                     cut_distance = cut_distances[index]
                     if cut_distance is None:
                         cut_distance = (np.inf, np.inf)
@@ -882,8 +883,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         cut_distance[0] = np.inf
                     if cut_distance[1] is None:
                         cut_distance[1] = np.inf
-                    # Select data where distance between the hit and track is smaller than the given value, use ellipse
-                    select_valid_hit[~np.isnan(distance_local)] &= ((np.square(x_residuals[~np.isnan(distance_local)]) / cut_distance[0]**2) + (np.square(y_residuals[~np.isnan(distance_local)]) / cut_distance[1]**2)) <= 1
+                    # Select data where distance between the hit and track is smaller than the given value
+                    if cut_distance[0] >= 2.5 * telescope[actual_dut_index].pixel_size[0] and cut_distance[1] >= 2.5 * telescope[actual_dut_index].pixel_size[1]:  # use ellipse
+                        select_valid_hit[select_finite_distance] &= ((np.square(x_residuals[select_finite_distance]) / cut_distance[0]**2) + (np.square(y_residuals[select_finite_distance]) / cut_distance[1]**2)) <= 1
+                    else:  # use square
+                        select_valid_hit[select_finite_distance] &= (np.abs(x_residuals[select_finite_distance]) <= cut_distance[0])
+                        select_valid_hit[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= cut_distance[1])
                     if efficiency_region is not None:
                         for region_index, region in enumerate(efficiency_region):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
