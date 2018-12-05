@@ -1,6 +1,8 @@
 # distutils: language = c++
 # cython: boundscheck=False
 # cython: wraparound=False
+# cython: language_level=2
+
 from numpy cimport ndarray
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, int64_t
 from testbeam_analysis.cpp.data_struct cimport numpy_hit_info, numpy_cluster_info
