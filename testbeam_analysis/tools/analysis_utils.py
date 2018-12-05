@@ -612,19 +612,6 @@ def data_aligned_at_events(table, start_event_number=None, stop_event_number=Non
             current_start_index = current_start_index + nrows + chunk_start_index  # events fully read, increase start index and continue reading
 
 
-def fix_event_alignment(event_numbers, ref_column, column, ref_row, row, ref_charge, charge, error=3., n_bad_events=5, n_good_events=3, correlation_search_range=2000, good_events_search_range=10):
-    correlated = np.ascontiguousarray(np.ones(shape=event_numbers.shape, dtype=np.uint8))  # array to signal correlation to be ables to omit not correlated events in the analysis
-    event_numbers = np.ascontiguousarray(event_numbers)
-    ref_column = np.ascontiguousarray(ref_column)
-    column = np.ascontiguousarray(column)
-    ref_row = np.ascontiguousarray(ref_row)
-    row = np.ascontiguousarray(row)
-    ref_charge = np.ascontiguousarray(ref_charge, dtype=np.uint16)
-    charge = np.ascontiguousarray(charge, dtype=np.uint16)
-    n_fixes = analysis_functions.fix_event_alignment(event_numbers, ref_column, column, ref_row, row, ref_charge, charge, correlated, error, n_bad_events, correlation_search_range, n_good_events, good_events_search_range)
-    return correlated, n_fixes
-
-
 def find_closest(arr, values):
     '''Returns a list of indices with values closest to arr values.
 
