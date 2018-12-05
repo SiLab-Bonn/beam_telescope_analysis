@@ -1430,6 +1430,9 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
     if output_merged_file is None:
         output_merged_file = os.path.join(os.path.dirname(input_cluster_files[0]), 'Merged.h5')
 
+    if len(input_cluster_files) != n_duts:
+        raise ValueError('Parameter "input_cluster_files" has wrong length.')
+
     # Check for whether local coordinates or indices are used
     use_positions = []
     for input_file in input_cluster_files:
