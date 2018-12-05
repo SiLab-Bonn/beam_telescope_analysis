@@ -782,6 +782,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         max_col = hits[cluster_hit_indices[0]].column
         min_row = hits[cluster_hit_indices[0]].row
         max_row = hits[cluster_hit_indices[0]].row
+        min_frame = hits[cluster_hit_indices[0]].frame
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
@@ -797,6 +798,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
                 min_row = hits[i].row
             if hits[i].row > max_row:
                 max_row = hits[i].row
+            if hits[i].frame < min_frame:
+                min_frame = hits[i].frame
 
         if max_col - min_col < 8 and max_row - min_row < 8:
             # make 8x8 array
@@ -816,6 +819,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         clusters[cluster_index].cluster_shape = cluster_shape
         clusters[cluster_index].err_column = max_col - min_col
         clusters[cluster_index].err_row = max_row - min_row
+        clusters[cluster_index].frame = min_frame
 
     @numba.njit()
     def end_of_cluster_function_with_position(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
@@ -823,6 +827,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         max_col = hits[cluster_hit_indices[0]].column
         min_row = hits[cluster_hit_indices[0]].row
         max_row = hits[cluster_hit_indices[0]].row
+        min_frame = hits[cluster_hit_indices[0]].frame
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
@@ -834,11 +839,14 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
                 min_row = hits[i].row
             if hits[i].row > max_row:
                 max_row = hits[i].row
+            if hits[i].frame < min_frame:
+                min_frame = hits[i].frame
 
         # no cluster shape available
         clusters[cluster_index].cluster_shape = -1
         clusters[cluster_index].err_x = max_col - min_col
         clusters[cluster_index].err_y = max_row - min_row
+        clusters[cluster_index].frame = min_frame
 
     # Adding number of clusters
     def end_of_event_function(hits, clusters, start_event_hit_index, stop_event_hit_index, start_event_cluster_index, stop_event_cluster_index):
@@ -848,10 +856,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     if use_positions:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('frame', '<u1'),
             ('x', '<f4'),
             ('y', '<f4'),
             ('charge', '<u2'),  # TODO: change that
+            ('frame', '<u1'),
             ('cluster_ID', '<i2'),  # TODO: change that
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
@@ -869,7 +877,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('event_number', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
-            ('charge', '<f4'),
+            ('charge', '<u2'),
+            ('frame', '<u1'),
             ('seed_x', '<f4'),
             ('seed_y', '<f4'),
             ('mean_x', '<f4'),
@@ -877,10 +886,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     else:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('frame', '<u1'),
             ('column', '<u2'),
             ('row', '<u2'),
             ('charge', '<u2'),  # TODO: change that
+            ('frame', '<u1'),
             ('cluster_ID', '<i2'),  # TODO: change that
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
@@ -892,7 +901,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('event_number', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
-            ('charge', '<f4'),
+            ('charge', '<u2'),
+            ('frame', '<u1'),
             ('seed_column', '<u2'),
             ('seed_row', '<u2'),
             ('mean_column', '<f4'),
@@ -1451,6 +1461,8 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
     for index, _ in enumerate(input_cluster_files):
         description.append(('charge_dut_%d' % index, np.float32))
     for index, _ in enumerate(input_cluster_files):
+        description.append(('frame_dut_%d' % index, np.uint8))
+    for index, _ in enumerate(input_cluster_files):
         description.append(('n_hits_dut_%d' % index, np.uint32))
     for index, _ in enumerate(input_cluster_files):
         description.append(('cluster_ID_dut_%d' % index, np.int16))
@@ -1534,6 +1546,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                     merged_cluster_array['y_err_dut_0'][selection] = mapped_clusters_dut_0['err_row'][selection] * telescope[0].row_size
                 merged_cluster_array['z_err_dut_0'][selection] = 0.0
                 merged_cluster_array['charge_dut_0'][selection] = mapped_clusters_dut_0['charge'][selection]
+                merged_cluster_array['frame_dut_0'][selection] = mapped_clusters_dut_0['frame'][selection]
                 merged_cluster_array['n_hits_dut_0'][selection] = mapped_clusters_dut_0['n_hits'][selection]
                 merged_cluster_array['cluster_ID_dut_0'][selection] = mapped_clusters_dut_0['cluster_ID'][selection]
                 merged_cluster_array['cluster_shape_dut_0'][selection] = mapped_clusters_dut_0['cluster_shape'][selection]
@@ -1572,6 +1585,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                                 merged_cluster_array['y_err_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['err_row'][selection] * telescope[dut_index].row_size
                             merged_cluster_array['z_err_dut_%d' % (dut_index)][selection] = 0.0
                             merged_cluster_array['charge_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['charge'][selection]
+                            merged_cluster_array['frame_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['frame'][selection]
                             merged_cluster_array['n_hits_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['n_hits'][selection]
                             merged_cluster_array['cluster_ID_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_ID'][selection]
                             merged_cluster_array['cluster_shape_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_shape'][selection]

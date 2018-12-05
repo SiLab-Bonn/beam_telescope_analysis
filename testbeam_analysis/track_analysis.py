@@ -1083,6 +1083,7 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
         tracks_array['y_err_dut_%d' % index_dut] = track_candidates_chunk['y_err_dut_%d' % index_dut]
         tracks_array['z_err_dut_%d' % index_dut] = track_candidates_chunk['z_err_dut_%d' % index_dut]
         tracks_array['charge_dut_%d' % index_dut] = track_candidates_chunk['charge_dut_%d' % index_dut]
+        tracks_array['frame_dut_%d' % index_dut] = track_candidates_chunk['frame_dut_%d' % index_dut]
         tracks_array['n_hits_dut_%d' % index_dut] = track_candidates_chunk['n_hits_dut_%d' % index_dut]
         tracks_array['cluster_ID_dut_%d' % index_dut] = track_candidates_chunk['cluster_ID_dut_%d' % index_dut]
         tracks_array['cluster_shape_dut_%d' % index_dut] = track_candidates_chunk['cluster_shape_dut_%d' % index_dut]
