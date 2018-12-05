@@ -56,14 +56,6 @@ unsigned int getMaxEventsInBothArrays(int64_t*& rEventArrayOne, const unsigned i
 	bool first_finished = false;
 	bool second_finished = false;
 
-//	std::cout<<"tFirstActualEventNumber "<<tFirstActualEventNumber<<std::endl;
-//	std::cout<<"tSecondActualEventNumber "<<tSecondActualEventNumber<<std::endl;
-//	std::cout<<"tFirstLastEventNumber "<<tFirstLastEventNumber<<std::endl;
-//	std::cout<<"tSecondLastEventNumber "<<tSecondLastEventNumber<<std::endl;
-//	std::cout<<"rSizeArrayOne "<<rSizeArrayOne<<std::endl;
-//	std::cout<<"rSizeArrayTwo "<<rSizeArrayTwo<<std::endl;
-//	std::cout<<"rSizeArrayResult "<<rSizeArrayResult<<std::endl;
-
 	while (!(first_finished && second_finished)) {
 		if ((tFirstActualEventNumber <= tSecondActualEventNumber) || second_finished) {
 			unsigned int ii;
@@ -87,11 +79,7 @@ unsigned int getMaxEventsInBothArrays(int64_t*& rEventArrayOne, const unsigned i
 			j = jj;
 		}
 
-//		std::cout<<"tFirstActualEventNumber "<<tFirstActualEventNumber<<" "<<tFirstActualOccurrence<<" "<<first_finished<<std::endl;
-//		std::cout<<"tSecondActualEventNumber "<<tSecondActualEventNumber<<" "<<tSecondActualOccurrence<<" "<<second_finished<<std::endl;
-
 		if (tFirstActualEventNumber == tSecondActualEventNumber) {
-//			std::cout<<"==, add "<<std::max(tFirstActualOccurrence, tSecondActualOccurrence)<<" x "<<tFirstActualEventNumber<<std::endl;
 			if (tFirstActualEventNumber == tFirstLastEventNumber)
 				first_finished = true;
 			if (tSecondActualEventNumber == tSecondLastEventNumber)
@@ -104,7 +92,6 @@ unsigned int getMaxEventsInBothArrays(int64_t*& rEventArrayOne, const unsigned i
 			}
 		}
 		else if ((!first_finished && tFirstActualEventNumber < tSecondActualEventNumber) || second_finished) {
-//			std::cout<<"==, add "<<tFirstActualOccurrence<<" x "<<tFirstActualEventNumber<<std::endl;
 			if (tFirstActualEventNumber == tFirstLastEventNumber)
 				first_finished = true;
 			for (unsigned int k = 0; k < tFirstActualOccurrence; ++k) {
@@ -115,7 +102,6 @@ unsigned int getMaxEventsInBothArrays(int64_t*& rEventArrayOne, const unsigned i
 			}
 		}
 		else if ((!second_finished && tSecondActualEventNumber < tFirstActualEventNumber) || first_finished) {
-//			std::cout<<"==, add "<<tSecondActualOccurrence<<" x "<<tSecondActualEventNumber<<std::endl;
 			if (tSecondActualEventNumber == tSecondLastEventNumber)
 				second_finished = true;
 			for (unsigned int k = 0; k < tSecondActualOccurrence; ++k) {
