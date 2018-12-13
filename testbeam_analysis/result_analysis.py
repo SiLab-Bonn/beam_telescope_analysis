@@ -319,6 +319,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                         # 2D hits
                         count_2d_hist += stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
 
+                if initialize is True:
+                    raise RuntimeError("No tracks were processed.")
                 logging.debug('Storing residual histograms...')
 
                 stat_local_x_residuals_x_pos_hist[count_local_x_residuals_x_pos_hist == 0] = np.nan
