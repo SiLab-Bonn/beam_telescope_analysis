@@ -734,6 +734,11 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
     alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
     output_prealigned_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_prealigned.h5'
+    prealigned_telescope = Telescope(configuration_file=input_telescope_configuration)
+    aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
+    for dut in align_duts:
+        aligned_telescope[dut] = prealigned_telescope[dut]
+    aligned_telescope.save_configuration()
     find_tracks(
         telescope_configuration=input_telescope_configuration,
         input_merged_file=merged_file,
@@ -852,10 +857,10 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             if (set(align_duts) & set(select_fit_duts)):
                 with tb.open_file(output_track_angles_file, mode="r") as in_file_h5:
                     if not np.isnan(in_file_h5.root.Global_alpha_track_angle_hist.attrs.mean) and not np.isnan(in_file_h5.root.Global_beta_track_angle_hist.attrs.mean):
-                        telescope = Telescope(configuration_file=output_telescope_configuration)
-                        telescope.rotation_alpha = in_file_h5.root.Global_alpha_track_angle_hist.attrs.mean
-                        telescope.rotation_beta = in_file_h5.root.Global_beta_track_angle_hist.attrs.mean
-                        telescope.save_configuration()
+                        aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
+                        aligned_telescope.rotation_alpha = in_file_h5.root.Global_alpha_track_angle_hist.attrs.mean
+                        aligned_telescope.rotation_beta = in_file_h5.root.Global_beta_track_angle_hist.attrs.mean
+                        aligned_telescope.save_configuration()
             os.remove(output_track_angles_file)
 
         if plot:
