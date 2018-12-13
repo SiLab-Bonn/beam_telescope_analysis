@@ -784,7 +784,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 # reqire hits in each DUT that will be aligned
                 actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
                 actual_quality_duts = actual_hit_duts
-                fit_quality_distances = quality_distances
+                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
 
         logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
         if iteration_step > 0:
