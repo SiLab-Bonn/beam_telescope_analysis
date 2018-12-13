@@ -6,6 +6,8 @@ import importlib
 
 from yaml import safe_load, safe_dump
 
+from testbeam_analysis.telescope.dut import Dut
+
 
 def open_configuation(configuation):
     configuration_dict = {}
@@ -47,6 +49,11 @@ class Telescope(object):
 
     def __getitem__(self, key):
         return self.dut[key]
+
+    def __setitem__(self, key, value):
+        if not isinstance(value, Dut):
+            raise ValueError("Must be DUT.")
+        self.dut[key] = value
 
     def __iter__(self):
         for sorted_key in sorted(self.dut.iterkeys()):
