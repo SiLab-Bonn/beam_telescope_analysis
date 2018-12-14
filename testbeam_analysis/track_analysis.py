@@ -415,7 +415,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         Specifying DUTs that are used for the fit.
         If None, the DUTs are taken from select_hit_duts.
         The select_fit_duts is a subset of select_hit_duts.
-    exclude_dut_hit : bool
+    exclude_dut_hit : bool or list
         Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
         If False, use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
         If True, do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
@@ -571,55 +571,57 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         if distance is not None and len(distance) != 2:  # check the length of the items
             raise ValueError("item in reject_quality_distances has length != 2")
 
-    # Special mode: use all DUTs in the fit and the selections are all the same --> the data does only have to be fitted once
-    if not exclude_dut_hit and all(set(x) == set(select_hit_duts[0]) for x in select_hit_duts) and all(set(x) == set(select_fit_duts[0]) for x in select_fit_duts):  # and all(list(x) == list(selection_track_quality[0]) for x in selection_track_quality):
-        same_tracks_for_all_duts = True
-        logging.info('All fit DUTs use the same parameters, calculated tracks will be identical for all DUTs')
-    else:
-        same_tracks_for_all_duts = False
+    # Check iterable and length
+    if not isinstance(exclude_dut_hit, Iterable):
+        exclude_dut_hit = [exclude_dut_hit] * len(select_duts)
+    elif not exclude_dut_hit:  # empty iterable
+        raise ValueError("exclude_dut_hit has no items")
+    # Finally check length of all array
+    if len(exclude_dut_hit) != len(select_duts):  # empty iterable
+        raise ValueError("exclude_dut_hit has the wrong length")
+    # Check if only bools in iterable
+    if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
+        raise ValueError("not all items in exclude_dut_hit are boolean")
 
+    fitted_duts = []
     pool = Pool()
     with tb.open_file(input_track_candidates_file, mode='r') as in_file_h5:
         with tb.open_file(output_tracks_file, mode='w') as out_file_h5:
             for fit_dut_index, actual_fit_dut in enumerate(select_duts):  # Loop over the DUTs where tracks shall be fitted for
-                logging.info('= Fit tracks for %s =', telescope[actual_fit_dut].name)
-
-                try:  # Check if table already exists, then append data
-                    out_file_h5.remove_node(out_file_h5.root, name='Tracks_DUT%d' % actual_fit_dut)
-                    logging.info('Overwriting existing tracks for DUT%d', actual_fit_dut)
-                except tb.NodeError:  # Table does not exist, thus create new
-                    pass
+                if actual_fit_dut in fitted_duts:
+                    continue
+                # test whether other DUTs have identical tracks
+                # if yes, save some CPU time and fit only once
+                actual_fit_duts = []
+                for curr_fit_dut_index, curr_fit_dut in enumerate(select_duts):
+                    if ((exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False) or (actual_fit_dut not in select_fit_duts[fit_dut_index])) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index]):
+                        actual_fit_duts.append(curr_fit_dut)
+                logging.info('= Fit tracks for %s =', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
+                # remove existing nodes
+                for dut_index in actual_fit_duts:
+                    try:  # Check if table already exists, then append data
+                        out_file_h5.remove_node(out_file_h5.root, name='Tracks_DUT%d' % dut_index)
+                        logging.info('Overwriting existing tracks for DUT%d', dut_index)
+                    except tb.NodeError:  # Table does not exist, thus create new
+                        pass
 
                 total_n_tracks = in_file_h5.root.TrackCandidates.shape[0]
                 total_n_tracks_stored = 0
                 total_n_events_stored = 0
 
+                # select hit DUTs based on input parameters
                 dut_hit_selection = 0  # DUTs required to have hits
+                hit_duts = list(set(select_hit_duts[fit_dut_index]) - set([actual_fit_duts])) if exclude_dut_hit[fit_dut_index] else select_hit_duts[fit_dut_index]
+                for dut_index in hit_duts:
+                    dut_hit_selection |= ((1 << dut_index))
+                logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
+                # select fit DUTs based on input parameters
                 dut_fit_selection = 0  # DUTs to be used for the fit
-                info_str_hit = []  # For info output
-                info_str_fit = []  # For info output
-
-                for selected_hit_dut in select_hit_duts[fit_dut_index]:
-                    # FIXME: which one is correct?
-                    # if exclude_dut_hit and selected_hit_dut == select_duts[fit_dut_index]:
-                        # continue
-                    # Do not require a hit in the fit DUT for correct efficiency calculation
-                    if selected_hit_dut == select_duts[fit_dut_index]:
-                        continue
-                    dut_hit_selection |= (1 << selected_hit_dut)
-                    info_str_hit.append(telescope[selected_hit_dut].name)
-                n_slection_duts = np.binary_repr(dut_hit_selection).count("1")
-                logging.info('Require hits in %d DUTs for track selection: %s', n_slection_duts, ', '.join(info_str_hit))
-
-                for selected_fit_dut in select_fit_duts[fit_dut_index]:
-                    if exclude_dut_hit and selected_fit_dut == select_duts[fit_dut_index]:
-                        continue
-                    dut_fit_selection |= ((1 << selected_fit_dut))
-                    info_str_fit.append(telescope[selected_fit_dut].name)
-                n_fit_duts = np.binary_repr(dut_fit_selection).count("1")
-                actual_fit_duts = list(set(select_fit_duts[fit_dut_index]) - set([actual_fit_dut])) if exclude_dut_hit else select_fit_duts[fit_dut_index]
-                logging.info("Use %d DUTs for track fit: %s", n_fit_duts, ', '.join(info_str_fit))
-                if n_fit_duts < 2 and method == "fit":
+                fit_duts = list(set(select_fit_duts[fit_dut_index]) - set([actual_fit_duts])) if exclude_dut_hit[fit_dut_index] else select_fit_duts[fit_dut_index]
+                for dut_index in fit_duts:
+                    dut_fit_selection |= ((1 << dut_index))
+                logging.info("Use %d DUTs for track fit: %s", len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
+                if len(fit_duts) < 2 and method == "fit":
                     raise ValueError('The number of required hit DUTs is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
                 widgets = ['', progressbar.Percentage(), ' ',
                            progressbar.Bar(marker='*', left='|', right='|'),
@@ -700,7 +702,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # Prepare track hits array to be fitted
                     n_good_tracks = np.count_nonzero(good_track_selection)  # Index of tmp track hits array
                     if method == "fit":
-                        track_hits = np.full((n_good_tracks, n_fit_duts, 3), fill_value=np.nan, dtype=np.float32)
+                        track_hits = np.full((n_good_tracks, len(fit_duts), 3), fill_value=np.nan, dtype=np.float32)
                     elif method == "kalman":
                         track_hits = np.full((n_good_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float32)
 
@@ -709,7 +711,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     fit_array_index = 0
                     for dut_index, dut in enumerate(telescope):  # Fill index loop of new array
                         # Check if DUT is used for fit
-                        if method == "fit" and dut_index in actual_fit_duts:
+                        if method == "fit" and dut_index in fit_duts:
                             # apply alignment for fitting the tracks
                             track_hits[:, fit_array_index, 0], track_hits[:, fit_array_index, 1], track_hits[:, fit_array_index, 2] = dut.local_to_global_position(
                                 x=track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection],
@@ -743,7 +745,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         results = [pool.apply_async(_fit_tracks_kalman_loop, kwds={
                             'track_hits': track_hits_slice,
                             'telescope': telescope,
-                            'select_fit_duts': actual_fit_duts,
+                            'select_fit_duts': fit_duts,
                             'beam_energy': beam_energy,
                             'particle_mass': particle_mass,
                             'scattering_planes': scattering_planes}) for track_hits_slice in track_hits_slices]
@@ -753,24 +755,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     slopes = np.concatenate([result.get()[1] for result in results])  # Merge slopes from all cores in results
                     # Store the data
                     # Check if all DUTs were fitted at once
-                    if same_tracks_for_all_duts:
-                        for index, dut_index in enumerate(select_duts):
-                            store_track_data(
-                                out_file_h5=out_file_h5,
-                                track_candidates_chunk=track_candidates_chunk,
-                                good_track_selection=good_track_selection,
-                                telescope=telescope,
-                                offsets=offsets,
-                                slopes=slopes,
-                                fit_dut=dut_index,
-                                select_fit_duts=actual_fit_duts,
-                                quality_distances=quality_distances,
-                                reject_quality_distances=reject_quality_distances,
-                                use_limits=use_limits,
-                                keep_data=keep_data,
-                                method=method,
-                                full_track_info=full_track_info)
-                    else:
+                    for index, dut_index in enumerate(actual_fit_duts):
                         store_track_data(
                             out_file_h5=out_file_h5,
                             track_candidates_chunk=track_candidates_chunk,
@@ -778,8 +763,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             telescope=telescope,
                             offsets=offsets,
                             slopes=slopes,
-                            fit_dut=actual_fit_dut,
-                            select_fit_duts=actual_fit_duts,
+                            fit_dut=dut_index,
+                            select_fit_duts=fit_duts,
                             quality_distances=quality_distances,
                             reject_quality_distances=reject_quality_distances,
                             use_limits=use_limits,
@@ -797,8 +782,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored
-                if same_tracks_for_all_duts:  # Stop fit Dut loop since all DUTs were fitted at once
-                    break
+                fitted_duts.extend(actual_fit_duts)
 
     pool.close()
     pool.join()
