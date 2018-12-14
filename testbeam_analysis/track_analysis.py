@@ -755,22 +755,22 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     slopes = np.concatenate([result.get()[1] for result in results])  # Merge slopes from all cores in results
                     # Store the data
                     # Check if all DUTs were fitted at once
-                    for index, dut_index in enumerate(actual_fit_duts):
-                        store_track_data(
-                            out_file_h5=out_file_h5,
-                            track_candidates_chunk=track_candidates_chunk,
-                            good_track_selection=good_track_selection,
-                            telescope=telescope,
-                            offsets=offsets,
-                            slopes=slopes,
-                            fit_dut=dut_index,
-                            select_fit_duts=fit_duts,
-                            quality_distances=quality_distances,
-                            reject_quality_distances=reject_quality_distances,
-                            use_limits=use_limits,
-                            keep_data=keep_data,
-                            method=method,
-                            full_track_info=full_track_info)
+                    store_track_data(
+                        out_file_h5=out_file_h5,
+                        track_candidates_chunk=track_candidates_chunk,
+                        good_track_selection=good_track_selection,
+                        telescope=telescope,
+                        offsets=offsets,
+                        slopes=slopes,
+                        fit_duts=actual_fit_duts,  # storing tracks for these DUTs
+                        select_fit_duts=fit_duts,  # DUTs used for fitting tracks
+                        select_non_aligned_duts=select_non_aligned_duts,
+                        quality_distances=quality_distances,
+                        reject_quality_distances=reject_quality_distances,
+                        use_limits=use_limits,
+                        keep_data=keep_data,
+                        method=method,
+                        full_track_info=full_track_info)
 
                     # total_n_tracks += n_good_tracks
                     total_n_events_stored_last = total_n_events_stored
@@ -793,7 +793,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_dut, select_fit_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
+    fit_duts_offsets = []
+    fit_duts_slopes = []
     # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     x_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
     x_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
@@ -957,17 +959,20 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         # unset quality flag
         quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint32(~(1 << dut_index))
 
-        if dut_index == fit_dut:
+        if dut_index in fit_duts:
             # use offsets at the location of the fit DUT, local coordinates
-            dut_offsets = np.column_stack([
+            fit_duts_offsets.append(np.column_stack([
                 intersection_x_local,
                 intersection_y_local,
-                intersection_z_local])
+                intersection_z_local]))
             # use slopes at the location of the fit DUT, local coordinates
-            dut_slopes = np.column_stack([
+            fit_duts_slopes.append(np.column_stack([
                 slopes_x_local,
                 slopes_y_local,
-                slopes_z_local])
+                slopes_z_local]))
+        else:
+            fit_duts_offsets.append(None)
+            fit_duts_slopes.append(None)
 
         if full_track_info:
             track_estimates_chunk_full[:, dut_index] = np.column_stack([
@@ -986,32 +991,35 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
     # divide by d.o.f.
     track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
 
-    tracks_array = create_results_array(
-        n_duts=len(telescope),
-        dut_offsets=dut_offsets,
-        dut_slopes=dut_slopes,
-        track_chi2s=track_chi2s,
-        quality_flag=quality_flag,
-        good_track_selection=good_track_selection,
-        track_candidates_chunk=track_candidates_chunk,
-        keep_data=keep_data,
-        track_estimates_chunk_full=track_estimates_chunk_full)
+    for dut_index, dut in enumerate(telescope):
+        if dut_index not in fit_duts:
+            continue
+        tracks_array = create_results_array(
+            n_duts=len(telescope),
+            dut_offsets=fit_duts_offsets[dut_index],
+            dut_slopes=fit_duts_slopes[dut_index],
+            track_chi2s=track_chi2s,
+            quality_flag=quality_flag,
+            good_track_selection=good_track_selection,
+            track_candidates_chunk=track_candidates_chunk,
+            keep_data=keep_data,
+            track_estimates_chunk_full=track_estimates_chunk_full)
 
-    try:  # Check if table exists already, then append data
-        tracklets_table = out_file_h5.get_node('/Tracks_DUT%d' % fit_dut)
-    except tb.NoSuchNodeError:  # Table does not exist, thus create new
-        tracklets_table = out_file_h5.create_table(
-            where=out_file_h5.root,
-            name='Tracks_DUT%d' % fit_dut,
-            description=tracks_array.dtype,
-            title='%s tracks for DUT%d' % (method.title(), fit_dut),
-            filters=tb.Filters(
-                complib='blosc',
-                complevel=5,
-                fletcher32=False))
+        try:  # Check if table exists already, then append data
+            tracklets_table = out_file_h5.get_node('/Tracks_DUT%d' % dut_index)
+        except tb.NoSuchNodeError:  # Table does not exist, thus create new
+            tracklets_table = out_file_h5.create_table(
+                where=out_file_h5.root,
+                name='Tracks_DUT%d' % dut_index,
+                description=tracks_array.dtype,
+                title='%s tracks for DUT%d' % (method.title(), dut_index),
+                filters=tb.Filters(
+                    complib='blosc',
+                    complevel=5,
+                    fletcher32=False))
 
-    tracklets_table.append(tracks_array)
-    tracklets_table.flush()
+        tracklets_table.append(tracks_array)
+        tracklets_table.flush()
 
 
 @njit
