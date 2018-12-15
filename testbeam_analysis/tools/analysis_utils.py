@@ -701,7 +701,7 @@ def get_chi2(y_data, y_fit):
 
 
 def get_mean_from_histogram(counts, bin_positions):
-    return np.dot(counts, np.array(bin_positions)) / np.sum(counts).astype('f4')
+    return np.dot(counts, np.array(bin_positions)) / np.sum(counts).astype(np.float64)
 
 
 def get_rms_from_histogram(counts, bin_positions):
