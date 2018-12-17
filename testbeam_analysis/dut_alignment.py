@@ -22,6 +22,9 @@ from testbeam_analysis.track_analysis import find_tracks, fit_tracks, line_fit_3
 from testbeam_analysis.result_analysis import calculate_residuals, histogram_track_angle, get_angles
 
 
+all_alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
+
+
 def apply_alignment(telescope_configuration, input_file, output_file=None, local_to_global=True, align_to_beam=False, chunk_size=1000000):
     '''Convert local to global coordinates and vice versa.
 
@@ -467,7 +470,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=False, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, alignment_parameters=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -498,9 +501,19 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         align_duts=[[0, 1, 2, 5, 6, 7],  # align the telescope planes first
                     [4],  # align first DUT
                     [3]]  # align second DUT
+    alignment_parameters : list of lists of strings
+        The list of alignment parameters for each align_dut. Valid parameters:
+        - translation_x: horizontal axis
+        - translation_y: vertical axis
+        - translation_z: beam axis
+        - rotation_alpha: rotation around x-axis
+        - rotation_beta: rotation around y-axis
+        - rotation_gamma: rotation around z-axis (beam axis)
+        If None, all paramters will be selected.
     select_telescope_duts : iterable
-        The telescope will be aligned to the given DUTs. The translation in x and y of these DUTs will not be changed.
-        Usually the two outermost telescope DUTs are selected.
+        The given DUTs will be used to align the telescope along the z-axis.
+        Usually the coordinates of these DUTs are well specified.
+        At least 2 DUTs need to be specified. The z-position of the selected DUTs will not be changed by default.
     select_fit_duts : iterable or iterable of iterable
         Defines for each align_duts combination wich devices to use in the track fit.
         E.g. To use only the telescope planes (first and last 3 planes) but not the 2 center devices
@@ -593,6 +606,23 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     no_align_duts = set(range(n_duts)) - set(np.unique(np.hstack(np.array(align_duts))).tolist())
     if no_align_duts:
         logging.info('These DUTs will not be aligned: %s' % ", ".join(telescope[dut_index].name for dut_index in no_align_duts))
+
+    # Create list
+    if alignment_parameters is None:
+        alignment_parameters = [[None] * len(duts) for duts in align_duts]
+    # Check for value errors
+    if not isinstance(alignment_parameters, Iterable):
+        raise ValueError("alignment_parameters is no iterable")
+    elif not alignment_parameters:  # empty iterable
+        raise ValueError("alignment_parameters has no items")
+    # Finally check length of all arrays
+    if len(alignment_parameters) != len(align_duts):  # empty iterable
+        raise ValueError("alignment_parameters has the wrong length")
+    for index, alignment_parameter in enumerate(alignment_parameters):
+        if alignment_parameter is None:
+            alignment_parameters[index] = [None] * len(align_duts[index])
+        if len(alignment_parameters[index]) != len(align_duts[index]):  # check the length of the items
+            raise ValueError("item in alignment_parameter wrong length")
 
     # Create track, hit selection
     if select_hit_duts is None:  # If None: use all DUTs
@@ -710,6 +740,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             output_telescope_configuration=output_telescope_configuration,  # aligned configuration
             merged_file=input_merged_file,
             align_duts=actual_align_duts,
+            alignment_parameters=alignment_parameters[index],
             select_telescope_duts=select_telescope_duts,
             select_fit_duts=select_fit_duts[index],
             select_hit_duts=select_hit_duts[index],
@@ -729,10 +760,9 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, alignment_parameters, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
-    alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
     output_prealigned_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_prealigned.h5'
     prealigned_telescope = Telescope(configuration_file=input_telescope_configuration)
     aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
@@ -749,43 +779,34 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     iteration_steps = range(max_iterations)
     for iteration_step in iteration_steps:
         # find tracks in the beginning and each iteration step when aligning fit DUTs
-        if iteration_step == 0 or (set(align_duts) & set(select_fit_duts)):
-            # special step to align the telescope after the telescope DUTs
-            if iteration_step == 0 and (set(align_duts) & set(select_telescope_duts)):
+        if set(align_duts) & set(select_telescope_duts):
+            if iteration_step == 0:
                 align_telescope(
                     telescope_configuration=output_telescope_configuration,
                     select_telescope_duts=select_telescope_duts)
-                actual_align_duts = list(set(align_duts) - set(select_telescope_duts))
-                # only fit tracks with telescope DUTs
-                actual_fit_duts = select_telescope_duts
-                # reqire hits in each DUT that will be aligned + require hits in the telescope DUTs
-                actual_hit_duts = [list((set(select_hit_duts) | set(select_telescope_duts)) | set([dut_index])) for dut_index in actual_align_duts]
-                actual_quality_duts = actual_hit_duts
-                # gradually decrease quality distance for telescope DUTs to ensure enough data is available for alignment
-                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
-            # Regular case for fit DUTs
-            elif (set(align_duts) & set(select_fit_duts)):
-                align_telescope(
-                    telescope_configuration=output_telescope_configuration,
-                    select_telescope_duts=select_telescope_duts)
-                # aligning the fit DUTs needs some adjustments to the parameters
-                actual_align_duts = align_duts
-                actual_fit_duts = select_fit_duts
-                # reqire hits in each DUT that will be aligned
-                actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
-                actual_quality_duts = actual_hit_duts
-                # gradually decrease quality distance for telescope DUTs to ensure enough data is available for alignment
-                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
-            # Regular case for non-fit DUTs
+            # aligning the fit DUTs needs some adjustments to the parameters
+            actual_align_duts = align_duts
+            actual_fit_duts = select_fit_duts
+            # reqire hits in each DUT that will be aligned
+            actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
+            actual_quality_duts = actual_hit_duts
+        # Regular case for non-fit DUTs
+        else:
+            # aligning non-fit DUTs needs some adjustments to the parameters
+            actual_align_duts = align_duts
+            actual_fit_duts = select_fit_duts
+            # reqire hits in each DUT that will be aligned
+            actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
+            actual_quality_duts = actual_hit_duts
+        fit_quality_distances = np.zeros_like(quality_distances)
+        for index, item in enumerate(quality_distances):
+            if index in align_duts:
+                fit_quality_distances[index, 0] = np.linspace(max(item) * max_iterations, item[0], max_iterations)[iteration_step]
+                fit_quality_distances[index, 1] = np.linspace(max(item) * max_iterations, item[1], max_iterations)[iteration_step]
             else:
-                # aligning non-fit DUTs needs some adjustments to the parameters
-                actual_align_duts = align_duts
-                actual_fit_duts = select_fit_duts
-                # reqire hits in each DUT that will be aligned
-                actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
-                actual_quality_duts = actual_hit_duts
-                fit_quality_distances = (np.array(quality_distances, dtype=np.float) * (len(iteration_steps) - iteration_step)).tolist()
-
+                fit_quality_distances[index, 0] = item[0]
+                fit_quality_distances[index, 1] = item[1]
+        fit_quality_distances = fit_quality_distances.tolist()
         logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
         if iteration_step > 0:
             # remove temporary file
@@ -861,6 +882,8 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                         aligned_telescope.rotation_alpha = in_file_h5.root.Global_alpha_track_angle_hist.attrs.mean
                         aligned_telescope.rotation_beta = in_file_h5.root.Global_beta_track_angle_hist.attrs.mean
                         aligned_telescope.save_configuration()
+                    else:
+                        logging.warning("Cannot read track angle histograms, track finding might be spoiled")
             os.remove(output_track_angles_file)
 
         if plot:
@@ -881,9 +904,9 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_selected_tracks_file,
             select_duts=actual_align_duts,
-            select_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if dut_index in select_telescope_duts else alignment_parameters) for dut_index in actual_align_duts],
+            select_alignment_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if (dut_index in select_telescope_duts and alignment_parameters[i] is None) else (all_alignment_parameters if alignment_parameters[i] is None else alignment_parameters[i])) for i, dut_index in enumerate(actual_align_duts)],
             use_limits=use_limits,
-            max_iterations=10 if iteration_step == 0 else None,
+            max_iterations=100,
             chunk_size=chunk_size)
 
         # Delete temporary files
@@ -961,7 +984,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     #     os.remove(final_residuals_file)
 
 
-def align_telescope(telescope_configuration, select_telescope_duts):
+def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
     telescope = Telescope(telescope_configuration)
     logging.info('=== Alignment of the telescope ===')
 
@@ -972,14 +995,27 @@ def align_telescope(telescope_configuration, select_telescope_duts):
         telescope_duts_positions[index, 0] = telescope[dut_index].translation_x
         telescope_duts_positions[index, 1] = telescope[dut_index].translation_y
         telescope_duts_positions[index, 2] = telescope[dut_index].translation_z
+    if reference_dut is not None:
+        first_telescope_dut_index = reference_dut
+    else:
+        first_telescope_dut_index = select_telescope_duts[np.argmin(telescope_duts_positions[:, 2])]
     offset, slope = line_fit_3d(positions=telescope_duts_positions)
-    total_angles, alpha_angles, beta_angles = get_angles(
-        slopes=slope[np.newaxis, :],
-        xz_plane_normal=np.array([0.0, 1.0, 0.0]),
-        yz_plane_normal=np.array([1.0, 0.0, 0.0]),
-        dut_plane_normal=np.array([0.0, 0.0, 1.0]))
+    first_telescope_dut = telescope[first_telescope_dut_index]
+    first_dut_translation_x = first_telescope_dut.translation_x
+    first_dut_translation_y = first_telescope_dut.translation_y
+
+    first_telescope_dut_intersection = geometry_utils.get_line_intersections_with_dut(
+        line_origins=offset[np.newaxis, :],
+        line_directions=slope[np.newaxis, :],
+        translation_x=first_telescope_dut.translation_x,
+        translation_y=first_telescope_dut.translation_y,
+        translation_z=first_telescope_dut.translation_z,
+        rotation_alpha=first_telescope_dut.rotation_alpha,
+        rotation_beta=first_telescope_dut.rotation_beta,
+        rotation_gamma=first_telescope_dut.rotation_gamma)
+
     for actual_dut in telescope:
-        dut_intersections = geometry_utils.get_line_intersections_with_dut(
+        dut_intersection = geometry_utils.get_line_intersections_with_dut(
             line_origins=offset[np.newaxis, :],
             line_directions=slope[np.newaxis, :],
             translation_x=actual_dut.translation_x,
@@ -988,11 +1024,16 @@ def align_telescope(telescope_configuration, select_telescope_duts):
             rotation_alpha=actual_dut.rotation_alpha,
             rotation_beta=actual_dut.rotation_beta,
             rotation_gamma=actual_dut.rotation_gamma)
-        actual_dut.translation_x -= dut_intersections[0, 0]
-        actual_dut.translation_y -= dut_intersections[0, 1]
+        actual_dut.translation_x -= (dut_intersection[0, 0] - first_telescope_dut_intersection[0, 0] + first_dut_translation_x)
+        actual_dut.translation_y -= (dut_intersection[0, 1] - first_telescope_dut_intersection[0, 1] + first_dut_translation_y)
 
     # set telescope alpha/beta rotation for a better beam alignment and track finding improvement
     # this is compensating the previously made changes to the DUT coordinates
+    total_angles, alpha_angles, beta_angles = get_angles(
+        slopes=slope[np.newaxis, :],
+        xz_plane_normal=np.array([0.0, 1.0, 0.0]),
+        yz_plane_normal=np.array([1.0, 0.0, 0.0]),
+        dut_plane_normal=np.array([0.0, 0.0, 1.0]))
     telescope.rotation_alpha -= alpha_angles[0]
     telescope.rotation_beta -= beta_angles[0]
     print "\n", telescope, "\n"
@@ -1000,7 +1041,7 @@ def align_telescope(telescope_configuration, select_telescope_duts):
     telescope.save_configuration()
 
 
-def calculate_transformation(telescope_configuration, input_tracks_file, select_duts, select_parameters=None, use_limits=True, max_iterations=None, chunk_size=1000000):
+def calculate_transformation(telescope_configuration, input_tracks_file, select_duts, select_alignment_parameters=None, use_limits=True, max_iterations=None, chunk_size=1000000):
     '''Takes the tracks and calculates and stores the transformation parameters.
 
     Parameters
@@ -1011,30 +1052,28 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
         Filename of the input tracks file.
     select_duts : list
         Selecting DUTs that will be processed.
-    select_parameters : list
+    select_alignment_parameters : list
         Selecting the transformation parameters that will be stored to the telescope configuration file for each selected DUT.
-        If None, all transformation parameters will be stored.
+        If None, all 6 transformation parameters will be calculated.
     use_limits : bool
         If True, use column and row limits from pre-alignment for selecting the data.
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
     telescope = Telescope(telescope_configuration)
-    n_duts = len(telescope)
     logging.info('== Calculating transformation for %d DUTs ==' % len(select_duts))
 
-    alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
-    if select_parameters is not None and len(select_duts) != len(select_parameters):
-        raise ValueError("Parameter select_parameters has the wrong length.")
-    if select_parameters:
-        for actual_select_parameters in select_parameters:
-            no_valid_paramters = set(actual_select_parameters) - set(alignment_parameters)
-            if no_valid_paramters:
-                raise ValueError("Found invalid values for parameter select_parameters: %s" % ", ".join(no_valid_paramters))
-
-    euler_angles = [np.zeros(3, dtype=np.float64)] * n_duts
-    translation = [np.zeros(3, dtype=np.float64)] * n_duts
-    total_n_tracks = [0] * n_duts
+    if select_alignment_parameters is None:
+        select_alignment_parameters = [all_alignment_parameters] * len(select_duts)
+    if len(select_duts) != len(select_alignment_parameters):
+        raise ValueError("select_alignment_parameters has the wrong length")
+    for index, actual_alignment_parameters in enumerate(select_alignment_parameters):
+        if actual_alignment_parameters is None:
+            select_alignment_parameters[index] = all_alignment_parameters
+        else:
+            non_valid_paramters = set(actual_alignment_parameters) - set(all_alignment_parameters)
+            if non_valid_paramters:
+                raise ValueError("found invalid values in select_alignment_parameters: %s" % ", ".join(non_valid_paramters))
 
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         for index, actual_dut_index in enumerate(select_duts):
@@ -1043,20 +1082,28 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
             logging.debug('== Calculate transformation for %s ==', actual_dut.name)
 
             if use_limits:
-                # local_limit_positions = actual_dut.index_to_local_position(
-                #     column=[actual_dut.column_limit[0], actual_dut.column_limit[1]],
-                #     row=[actual_dut.row_limit[0], actual_dut.row_limit[1]])
-                # limit_x_local = [local_limit_positions[0][0], local_limit_positions[0][1]]
-                # limit_y_local = [local_limit_positions[1][0], local_limit_positions[1][1]]
                 limit_x_local = actual_dut.column_limit
                 limit_y_local = actual_dut.row_limit
             else:
                 limit_x_local = None
                 limit_y_local = None
 
-            actual_chunk = -1
-            for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
-                actual_chunk += 1
+            rotation_average = None
+            translation_average = None
+            # euler_angles_average = None
+
+            # calculate equal chunk size
+            start_val = max(int(node.nrows / chunk_size), 2)
+            while True:
+                chunk_indices = np.linspace(0, node.nrows, start_val).astype(np.int)
+                if np.all(np.diff(chunk_indices) <= chunk_size):
+                    break
+                start_val += 1
+            chunk_index = 0
+            n_tracks = 0
+            total_n_tracks = 0
+            while chunk_indices[chunk_index] < node.nrows:
+                tracks_chunk = node.read(start=chunk_indices[chunk_index], stop=chunk_indices[chunk_index + 1])
                 # select good hits and tracks
                 selection = np.logical_and(~np.isnan(tracks_chunk['x_dut_%d' % actual_dut_index]), ~np.isnan(tracks_chunk['track_chi2']))
                 tracks_chunk = tracks_chunk[selection]  # Take only tracks where actual dut has a hit, otherwise residual wrong
@@ -1107,8 +1154,8 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                 alpha_dut_start = actual_dut.rotation_alpha
                 beta_dut_start = actual_dut.rotation_beta
                 gamma_dut_start = actual_dut.rotation_gamma
-                print "n_tracks for chunk %d:" % actual_chunk, n_tracks
-                delta_t = 1.0  # TODO: optimize
+                print "n_tracks for chunk %d:" % chunk_index, n_tracks
+                delta_t = 0.9  # TODO: optimize
                 if max_iterations is None:
                     iterations = 100
                 else:
@@ -1119,22 +1166,22 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                 print "translation at start", x_dut_start, y_dut_start, z_dut_start
 
                 initialize_angles = True
+                translation_old = None
+                rotation_old = None
                 for i in range(iterations):
-                    print "****************** %s: iteration step %d, chunk %d *********************" % (actual_dut.name, i, actual_chunk)
+                    print "****************** %s: iteration step %d, chunk %d *********************" % (actual_dut.name, i, chunk_index)
                     if initialize_angles:
                         alpha, beta, gamma = alpha_dut_start, beta_dut_start, gamma_dut_start
-                        rotation_dut = geometry_utils.rotation_matrix(alpha=alpha,
-                                                                      beta=beta,
-                                                                      gamma=gamma)
-                        rotation_dut_old = np.identity(3, dtype=np.float64)
-                        translation_dut = np.array([x_dut_start, y_dut_start, z_dut_start])
-                        translation_dut_old = np.array([0.0, 0.0, 0.0])
+                        rotation = geometry_utils.rotation_matrix(
+                            alpha=alpha,
+                            beta=beta,
+                            gamma=gamma)
+                        translation = np.array([x_dut_start, y_dut_start, z_dut_start], dtype=np.float64)
                         initialize_angles = False
 
-#                     start_delta_t = 0.01
-#                     stop_delta_t = 1.0
-#                     delta_t = start_delta_t * np.exp(i * (np.log(stop_delta_t) - np.log(start_delta_t)) / iterations)
-#                     print "delta_t", delta_t
+                    # start_delta_t = 0.01
+                    # stop_delta_t = 1.0
+                    # delta_t = start_delta_t * np.exp(i * (np.log(stop_delta_t) - np.log(start_delta_t)) / iterations)
 
                     tot_matr = None
                     tot_b = None
@@ -1144,99 +1191,126 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                     # vectorized calculation of matrix and b vector
                     outer_prod_slopes = np.einsum('ij,ik->ijk', slopes, slopes)
                     l_matr = identity - outer_prod_slopes
-                    R_y = np.matmul(rotation_dut, hit_local.T).T
+                    R_y = np.matmul(rotation, hit_local.T).T
                     skew_R_y = geometry_utils.skew(R_y)
                     tot_matr = np.concatenate([np.matmul(l_matr, skew_R_y), np.matmul(l_matr, n_identity)], axis=2)
                     tot_matr = tot_matr.reshape(-1, tot_matr.shape[2])
-                    tot_b = np.matmul(l_matr, np.expand_dims(offsets, axis=2)) - np.matmul(l_matr, np.expand_dims(R_y + translation_dut, axis=2))
+                    tot_b = np.matmul(l_matr, np.expand_dims(offsets, axis=2)) - np.matmul(l_matr, np.expand_dims(R_y + translation, axis=2))
                     tot_b = tot_b.reshape(-1)
 
                     # iterative calculation of matrix and b vector
-#                     for count in range(len(hit_x_local)):
-#                         if count >= max_n_tracks:
-#                             count = count - 1
-#                             break
-#                         slope = slopes[count]
-#
-#                         l_matr = identity - np.outer(slope, slope)
-#                         p = offsets[count]
-#                         y = hit_local[count]
-#                         R_y = np.dot(rotation_dut, y)
-#
-#                         b = np.dot(l_matr, p) - np.dot(l_matr, (R_y + translation_dut))
-#                         if tot_b is None:
-#                             tot_b = b
-#                         else:
-#                             tot_b = np.hstack([tot_b, b])
-#
-#                         skew_R_y = geometry_utils.skew(R_y)
-#
-#                         matr = np.dot(l_matr, np.hstack([skew_R_y, n_identity]))
-#                         if tot_matr is None:
-#                             tot_matr = matr
-#                         else:
-#                             tot_matr = np.vstack([tot_matr, matr])
+                    # for count in range(len(hit_x_local)):
+                    #     if count >= max_n_tracks:
+                    #         count = count - 1
+                    #         break
+                    #     slope = slopes[count]
+
+                    #     l_matr = identity - np.outer(slope, slope)
+                    #     p = offsets[count]
+                    #     y = hit_local[count]
+                    #     R_y = np.dot(rotation_dut, y)
+
+                    #     b = np.dot(l_matr, p) - np.dot(l_matr, (R_y + translation))
+                    #     if tot_b is None:
+                    #         tot_b = b
+                    #     else:
+                    #         tot_b = np.hstack([tot_b, b])
+
+                    #     skew_R_y = geometry_utils.skew(R_y)
+
+                    #     matr = np.dot(l_matr, np.hstack([skew_R_y, n_identity]))
+                    #     if tot_matr is None:
+                    #         tot_matr = matr
+                    #     else:
+                    #         tot_matr = np.vstack([tot_matr, matr])
 
                     # SVD
                     print "calculating SVD..."
                     u, s, v = np.linalg.svd(tot_matr, full_matrices=False)
-#                     u, s, v = svds(tot_matr, k=5)
                     print "...finished calculating SVD"
 
                     diag = np.diag(s ** -1)
                     tot_matr_inv = np.dot(v.T, np.dot(diag, u.T))
                     omega_b_dot = np.dot(tot_matr_inv, -lin_alpha * tot_b)
+                    # Some alignment parameters can be fixed to initial values
+                    # If parameter is not in list, set infinitesimal change to zero
+                    # Note: An impact on the rotation parameters cannot be completely
+                    #       avoided because of the orthogonalization of the rotation matrix
+                    if 'translation_x' not in select_alignment_parameters[index]:
+                        omega_b_dot[3] = 0.0
+                    if 'translation_y' not in select_alignment_parameters[index]:
+                        omega_b_dot[4] = 0.0
+                    if 'translation_z' not in select_alignment_parameters[index]:
+                        omega_b_dot[5] = 0.0
+                    if 'rotation_alpha' not in select_alignment_parameters[index]:
+                        omega_b_dot[0] = 0.0
+                    if 'rotation_beta' not in select_alignment_parameters[index]:
+                        omega_b_dot[1] = 0.0
+                    if 'rotation_gamma' not in select_alignment_parameters[index]:
+                        omega_b_dot[2] = 0.0
 
-                    translation_dut_old = translation_dut
-                    rotation_dut_old = rotation_dut
-#                     alpha_old, beta_old, gamma_old = alpha, beta, gamma
-#                     print "alpha, beta, gamma BEFORE calc", alpha, beta, gamma
-                    rotation_dut = np.dot((np.identity(3, dtype=np.float64) + delta_t * geometry_utils.skew(omega_b_dot[:3])), rotation_dut)
+                    translation_old2 = translation_old
+                    rotation_old2 = rotation_old
+                    translation_old = translation
+                    rotation_old = rotation
 
+                    rotation = np.dot((np.identity(3, dtype=np.float64) + delta_t * geometry_utils.skew(omega_b_dot[:3])), rotation)
                     # apply UP (polar) decomposition to normalize/orthogonalize rotation matrix (det = 1)
-                    u_rot, _, v_rot = np.linalg.svd(rotation_dut, full_matrices=False)
-                    rotation_dut = np.dot(u_rot, v_rot)  # orthogonal matrix U
+                    u_rot, _, v_rot = np.linalg.svd(rotation, full_matrices=False)
+                    rotation = np.dot(u_rot, v_rot)  # orthogonal matrix U
+                    translation = translation + delta_t * omega_b_dot[3:]
 
-                    translation_dut = translation_dut + delta_t * omega_b_dot[3:]
+                    if i >= 2:
+                        print "translation"
+                        print translation_old2
+                        print translation_old
+                        print translation
+                        print "rotation"
+                        print rotation_old2
+                        print rotation_old
+                        print rotation
+                        allclose_trans = np.allclose(translation, translation_old, rtol=0.0, atol=1e-4)
+                        allclose_rot = np.allclose(rotation, rotation_old, rtol=0.0, atol=1e-5)
+                        allclose_trans2 = np.allclose(translation, translation_old2, rtol=0.0, atol=1e-3)
+                        allclose_rot2 = np.allclose(rotation, rotation_old2, rtol=0.0, atol=1e-4)
+                        print "allclose rot trans", allclose_rot, allclose_trans
+                        print "allclose2 rot trans", allclose_rot2, allclose_trans2
+                        if (allclose_rot and allclose_trans):
+                            print "*** ALL CLOSE, BREAK ***"
+                            break
+                        elif (allclose_rot2 or allclose_trans2):
+                            print "*** ALL CLOSE2, CONTINUE ***"
+                            delta_t = 0.3
 
-                    allclose_trans = np.allclose(translation_dut, translation_dut_old, rtol=0.0, atol=1e-3)
-                    allclose_rot = np.allclose(rotation_dut, rotation_dut_old, rtol=0.0, atol=1e-4)
-                    print "allclose rot trans", allclose_rot, allclose_trans
-                    if allclose_rot and allclose_trans:
-                        print "*** ALL CLOSE, BREAK ***"
-                        break
+                if translation_average is None:
+                    translation_average = translation
+                else:
+                    translation_average = np.average([translation, translation_average], weights=[n_tracks, total_n_tracks], axis=0)
+                # alpha, beta, gamma = geometry_utils.euler_angles(R=rotation)
+                # euler_angles = np.array([alpha, beta, gamma], dtype=np.float64)
+                # if euler_angles_average is None:
+                #     euler_angles_average = euler_angles
+                # else:
+                #     euler_angles_average = np.average([euler_angles, euler_angles_average], weights=[n_tracks, total_n_tracks], axis=0)
+                if rotation_average is None:
+                    rotation_average = rotation
+                else:
+                    rotation_average = np.average([rotation, rotation_average], weights=[n_tracks, total_n_tracks], axis=0)
 
-                alpha, beta, gamma = geometry_utils.euler_angles(R=rotation_dut)
-                euler_angles_dut = np.array([alpha, beta, gamma], dtype=np.float64)
-                print "alpha, beta, gamma from matrix", alpha, beta, gamma
+                total_n_tracks += n_tracks
+                chunk_index += 1
 
-                print "euler_angles before average", euler_angles_dut, euler_angles[actual_dut_index]
-                print "translation before average", translation_dut, translation[actual_dut_index]
-                print "tracks in chunk", n_tracks
-                euler_angles[actual_dut_index] = np.average([euler_angles_dut, euler_angles[actual_dut_index]], weights=[n_tracks, total_n_tracks[actual_dut_index]], axis=0)
-                translation[actual_dut_index] = np.average([translation_dut, translation[actual_dut_index]], weights=[n_tracks, total_n_tracks[actual_dut_index]], axis=0)
-                total_n_tracks[actual_dut_index] += n_tracks
-                print "euler_angles average", euler_angles[actual_dut_index]
-                print "translation average", translation[actual_dut_index]
-                print "after total n tracks", total_n_tracks[actual_dut_index]
+            # average rotation matrices from different chunks
+            u_rot, _, v_rot = np.linalg.svd(rotation_average, full_matrices=False)
+            rotation_average = np.dot(u_rot, v_rot)  # orthogonal matrix U
+            alpha_average, beta_average, gamma_average = geometry_utils.euler_angles(R=rotation)
 
-            if select_parameters is None or select_parameters[index] is None:
-                actual_alignment_parameters = list(alignment_parameters)
-            else:
-                actual_alignment_parameters = select_parameters[index]
             print "%s: alignment parameters before:\n" % actual_dut.name, actual_dut
-            for parameter in actual_alignment_parameters:
-                if parameter == 'translation_x':
-                    actual_dut.translation_x = translation[actual_dut_index][0]
-                if parameter == 'translation_y':
-                    actual_dut.translation_y = translation[actual_dut_index][1]
-                if parameter == 'translation_z':
-                    actual_dut.translation_z = translation[actual_dut_index][2]
-                if parameter == 'rotation_alpha':
-                    actual_dut.rotation_alpha = euler_angles[actual_dut_index][0]
-                if parameter == 'rotation_beta':
-                    actual_dut.rotation_beta = euler_angles[actual_dut_index][1]
-                if parameter == 'rotation_gamma':
-                    actual_dut.rotation_gamma = euler_angles[actual_dut_index][2]
+            actual_dut.translation_x = translation_average[0]
+            actual_dut.translation_y = translation_average[1]
+            actual_dut.translation_z = translation_average[2]
+            actual_dut.rotation_alpha = alpha_average
+            actual_dut.rotation_beta = beta_average
+            actual_dut.rotation_gamma = gamma_average
             print "%s: alignment parameters after:\n" % actual_dut.name, actual_dut
     telescope.save_configuration()
