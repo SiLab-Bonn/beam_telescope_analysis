@@ -778,35 +778,25 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     output_track_candidates_file = None
     iteration_steps = range(max_iterations)
     for iteration_step in iteration_steps:
-        # find tracks in the beginning and each iteration step when aligning fit DUTs
+        # aligning telescope DUTs to the beam axis (z-axis)
         if set(align_duts) & set(select_telescope_duts):
-            if iteration_step == 0:
-                align_telescope(
-                    telescope_configuration=output_telescope_configuration,
-                    select_telescope_duts=select_telescope_duts)
-            # aligning the fit DUTs needs some adjustments to the parameters
-            actual_align_duts = align_duts
-            actual_fit_duts = select_fit_duts
-            # reqire hits in each DUT that will be aligned
-            actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
-            actual_quality_duts = actual_hit_duts
-        # Regular case for non-fit DUTs
-        else:
-            # aligning non-fit DUTs needs some adjustments to the parameters
-            actual_align_duts = align_duts
-            actual_fit_duts = select_fit_duts
-            # reqire hits in each DUT that will be aligned
-            actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
-            actual_quality_duts = actual_hit_duts
-        fit_quality_distances = np.zeros_like(quality_distances)
-        for index, item in enumerate(quality_distances):
-            if index in align_duts:
-                fit_quality_distances[index, 0] = np.linspace(max(item) * max_iterations, item[0], max_iterations)[iteration_step]
-                fit_quality_distances[index, 1] = np.linspace(max(item) * max_iterations, item[1], max_iterations)[iteration_step]
-            else:
-                fit_quality_distances[index, 0] = item[0]
-                fit_quality_distances[index, 1] = item[1]
-        fit_quality_distances = fit_quality_distances.tolist()
+            align_telescope(
+                telescope_configuration=output_telescope_configuration,
+                select_telescope_duts=list(set(align_duts) & set(select_telescope_duts)))
+        actual_align_duts = align_duts
+        actual_fit_duts = select_fit_duts
+        # reqire hits in each DUT that will be aligned
+        actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
+        actual_quality_duts = actual_hit_duts
+        # fit_quality_distances = np.zeros_like(quality_distances)
+        # for index, item in enumerate(quality_distances):
+        #     if index in align_duts:
+        #         fit_quality_distances[index, 0] = np.linspace(item[0] * max_iterations, item[0], max_iterations)[iteration_step]
+        #         fit_quality_distances[index, 1] = np.linspace(item[1] * max_iterations, item[1], max_iterations)[iteration_step]
+        #     else:
+        #         fit_quality_distances[index, 0] = item[0]
+        #         fit_quality_distances[index, 1] = item[1]
+        # fit_quality_distances = fit_quality_distances.tolist()
         logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
         if iteration_step > 0:
             # remove temporary file
@@ -831,12 +821,13 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             select_duts=actual_align_duts,
             select_fit_duts=actual_fit_duts,
             select_hit_duts=actual_hit_duts,
-            exclude_dut_hit=False,  # For biased residuals
+            exclude_dut_hit=False,  # for biased residuals
+            select_align_duts=actual_align_duts,  # correct residual offset for align DUTs
             method=fit_method,
             beam_energy=beam_energy,
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
-            quality_distances=fit_quality_distances,
+            quality_distances=quality_distances,
             reject_quality_distances=reject_quality_distances,
             use_limits=use_limits,
             plot=plot,

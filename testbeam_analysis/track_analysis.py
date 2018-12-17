@@ -11,6 +11,7 @@ import progressbar
 import tables as tb
 import numpy as np
 from numba import njit
+from scipy.stats import gaussian_kde
 
 from testbeam_analysis.telescope.telescope import Telescope
 from testbeam_analysis.tools import plot_utils
@@ -390,7 +391,7 @@ def _get_first_dut_index(x, index, z_sorted_dut_indices):
     return -1
 
 
-def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
+def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, select_align_duts=None, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
     '''Calculate tracks and set tracks quality flag for selected DUTs.
     Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
 
@@ -621,6 +622,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 for dut_index in fit_duts:
                     dut_fit_selection |= ((1 << dut_index))
                 logging.info("Use %d DUTs for track fit: %s", len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
+                if select_align_duts is not None and select_align_duts:
+                    logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
                 if len(fit_duts) < 2 and method == "fit":
                     raise ValueError('The number of required hit DUTs is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
                 widgets = ['', progressbar.Percentage(), ' ',
@@ -764,7 +767,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         slopes=slopes,
                         fit_duts=actual_fit_duts,  # storing tracks for these DUTs
                         select_fit_duts=fit_duts,  # DUTs used for fitting tracks
-                        select_non_aligned_duts=select_non_aligned_duts,
+                        select_align_duts=select_align_duts,
                         quality_distances=quality_distances,
                         reject_quality_distances=reject_quality_distances,
                         use_limits=use_limits,
@@ -793,7 +796,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, select_align_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
     fit_duts_offsets = []
     fit_duts_slopes = []
     # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
@@ -881,6 +884,25 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         x_residuals = hit_x_local - intersection_x_local
         y_residuals = hit_y_local - intersection_y_local
+        y_residuals = hit_y_local - intersection_y_local
+        select_finite_distance = np.isfinite(x_residuals)
+        select_finite_distance &= np.isfinite(y_residuals)
+
+        if select_align_duts is not None and dut_index in select_align_duts:
+            center_x = np.median(x_residuals[select_finite_distance])
+            std_x = np.std(x_residuals[select_finite_distance])
+            x_kde = gaussian_kde(x_residuals[select_finite_distance], bw_method=dut.pixel_size[0] / 12**0.5 / std_x)
+            x_grid = np.linspace(center_x - 0.5 * std_x, center_x + 0.5 * std_x, np.ceil(std_x))
+            x_index_max = np.argmax(x_kde.evaluate(x_grid))
+            mean_x_residual = x_grid[x_index_max]
+            x_residuals -= mean_x_residual
+            center_y = np.median(y_residuals[select_finite_distance])
+            std_y = np.std(y_residuals[select_finite_distance])
+            y_kde = gaussian_kde(y_residuals[select_finite_distance], bw_method=dut.pixel_size[1] / 12**0.5 / std_y)
+            y_grid = np.linspace(center_y - 0.5 * std_y, center_y + 0.5 * std_y, np.ceil(std_y))
+            y_index_max = np.argmax(y_kde.evaluate(y_grid))
+            mean_y_residual = y_grid[y_index_max]
+            y_residuals -= mean_y_residual
 
         # xy_residuals_squared[:, dut_index] = np.square(hit_x_local - intersection_x_local) + np.square(hit_y_local - intersection_y_local)
         x_residuals_squared[:, dut_index] = np.square(x_residuals)
@@ -891,8 +913,7 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         # generate quality array
         dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=np.bool)
         select_valid_hit = np.isfinite(hit_x_local)
-        select_finite_distance = np.isfinite(x_residuals)
-        select_finite_distance &= np.isfinite(y_residuals)
+
         dut_quality_flag_sel[~select_valid_hit] = False
         dut_quality_flag_sel[~select_finite_distance] = False
         # select tracks within limits and set quality flag
