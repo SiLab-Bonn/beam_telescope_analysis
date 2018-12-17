@@ -45,9 +45,7 @@ def get_plane_normal(direction_vector_1, direction_vector_2):
     return np.cross(direction_vector_1, direction_vector_2)
 
 
-def get_line_intersections_with_dut(line_origins, line_directions,
-                                    translation_x, translation_y, translation_z,
-                                    rotation_alpha, rotation_beta, rotation_gamma):
+def get_line_intersections_with_dut(line_origins, line_directions, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma):
     ''' Calculates the intersection of lines with a DUT.
 
     If there is no intersection point (line is parallel to plane or the line is
@@ -94,8 +92,7 @@ def get_line_intersections_with_dut(line_origins, line_directions,
         normal_plane=dut_normal)
 
 
-def get_line_intersections_with_plane(line_origins, line_directions,
-                                      position_plane, normal_plane):
+def get_line_intersections_with_plane(line_origins, line_directions, position_plane, normal_plane):
     ''' Calculates the intersection of n lines with one plane.
 
     If there is no intersection point (line is parallel to plane or the line is
