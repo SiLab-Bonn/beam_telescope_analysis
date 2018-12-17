@@ -935,7 +935,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     if use_positions:
         cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('trigger_time_stamp', '<u8'),
+            ('trigger_time_stamp', '<i8'),
             ('x', '<f8'),
             ('y', '<f8'),
             ('charge', '<f4'),
@@ -955,7 +955,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             'cluster_ID': 'ID'}
         cluster_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('trigger_time_stamp', '<u8'),
+            ('trigger_time_stamp', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
             ('charge', '<f4'),
@@ -967,7 +967,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     else:
         cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('trigger_time_stamp', '<u8'),
+            ('trigger_time_stamp', '<i8'),
             ('frame', '<u4'),
             ('column', '<u2'),
             ('row', '<u2'),
@@ -982,7 +982,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             'cluster_ID': 'ID'}
         cluster_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('trigger_time_stamp', '<u8'),
+            ('trigger_time_stamp', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
             ('charge', '<f4'),
@@ -1540,7 +1540,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 use_positions.append(False)
 
     # Create result array description, depends on the number of DUTs
-    description = [('event_number', np.int64), ('trigger_time_stamp', np.uint64)]
+    description = [('event_number', np.int64), ('trigger_time_stamp', np.int64)]
     for dimension in ['x', 'y', 'z']:
         for index_dut in range(n_duts):
             description.append(('%s_dut_%d' % (dimension, index_dut), np.float64))

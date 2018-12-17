@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(leve
 
 testbeam_analysis_dtype = np.dtype([
     ('event_number', np.int64),
-    ('trigger_time_stamp', np.uint64),
+    ('trigger_time_stamp', np.int64),
     ('frame', np.uint32),
     ('column', np.uint16),
     ('row', np.uint16),
@@ -277,7 +277,7 @@ def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
     nhits = 0
     with tb.open_file(output_file, 'w') as out_file:
         hits_out = out_file.create_table(out_file.root, name='Hits',
-                                             description=np.dtype([('event_number', np.int64), ('trigger_time_stamp',np.uint64),('frame', np.uint8), ('column', np.uint16), ('row', np.uint16), ('charge', np.uint16)]),
+                                             description=np.dtype([('event_number', np.int64), ('trigger_time_stamp',np.int64),('frame', np.uint8), ('column', np.uint16), ('row', np.uint16), ('charge', np.uint16)]),
                                              title='Merged hits for plane %s'% plane_number,
                                              filters=tb.Filters(
                                                  complib='blosc',
@@ -350,7 +350,7 @@ def merge_dc_module(output_dir, plane_files, pyBARrun, plane_number,output_file_
             hits_out = out_file.create_table(out_file.root, name='Hits',
                                                 description= np.dtype([
                                                     ('event_number', np.int64),
-                                                    ('trigger_time_stamp',np.uint64),
+                                                    ('trigger_time_stamp',np.int64),
                                                     ('frame', np.uint32),
                                                     ('column', np.uint16),
                                                     ('row', np.uint16),
@@ -430,7 +430,7 @@ def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, 
             hits_out = out_file.create_table(out_file.root, name='Hits',
                                                  description= np.dtype([
                                                      ('event_number', np.int64),
-                                                     ('trigger_time_stamp',np.uint64),
+                                                     ('trigger_time_stamp',np.int64),
                                                      ('frame', np.uint32),
                                                      ('column', np.uint16),
                                                      ('row', np.uint16),
