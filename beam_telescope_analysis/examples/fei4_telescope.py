@@ -201,6 +201,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     # Get the absolute path of example data
     tests_data_folder = os.path.join(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))), 'data')
     # Path of the data files, one file per DUT
-    hit_files = [analysis_utils.get_data(path='examples/TestBeamData_FEI4_DUT%d.h5' % i,
-                                         output=os.path.join(tests_data_folder, 'TestBeamData_FEI4_DUT%d.h5' % i)) for i in [0, 1, 4, 5]]
+    hit_files = [analysis_utils.get_data(
+        path='examples/TestBeamData_FEI4_DUT%d.h5' % i,
+        output=os.path.join(tests_data_folder, 'TestBeamData_FEI4_DUT%d.h5' % i)) for i in [0, 1, 4, 5]]
     run_analysis(hit_files)
