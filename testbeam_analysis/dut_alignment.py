@@ -986,21 +986,23 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
 
 def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
     telescope = Telescope(telescope_configuration)
-    logging.info('=== Alignment of the telescope ===')
+    logging.info('= Beam-alignment of the telescope =')
+    logging.info('Use %d DUTs for beam-alignment: %s', len(select_telescope_duts), ', '.join([telescope[index].name for index in select_telescope_duts]))
 
-    print "align telescope rotation"
-    print telescope
     telescope_duts_positions = np.full((len(select_telescope_duts), 3), fill_value=np.nan, dtype=np.float64)
     for index, dut_index in enumerate(select_telescope_duts):
         telescope_duts_positions[index, 0] = telescope[dut_index].translation_x
         telescope_duts_positions[index, 1] = telescope[dut_index].translation_y
         telescope_duts_positions[index, 2] = telescope[dut_index].translation_z
+    # the x and y translation for the reference DUT will be set to 0
     if reference_dut is not None:
         first_telescope_dut_index = reference_dut
     else:
+        # calculate reference DUT, use DUT with the smallest z position
         first_telescope_dut_index = select_telescope_duts[np.argmin(telescope_duts_positions[:, 2])]
     offset, slope = line_fit_3d(positions=telescope_duts_positions)
     first_telescope_dut = telescope[first_telescope_dut_index]
+    logging.info('Reference DUT for beam-alignment: %s', first_telescope_dut.name)
     first_dut_translation_x = first_telescope_dut.translation_x
     first_dut_translation_y = first_telescope_dut.translation_y
 
@@ -1036,8 +1038,6 @@ def align_telescope(telescope_configuration, select_telescope_duts, reference_du
         dut_plane_normal=np.array([0.0, 0.0, 1.0]))
     telescope.rotation_alpha -= alpha_angles[0]
     telescope.rotation_beta -= beta_angles[0]
-    print "\n", telescope, "\n"
-
     telescope.save_configuration()
 
 
@@ -1079,7 +1079,8 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
         for index, actual_dut_index in enumerate(select_duts):
             actual_dut = telescope[actual_dut_index]
             node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
-            logging.debug('== Calculate transformation for %s ==', actual_dut.name)
+            logging.info('= Calculate transformation for %s =', actual_dut.name)
+            logging.info("Modify alignment parameters: %s", ', '.join([alignment_paramter for alignment_paramter in select_alignment_parameters[index]]))
 
             if use_limits:
                 limit_x_local = actual_dut.column_limit
@@ -1154,7 +1155,6 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                 alpha_dut_start = actual_dut.rotation_alpha
                 beta_dut_start = actual_dut.rotation_beta
                 gamma_dut_start = actual_dut.rotation_gamma
-                print "n_tracks for chunk %d:" % chunk_index, n_tracks
                 delta_t = 0.9  # TODO: optimize
                 if max_iterations is None:
                     iterations = 100
@@ -1162,14 +1162,10 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                     iterations = max_iterations
                 lin_alpha = 1.0
 
-                print "alpha, beta, gamma at start", alpha_dut_start, beta_dut_start, gamma_dut_start
-                print "translation at start", x_dut_start, y_dut_start, z_dut_start
-
                 initialize_angles = True
                 translation_old = None
                 rotation_old = None
                 for i in range(iterations):
-                    print "****************** %s: iteration step %d, chunk %d *********************" % (actual_dut.name, i, chunk_index)
                     if initialize_angles:
                         alpha, beta, gamma = alpha_dut_start, beta_dut_start, gamma_dut_start
                         rotation = geometry_utils.rotation_matrix(
@@ -1225,9 +1221,7 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                     #         tot_matr = np.vstack([tot_matr, matr])
 
                     # SVD
-                    print "calculating SVD..."
                     u, s, v = np.linalg.svd(tot_matr, full_matrices=False)
-                    print "...finished calculating SVD"
 
                     diag = np.diag(s ** -1)
                     tot_matr_inv = np.dot(v.T, np.dot(diag, u.T))
@@ -1261,28 +1255,16 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                     translation = translation + delta_t * omega_b_dot[3:]
 
                     if i >= 2:
-                        print "translation"
-                        print translation_old2
-                        print translation_old
-                        print translation
-                        print "rotation"
-                        print rotation_old2
-                        print rotation_old
-                        print rotation
                         allclose_trans = np.allclose(translation, translation_old, rtol=0.0, atol=1e-4)
                         allclose_rot = np.allclose(rotation, rotation_old, rtol=0.0, atol=1e-5)
                         allclose_trans2 = np.allclose(translation, translation_old2, rtol=0.0, atol=1e-3)
                         allclose_rot2 = np.allclose(rotation, rotation_old2, rtol=0.0, atol=1e-4)
-                        print "allclose rot trans", allclose_rot, allclose_trans
-                        print "allclose2 rot trans", allclose_rot2, allclose_trans2
                         # exit if paramters are more or less constant
                         if (allclose_rot and allclose_trans):
-                            print "*** ALL CLOSE, BREAK ***"
                             break
                         # change to smaller step size for smaller transformation parameters
                         # and check for oscillating result (every second result is identical)
                         elif (allclose_rot2 or allclose_trans2 or allclose_rot or allclose_trans):
-                            print "*** ALL CLOSE2, CONTINUE ***"
                             delta_t = 0.3
 
                 if translation_average is None:
@@ -1308,12 +1290,10 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
             rotation_average = np.dot(u_rot, v_rot)  # orthogonal matrix U
             alpha_average, beta_average, gamma_average = geometry_utils.euler_angles(R=rotation)
 
-            print "%s: alignment parameters before:\n" % actual_dut.name, actual_dut
             actual_dut.translation_x = translation_average[0]
             actual_dut.translation_y = translation_average[1]
             actual_dut.translation_z = translation_average[2]
             actual_dut.rotation_alpha = alpha_average
             actual_dut.rotation_beta = beta_average
             actual_dut.rotation_gamma = gamma_average
-            print "%s: alignment parameters after:\n" % actual_dut.name, actual_dut
     telescope.save_configuration()
