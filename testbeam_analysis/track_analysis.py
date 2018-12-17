@@ -702,9 +702,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # Prepare track hits array to be fitted
                     n_good_tracks = np.count_nonzero(good_track_selection)  # Index of tmp track hits array
                     if method == "fit":
-                        track_hits = np.full((n_good_tracks, len(fit_duts), 3), fill_value=np.nan, dtype=np.float32)
+                        track_hits = np.full((n_good_tracks, len(fit_duts), 3), fill_value=np.nan, dtype=np.float64)
                     elif method == "kalman":
-                        track_hits = np.full((n_good_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float32)
+                        track_hits = np.full((n_good_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float64)
 
                     # print "hit flags", np.unique(track_candidates_chunk['hit_flag'][good_track_selection])  # , np.min(track_candidates_chunk['hit_flag'][good_track_selection])
                     # print "quality flags", np.unique(track_candidates_chunk['quality_flag'][good_track_selection])  # , np.min(track_candidates_chunk['quality_flag'][good_track_selection])
@@ -1143,15 +1143,15 @@ def _fit_tracks_loop(track_hits):
     chi2 : array
         Array, which contains the track Chi^2.
     '''
-    slope = np.empty((track_hits.shape[0], 3), dtype=np.float32)
-    offset = np.empty((track_hits.shape[0], 3), dtype=np.float32)
+    slope = np.full((track_hits.shape[0], 3), dtype=np.float64, fill_value=np.nan)
+    offset = np.full((track_hits.shape[0], 3), dtype=np.float64, fill_value=np.nan)
 
     # Loop over selected track candidate hits and fit
     for index, hits in enumerate(track_hits):
         try:
             offset[index], slope[index] = line_fit_3d(positions=hits)
         except np.linalg.linalg.LinAlgError:
-            offset[index], slope[index] = np.nan, np.nan
+            pass
 
     return offset, slope
 
@@ -1171,13 +1171,14 @@ def line_fit_3d(positions, n=None):
     slope = np.linalg.svd(positions - datamean, full_matrices=False)[2][0]  # http://stackoverflow.com/questions/2298390/fitting-a-line-in-3d
     # normalize to 1
     slope_mag = np.sqrt(slope.dot(slope))
+    slope /= slope_mag
     # force the 3rd component (z) to be positive
     if slope[2] < 0:
         slope = -slope
     # intersections = offset + slope / slope[2] * (positions.T[2][:, np.newaxis] - offset[2])  # Fitted line and DUT plane intersections (here: points)
     # # calculate the sum of the squared x/y residuals
     # chi2 = np.sum(np.square(positions - intersections))
-    return offset, slope / slope_mag  # , chi2
+    return offset, slope  # , chi2
 
 
 def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy, particle_mass, scattering_planes):

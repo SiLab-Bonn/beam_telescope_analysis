@@ -904,7 +904,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_selected_tracks_file,
             select_duts=actual_align_duts,
-            select_alignment_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if (dut_index in select_telescope_duts and alignment_parameters[i] is None) else (all_alignment_parameters if alignment_parameters[i] is None else alignment_parameters[i])) for i, dut_index in enumerate(actual_align_duts)],
+            select_alignment_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if (dut_index in select_telescope_duts and (alignment_parameters is None or alignment_parameters[i] is None)) else (all_alignment_parameters if (alignment_parameters is None or alignment_parameters[i] is None) else alignment_parameters[i])) for i, dut_index in enumerate(actual_align_duts)],
             use_limits=use_limits,
             max_iterations=100,
             chunk_size=chunk_size)

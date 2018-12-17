@@ -84,6 +84,7 @@ def get_line_intersections_with_dut(line_origins, line_directions,
         gamma=rotation_gamma)
     basis_global = dut_rotation_matrix.T.dot(np.eye(3, dtype=np.float64))
     dut_normal = basis_global[2]
+    dut_normal /= np.sqrt(np.dot(dut_normal, dut_normal))
     if dut_normal[2] < 0:
         dut_normal = -dut_normal
     return get_line_intersections_with_plane(
