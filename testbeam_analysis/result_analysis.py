@@ -1482,7 +1482,7 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
     return purities, pure_hits, total_hits, purities_sensor_mean
 
 
-def histogram_track_angle(telescope_configuration, input_tracks_file, select_duts, output_track_angle_file=None, n_bins="auto", plot_range=(None, None), plot=True, chunk_size=1000000):
+def histogram_track_angle(telescope_configuration, input_tracks_file, select_duts, output_track_angle_file=None, n_bins=100, plot=True, chunk_size=1000000):
     '''Calculates and histograms the track angle of the fitted tracks for selected DUTs.
 
     Parameters
@@ -1498,9 +1498,6 @@ def histogram_track_angle(telescope_configuration, input_tracks_file, select_dut
     n_bins : uint, string
         Number of bins for the histogram.
         If "auto", automatic binning is used.
-    plot_range : iterable of tuples
-        Tuple of the plot range in rad for alpha and beta angular distribution, e.g. ((-0.01, +0.01), -0.01, +0.01)).
-        If (None, None), plotting from minimum to maximum.
     plot : bool
         If True, create additional output plots.
     chunk_size : uint
@@ -1541,7 +1538,7 @@ def histogram_track_angle(telescope_configuration, input_tracks_file, select_dut
             for index, actual_dut_index in enumerate(selected_dut_indices_mod):
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
                 actual_dut = telescope[actual_dut_index]
-                logging.info('Calculating track angles for %s', ('telescope' if index == 0 else actual_dut.name))
+                logging.info('== Calculating track angles for %s ==', ('telescope' if index == 0 else actual_dut.name))
 
                 initialize = True
                 # only store track slopes of selected DUTs
@@ -1576,13 +1573,25 @@ def histogram_track_angle(telescope_configuration, input_tracks_file, select_dut
                             dut_plane_normal=np.array([0.0, 0.0, 1.0]))
 
                     if initialize:
-                        total_angle_global_hist, total_angle_global_hist_edges = np.histogram(total_angles_global, bins=n_bins, range=None)
-                        alpha_angle_global_hist, alpha_angle_global_hist_edges = np.histogram(alpha_angles_global, bins=n_bins, range=plot_range[0])
-                        beta_angle_global_hist, beta_angle_global_hist_edges = np.histogram(beta_angles_global, bins=n_bins, range=plot_range[1])
+                        global_total_mean = np.nanmean(total_angles_global)
+                        global_total_std = np.nanstd(total_angles_global)
+                        global_alpha_mean = np.nanmean(alpha_angles_global)
+                        global_alpha_std = np.nanstd(alpha_angles_global)
+                        global_beta_mean = np.nanmean(beta_angles_global)
+                        global_beta_std = np.nanstd(beta_angles_global)
+                        total_angle_global_hist, total_angle_global_hist_edges = np.histogram(total_angles_global, bins=n_bins, range=(global_total_mean - 5 * global_total_std, global_total_mean + 5 * global_total_std))
+                        alpha_angle_global_hist, alpha_angle_global_hist_edges = np.histogram(alpha_angles_global, bins=n_bins, range=(global_alpha_mean - 5 * global_alpha_std, global_alpha_mean + 5 * global_alpha_std))
+                        beta_angle_global_hist, beta_angle_global_hist_edges = np.histogram(beta_angles_global, bins=n_bins, range=(global_beta_mean - 5 * global_beta_std, global_beta_mean + 5 * global_beta_std))
                         if index != 0:
-                            total_angle_local_hist, total_angle_local_hist_edges = np.histogram(total_angles_local, bins=n_bins, range=None)
-                            alpha_angle_local_hist, alpha_angle_local_hist_edges = np.histogram(alpha_angles_local, bins=n_bins, range=plot_range[0])
-                            beta_angle_local_hist, beta_angle_local_hist_edges = np.histogram(beta_angles_local, bins=n_bins, range=plot_range[1])
+                            local_total_mean = np.nanmean(total_angles_local)
+                            local_total_std = np.nanstd(total_angles_local)
+                            local_alpha_mean = np.nanmean(alpha_angles_local)
+                            local_alpha_std = np.nanstd(alpha_angles_local)
+                            local_beta_mean = np.nanmean(beta_angles_local)
+                            local_beta_std = np.nanstd(beta_angles_local)
+                            total_angle_local_hist, total_angle_local_hist_edges = np.histogram(total_angles_local, bins=n_bins, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
+                            alpha_angle_local_hist, alpha_angle_local_hist_edges = np.histogram(alpha_angles_local, bins=n_bins, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
+                            beta_angle_local_hist, beta_angle_local_hist_edges = np.histogram(beta_angles_local, bins=n_bins, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
                         initialize = False
                     else:
                         total_angle_global_hist += np.histogram(total_angles_global, bins=total_angle_global_hist_edges)[0]

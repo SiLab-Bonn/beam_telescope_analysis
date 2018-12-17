@@ -872,8 +872,8 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 input_tracks_file=output_selected_tracks_file,
                 output_track_angle_file=output_track_angles_file,
                 select_duts=actual_align_duts,
-                n_bins="auto",
-                plot=False)
+                n_bins=100,
+                plot=plot)
             # Read and store beam angle to improve track finding
             if (set(align_duts) & set(select_fit_duts)):
                 with tb.open_file(output_track_angles_file, mode="r") as in_file_h5:

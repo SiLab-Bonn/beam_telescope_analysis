@@ -696,7 +696,7 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
         with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
             for actual_dut_index in select_duts:
                 dut_name = telescope[actual_dut_index].name
-                logging.info('Plotting events for %s', dut_name)
+                logging.info('== Plotting events for %s ==', dut_name)
 
                 fig = Figure()
                 _ = FigureCanvas(fig)
