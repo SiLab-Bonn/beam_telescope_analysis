@@ -3,11 +3,10 @@
 
     .. NOTE::
        The data was recorded with pyBAR at DESY.
-       The telescope consists of 6 DUTs with ~ 2 cm distance between the
+       The telescope consists of 6 DUTs with ~2cm distance between the
        planes. Only the first two and last two planes are taken here. The
        first and last plane were IBL n-in-n planar sensors and the 2 devices in
        the center are 3D CNM/FBK sensors.
-
 '''
 
 import os
@@ -102,12 +101,12 @@ def run_analysis(hit_files):
     aligned_configuration = dut_alignment.align(
         telescope_configuration=prealigned_configuration,
         input_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        align_duts=[[0, 1, 2, 3]],  # align the telescope planes first
-        select_telescope_duts=[0, 3],  # reference DUTs
-        select_fit_duts=[0, 1, 2, 3],
-        select_hit_duts=[[0, 1, 2, 3]],
-        max_iterations=[3],
-        max_events=(100000),
+        select_duts=[[0, 1, 2, 3]],  # align all planes at once
+        select_telescope_duts=[0, 3],  # add outermost planes, z-axis positions are fixed for telescope DUTs, if not stated otherwise (see select_alignment_parameters)
+        select_fit_duts=[0, 1, 2, 3],  # use all DUTs for track fit
+        select_hit_duts=[[0, 1, 2, 3]],  # require hits in all DUTs
+        max_iterations=[7],  # number of alignment iterations, the higher the number the more precise
+        max_events=(100000),  # limit number of events to speed up alignment
         quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
         reject_quality_distances=(1000.0, 1000.0),
         use_limits=True,
@@ -152,6 +151,7 @@ def run_analysis(hit_files):
         input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_selected.h5'),
         output_residuals_file=os.path.join(output_folder, 'Residuals_aligned.h5'),
         select_duts=[0, 1, 2, 3],
+        nbins_per_pixel=20,
         use_limits=True)
 
     # Plotting of the tracks angles of the final tracks
