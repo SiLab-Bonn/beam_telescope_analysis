@@ -594,7 +594,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # if yes, save some CPU time and fit only once
                 actual_fit_duts = []
                 for curr_fit_dut_index, curr_fit_dut in enumerate(select_duts):
-                    if ((exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False) or (actual_fit_dut not in select_fit_duts[fit_dut_index])) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index]):
+                    if ((curr_fit_dut == actual_fit_dut) or (exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index])):
                         actual_fit_duts.append(curr_fit_dut)
                 logging.info('= Fit tracks for %s =', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
                 # remove existing nodes
@@ -611,13 +611,13 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
                 # select hit DUTs based on input parameters
                 dut_hit_selection = 0  # DUTs required to have hits
-                hit_duts = list(set(select_hit_duts[fit_dut_index]) - set([actual_fit_duts])) if exclude_dut_hit[fit_dut_index] else select_hit_duts[fit_dut_index]
+                hit_duts = list(set(select_hit_duts[fit_dut_index]) - set(actual_fit_duts)) if exclude_dut_hit[fit_dut_index] else select_hit_duts[fit_dut_index]
                 for dut_index in hit_duts:
                     dut_hit_selection |= ((1 << dut_index))
                 logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
                 # select fit DUTs based on input parameters
                 dut_fit_selection = 0  # DUTs to be used for the fit
-                fit_duts = list(set(select_fit_duts[fit_dut_index]) - set([actual_fit_duts])) if exclude_dut_hit[fit_dut_index] else select_fit_duts[fit_dut_index]
+                fit_duts = list(set(select_fit_duts[fit_dut_index]) - set(actual_fit_duts)) if exclude_dut_hit[fit_dut_index] else select_fit_duts[fit_dut_index]
                 for dut_index in fit_duts:
                     dut_fit_selection |= ((1 << dut_index))
                 logging.info("Use %d DUTs for track fit: %s", len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
