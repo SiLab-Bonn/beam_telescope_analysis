@@ -470,7 +470,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, align_duts=None, alignment_parameters=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -495,12 +495,12 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         Filename of the input merged file.
     output_telescope_configuration : string
         Filename of the output telescope configuration file.
-    align_duts : iterable or iterable of iterable
+    select_duts : iterable or iterable of iterable
         The combination of duts that are algined at once. One should always align the high resolution planes first.
         E.g. for a telesope (first and last 3 planes) with 2 devices in the center (3, 4):
-        align_duts=[[0, 1, 2, 5, 6, 7],  # align the telescope planes first
-                    [4],  # align first DUT
-                    [3]]  # align second DUT
+        select_duts=[[0, 1, 2, 5, 6, 7],  # align the telescope planes first
+                     [4],  # align first DUT
+                     [3]]  # align second DUT
     alignment_parameters : list of lists of strings
         The list of alignment parameters for each align_dut. Valid parameters:
         - translation_x: horizontal axis
@@ -515,11 +515,11 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         Usually the coordinates of these DUTs are well specified.
         At least 2 DUTs need to be specified. The z-position of the selected DUTs will not be changed by default.
     select_fit_duts : iterable or iterable of iterable
-        Defines for each align_duts combination wich devices to use in the track fit.
+        Defines for each select_duts combination wich devices to use in the track fit.
         E.g. To use only the telescope planes (first and last 3 planes) but not the 2 center devices
         select_fit_duts=[0, 1, 2, 5, 6, 7]
     select_hit_duts : iterable or iterable of iterable
-        Defines for each align_duts combination wich devices must have a hit to use the track for fitting. The hit
+        Defines for each select_duts combination wich devices must have a hit to use the track for fitting. The hit
         does not have to be used in the fit itself! This is useful for time reference planes.
         E.g.  To use telescope planes (first and last 3 planes) + time reference plane (3)
         select_hit_duts = [0, 1, 2, 4, 5, 6, 7]
@@ -569,7 +569,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     '''
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
-    logging.info('=== Alignment of %d DUTs ===' % len(set(np.unique(np.hstack(np.array(align_duts))).tolist())))
+    logging.info('=== Alignment of %d DUTs ===' % len(set(np.unique(np.hstack(np.array(select_duts))).tolist())))
 
     if output_telescope_configuration is None:
         if 'prealigned' in telescope_configuration:
@@ -584,51 +584,51 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         telescope.save_configuration(configuration_file=output_telescope_configuration)
 
     # Create list with combinations of DUTs to align
-    if align_duts is None:  # If None: align all DUTs
-        align_duts = range(n_duts)
+    if select_duts is None:  # If None: align all DUTs
+        select_duts = range(n_duts)
     # Check for value errors
-    if not isinstance(align_duts, Iterable):
-        raise ValueError("align_duts is no iterable")
-    elif not align_duts:  # empty iterable
-        raise ValueError("align_duts has no items")
+    if not isinstance(select_duts, Iterable):
+        raise ValueError("select_duts is no iterable")
+    elif not select_duts:  # empty iterable
+        raise ValueError("select_duts has no items")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), align_duts)):
-        align_duts = [align_duts]
+    if all(map(lambda val: not isinstance(val, Iterable), select_duts)):
+        select_duts = [select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), align_duts)):
-        raise ValueError("not all items in align_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable), select_duts)):
+        raise ValueError("not all items in select_duts are iterable")
     # Finally check length of all iterables in iterable
-    for dut in align_duts:
+    for dut in select_duts:
         if not dut:  # check the length of the items
-            raise ValueError("item in align_duts has length 0")
+            raise ValueError("item in select_duts has length 0")
 
     # Check if some DUTs will not be aligned
-    no_align_duts = set(range(n_duts)) - set(np.unique(np.hstack(np.array(align_duts))).tolist())
-    if no_align_duts:
-        logging.info('These DUTs will not be aligned: %s' % ", ".join(telescope[dut_index].name for dut_index in no_align_duts))
+    non_select_duts = set(range(n_duts)) - set(np.unique(np.hstack(np.array(select_duts))).tolist())
+    if non_select_duts:
+        logging.info('These DUTs will not be aligned: %s' % ", ".join(telescope[dut_index].name for dut_index in non_select_duts))
 
     # Create list
     if alignment_parameters is None:
-        alignment_parameters = [[None] * len(duts) for duts in align_duts]
+        alignment_parameters = [[None] * len(duts) for duts in select_duts]
     # Check for value errors
     if not isinstance(alignment_parameters, Iterable):
         raise ValueError("alignment_parameters is no iterable")
     elif not alignment_parameters:  # empty iterable
         raise ValueError("alignment_parameters has no items")
     # Finally check length of all arrays
-    if len(alignment_parameters) != len(align_duts):  # empty iterable
+    if len(alignment_parameters) != len(select_duts):  # empty iterable
         raise ValueError("alignment_parameters has the wrong length")
     for index, alignment_parameter in enumerate(alignment_parameters):
         if alignment_parameter is None:
-            alignment_parameters[index] = [None] * len(align_duts[index])
-        if len(alignment_parameters[index]) != len(align_duts[index]):  # check the length of the items
+            alignment_parameters[index] = [None] * len(select_duts[index])
+        if len(alignment_parameters[index]) != len(select_duts[index]):  # check the length of the items
             raise ValueError("item in alignment_parameter wrong length")
 
     # Create track, hit selection
     if select_hit_duts is None:  # If None: use all DUTs
         select_hit_duts = []
         # copy each item
-        for duts in align_duts:
+        for duts in select_duts:
             select_hit_duts.append(duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
@@ -637,12 +637,12 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         raise ValueError("select_hit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_hit_duts)):
-        select_hit_duts = [select_hit_duts[:] for _ in align_duts]
+        select_hit_duts = [select_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
         raise ValueError("not all items in select_hit_duts are iterable")
     # Finally check length of all arrays
-    if len(select_hit_duts) != len(align_duts):  # empty iterable
+    if len(select_hit_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_hit_duts has the wrong length")
     for hit_dut in select_hit_duts:
         if len(hit_dut) < 2:  # check the length of the items
@@ -661,12 +661,12 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         raise ValueError("select_fit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_fit_duts)):
-        select_fit_duts = [select_fit_duts[:] for _ in align_duts]
+        select_fit_duts = [select_fit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_fit_duts)):
         raise ValueError("not all items in select_fit_duts are iterable")
     # Finally check length of all arrays
-    if len(select_fit_duts) != len(align_duts):  # empty iterable
+    if len(select_fit_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_fit_duts has the wrong length")
     for index, fit_dut in enumerate(select_fit_duts):
         if len(fit_dut) < 2:  # check the length of the items
@@ -675,7 +675,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
     if not isinstance(track_chi2, Iterable):
-        track_chi2 = [track_chi2] * len(align_duts)
+        track_chi2 = [track_chi2] * len(select_duts)
     # Finally check length of all arrays
     if len(track_chi2) != len(track_chi2):  # empty iterable
         raise ValueError("track_chi2 has the wrong length")
@@ -719,27 +719,27 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             raise ValueError("item in reject_quality_distances has length != 2")
 
     if not isinstance(max_iterations, Iterable):
-        max_iterations = [max_iterations] * len(align_duts)
+        max_iterations = [max_iterations] * len(select_duts)
     # Finally check length of all arrays
-    if len(max_iterations) != len(align_duts):  # empty iterable
+    if len(max_iterations) != len(select_duts):  # empty iterable
         raise ValueError("max_iterations has the wrong length")
 
     if not isinstance(max_events, Iterable):
-        max_events = [max_events] * len(align_duts)
+        max_events = [max_events] * len(select_duts)
     # Finally check length of all arrays
-    if len(max_events) != len(align_duts):  # empty iterable
+    if len(max_events) != len(select_duts):  # empty iterable
         raise ValueError("max_events has the wrong length")
 
     # Loop over all combinations of DUTs to align, simplest case: use all DUTs at once to align
     # Usual case: align high resolution devices first, then other devices
-    for index, actual_align_duts in enumerate(align_duts):
-        logging.info('== Aligning %d DUTs: %s ==', len(actual_align_duts), ", ".join(telescope[dut_index].name for dut_index in actual_align_duts))
+    for index, align_duts in enumerate(select_duts):
+        logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
 
         _duts_alignment(
             input_telescope_configuration=telescope_configuration,  # pre-aligned configuration
             output_telescope_configuration=output_telescope_configuration,  # aligned configuration
             merged_file=input_merged_file,
-            align_duts=actual_align_duts,
+            align_duts=align_duts,
             alignment_parameters=alignment_parameters[index],
             select_telescope_duts=select_telescope_duts,
             select_fit_duts=select_fit_duts[index],
