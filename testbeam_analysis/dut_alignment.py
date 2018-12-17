@@ -1275,10 +1275,13 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                         allclose_rot2 = np.allclose(rotation, rotation_old2, rtol=0.0, atol=1e-4)
                         print "allclose rot trans", allclose_rot, allclose_trans
                         print "allclose2 rot trans", allclose_rot2, allclose_trans2
+                        # exit if paramters are more or less constant
                         if (allclose_rot and allclose_trans):
                             print "*** ALL CLOSE, BREAK ***"
                             break
-                        elif (allclose_rot2 or allclose_trans2):
+                        # change to smaller step size for smaller transformation parameters
+                        # and check for oscillating result (every second result is identical)
+                        elif (allclose_rot2 or allclose_trans2 or allclose_rot or allclose_trans):
                             print "*** ALL CLOSE2, CONTINUE ***"
                             delta_t = 0.3
 
