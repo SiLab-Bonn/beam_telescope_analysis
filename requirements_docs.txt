@@ -1,0 +1,4 @@
+sphinx==v1.5.6
+sphinxcontrib-versioning
+sphinx_rtd_theme
+sphinxcontrib-napoleon

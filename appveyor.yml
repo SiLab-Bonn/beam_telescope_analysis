@@ -1,0 +1,24 @@
+build: false  # Tell appveyor to not use msbuild
+
+environment:
+  matrix:
+    - PYTHON: 2.7
+
+platform:
+  - x64
+
+init:
+  - "ECHO %PYTHON%"
+  - ps: Start-FileDownload 'http://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi' C:\VCForPython27.msi; echo "Done"
+  - cmd: msiexec /i C:\VCForPython27.msi /quiet /qn
+  - set PATH=C:\Miniconda-x64;C:\Miniconda-x64\\Scripts;%PATH%  # Miniconda is already installed on appveyor: https://github.com/appveyor/ci/issues/359
+  - conda install --yes numpy cython pytables scipy matplotlib nose numba mock pyyaml
+  - pip install progressbar-latest pixel_clusterizer pylandau
+  - conda info -a
+  - conda list
+
+install:
+  - python.exe setup.py develop
+
+test_script:
+  - nosetests

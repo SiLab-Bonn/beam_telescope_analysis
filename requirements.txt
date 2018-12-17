@@ -1,0 +1,13 @@
+cython  # for C++ extensions
+tables  # the data format
+scipy   # analysis functions
+numpy   # for a C array object and fast algorithms
+matplotlib  # for plotting
+numba>=0.30  # for speedup of python loops (python just in time compiler)
+future  # Python 2/3 compatibility
+pixel_clusterizer>=3.1.3  # to cluster pixel hits
+pylandau>2.0.0  # for charge deposition simulation
+progressbar-latest  # to show a progress bar
+numexpr  # for fast c compiled loops on numpy arrays
+dill  # better serialization needed for multithreading
+numpydoc  # To use numpy docstring for gui tooltips

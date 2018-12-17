@@ -1,0 +1,6 @@
+include LICENSE
+include README.*
+include requirements.*
+include requirements_docs.*
+recursive-include docs *
+recursive-include testbeam_analysis *
