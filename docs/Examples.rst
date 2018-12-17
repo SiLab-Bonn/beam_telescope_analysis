@@ -9,10 +9,10 @@ These examples are a good starting point to get to know `Testbeam Analysis`.
 
 ATLAS FE-I4 telescope
 =====================
-.. automodule:: testbeam_analysis.examples.fei4_telescope
+.. automodule:: beam_telescope_analysis.examples.fei4_telescope
 
 The created plots after the consecutive analysis steps are shown here:
- 
+
 .. image:: _static/example_fei4/CorrelationColumn.png
 .. image:: _static/example_fei4/CorrelationRow.png
 
@@ -37,5 +37,5 @@ Original efficiency :download:`pdf output <_static/example_fei4/Efficiency.pdf>`
 
 EU telescope
 =====================
-.. automodule:: testbeam_analysis.examples.eutelescope
+.. automodule:: beam_telescope_analysis.examples.eutelescope
 

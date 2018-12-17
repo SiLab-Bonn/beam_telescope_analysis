@@ -10,4 +10,3 @@ pylandau>2.0.0  # for charge deposition simulation
 progressbar-latest  # to show a progress bar
 numexpr  # for fast c compiled loops on numpy arrays
 dill  # better serialization needed for multithreading
-numpydoc  # To use numpy docstring for gui tooltips

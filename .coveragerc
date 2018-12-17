@@ -5,15 +5,15 @@ data_file = .coverage
 
 [report]
 exclude_lines =
-    pragma: no cover 
+    pragma: no cover
     raise
     if __name__ == .__main__.:
 
-omit = 
+omit =
     */__init__.py
-    testbeam_analysis/testing/*
-    testbeam_analysis/converter/*
-    testbeam_analysis/tools/residuals.py
-    testbeam_analysis/tools/test_tools.py
-    testbeam_analysis/tools/deprecated.py
-    testbeam_analysis/tools/data_selection.py
+    beam_telescope_analysis/testing/*
+    beam_telescope_analysis/converter/*
+    beam_telescope_analysis/tools/residuals.py
+    beam_telescope_analysis/tools/test_tools.py
+    beam_telescope_analysis/tools/deprecated.py
+    beam_telescope_analysis/tools/data_selection.py

@@ -29,7 +29,7 @@ The following modules are required:
 If you are new to Python, please have a look at the installation guide in the wiki.
 We recommend to use to use `Anaconda/Miniconda <https://conda.io/docs/user-guide/install/download.html>`_ Python to ease the installation of the dependencies.
 
-Clone the testbeam analysis repository and run the following commands inside the testbeam_analysis folder:
+Clone the testbeam analysis repository and run the following commands inside the beam_telescope_analysis folder:
 
 .. code-block:: bash
 
@@ -42,7 +42,7 @@ Uninstall with:
 
 .. code-block:: bash
 
-   pip uninstall testbeam_analysis
+   pip uninstall beam_telescope_analysis
 
 
 Example Usage
@@ -56,20 +56,20 @@ In the examples folder type e.g.:
 
    python fei4_telescope_example.py
 
-.. |travis-status| image:: https://travis-ci.org/SiLab-Bonn/testbeam_analysis.svg?branch=gui
-    :target: https://travis-ci.org/SiLab-Bonn/testbeam_analysis
+.. |travis-status| image:: https://travis-ci.org/SiLab-Bonn/beam_telescope_analysis.svg?branch=master
+    :target: https://travis-ci.org/SiLab-Bonn/beam_telescope_analysis
     :alt: Build status
 
-.. |appveyor-status| image:: https://ci.appveyor.com/api/projects/status/github/SiLab-Bonn/testbeam_analysis/branch/gui
-    :target: https://ci.appveyor.com/project/DavidLP/testbeam-analysis/branch/gui
+.. |appveyor-status| image:: https://ci.appveyor.com/api/projects/status/github/SiLab-Bonn/beam_telescope_analysis/branch/master
+    :target: https://ci.appveyor.com/project/DavidLP/testbeam-analysis/branch/master
     :alt: Build status
 
 .. |doc| image:: https://img.shields.io/badge/documentation--blue.svg
-    :target: http://silab-bonn.github.io/testbeam_analysis
+    :target: http://silab-bonn.github.io/beam_telescope_analysis
     :alt: Documentation
 
-.. |coverage| image:: https://coveralls.io/repos/SiLab-Bonn/testbeam_analysis/badge.svg?branch=gui
-    :target: https://coveralls.io/github/SiLab-Bonn/testbeam_analysis?branch=gui
+.. |coverage| image:: https://coveralls.io/repos/SiLab-Bonn/beam_telescope_analysis/badge.svg?branch=master
+    :target: https://coveralls.io/github/SiLab-Bonn/beam_telescope_analysis?branch=master
     :alt: Coverage
 
 

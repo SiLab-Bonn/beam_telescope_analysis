@@ -1,12 +1,12 @@
 track_analysis
 **************
 
-.. automodule:: testbeam_analysis.track_analysis
+.. automodule:: beam_telescope_analysis.track_analysis
 
 
 Methods
 -------
 
-.. autofunction:: testbeam_analysis.track_analysis.find_tracks
+.. autofunction:: beam_telescope_analysis.track_analysis.find_tracks
 
-.. autofunction:: testbeam_analysis.track_analysis.fit_tracks
+.. autofunction:: beam_telescope_analysis.track_analysis.fit_tracks

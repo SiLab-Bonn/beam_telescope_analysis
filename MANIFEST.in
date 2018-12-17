@@ -3,4 +3,4 @@ include README.*
 include requirements.*
 include requirements_docs.*
 recursive-include docs *
-recursive-include testbeam_analysis *
+recursive-include beam_telescope_analysis *
