@@ -11,42 +11,34 @@
 #include <stdint.h>
 #endif
 
-//structure of the hits
-typedef struct HitInfo{
-  int64_t eventNumber; //event number value (long int: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)
-  unsigned char frame; //relative BCID value (unsigned char: 0 to 255)
-  unsigned short int column; //column value (unsigned int: 0 to 65,535)
-  unsigned short int row; //row value (unsigned short int: 0 to 65,535)
-  unsigned short int charge; //tot value (unsigned int: 0 to 255)
-} HitInfo;
 
 //structure to store the hits with cluster info
 typedef struct ClusterHitInfo{
-  int64_t eventNumber; //event number value (long int: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)
-  unsigned char frame; //relative BCID value (unsigned char: 0 to 255)
-  unsigned short int column; //column value (unsigned char: 0 to 65,535)
-  unsigned short int row; //row value (unsigned short int: 0 to 65,535)
-  unsigned short int charge; //tot value (unsigned char: 0 to 65,535)
-  int clusterID; //the cluster id of the hit
-  unsigned char isSeed; //flag to mark seed pixel
-  unsigned int clusterSize; //the cluster size of the cluster belonging to the hit
-  unsigned int nCluster; //the number of cluster in the event
+  int64_t eventNumber;  // event number value
+  uint8_t frame;  // relative BCID value
+  uint16_t column;  // column value
+  uint16_t row; // row value
+  float charge; // pixel charge
+  int clusterID;  // the cluster id of the hit
+  uint8_t isSeed;  // flag to mark seed pixel
+  uint32_t clusterSize;  // the cluster size of the cluster belonging to the hit
+  uint32_t nCluster;  // the number of cluster in the event
 } ClusterHitInfo;
 
 //structure to store the cluster
 typedef struct ClusterInfo{
-  int64_t eventNumber; //event number value (long int: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)
-  unsigned int ID; //the cluster id of the cluster
-  unsigned int n_hits; //number of all hits in all clusters
-  float charge; //sum charge of all cluster hits
-  unsigned short int seed_column; //seed pixel column value (unsigned short int: 0 to 65,535)
-  unsigned short int seed_row; //seed pixel row value (unsigned short int: 0 to 65,535)
-  float mean_column; //column mean value
-  float mean_row; //row mean value
-  float err_column; //column position error
-  float err_row; //row position error
-  unsigned int n_cluster; //number of all clusters in the event
-  int64_t cluster_shape; //cluster shape
+  int64_t eventNumber;  // event number value
+  uint32_t ID;  // the cluster id of the cluster
+  uint32_t n_hits;  // number of all hits in all clusters
+  float charge;  // sum charge of all cluster hits
+  uint16_t seed_column;  // seed pixel column value
+  uint16_t seed_row;  // seed pixel row value
+  double mean_column;  // column mean value
+  double mean_row;  // row mean value
+  float err_column;  // column position error
+  float err_row;  // row position error
+  uint32_t n_cluster;  // number of all clusters in the event
+  int64_t cluster_shape;  // cluster shape
 } ClusterInfo;
 
 #pragma pack(pop) // pop needed to suppress VS C4103 compiler warning

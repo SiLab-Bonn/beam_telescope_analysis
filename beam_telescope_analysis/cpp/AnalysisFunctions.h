@@ -145,10 +145,10 @@ void in1d_sorted(int64_t*& rEventArrayOne, const unsigned int& rSizeArrayOne, in
 }
 
 // Fast 1d index histogramming (bin size = 1, values starting from 0)
-void histogram_1d(int*& x, const unsigned int& rSize, const unsigned int& rNbinsX, uint32_t*& rResult)
+void histogram_1d(const unsigned int*& x, const unsigned int& rSize, const unsigned int& rNbinsX, uint32_t*& rResult)
 {
 	for (unsigned int i = 0; i < rSize; ++i) {
-		if (x[i] >= rNbinsX){
+		if (x[i] >= rNbinsX) {
 			std::stringstream errorString;
 			errorString << "The histogram index x=" << x[i] << " is out of range.";
 			throw std::out_of_range(errorString.str());
@@ -161,10 +161,10 @@ void histogram_1d(int*& x, const unsigned int& rSize, const unsigned int& rNbins
 }
 
 // Fast 2d index histogramming (bin size = 1, values starting from 0)
-void histogram_2d(int*& x, int*& y, const unsigned int& rSize, const unsigned int& rNbinsX, const unsigned int& rNbinsY, uint32_t*& rResult)
+void histogram_2d(const unsigned int*& x, const unsigned int*& y, const unsigned int& rSize, const unsigned int& rNbinsX, const unsigned int& rNbinsY, uint32_t*& rResult)
 {
 	for (unsigned int i = 0; i < rSize; ++i) {
-		if (x[i] >= rNbinsX || y[i] >= rNbinsY){
+		if (x[i] >= rNbinsX || y[i] >= rNbinsY) {
 			std::stringstream errorString;
 			errorString << "The histogram indices (x/y)=(" << x[i] << "/" << y[i] << ") are out of range.";
 			throw std::out_of_range(errorString.str());
@@ -177,7 +177,7 @@ void histogram_2d(int*& x, int*& y, const unsigned int& rSize, const unsigned in
 }
 
 // Fast 3d index histogramming (bin size = 1, values starting from 0)
-void histogram_3d(int*& x, int*& y, int*& z, const unsigned int& rSize, const unsigned int& rNbinsX, const unsigned int& rNbinsY, const unsigned int& rNbinsZ, uint16_t*& rResult)
+void histogram_3d(const unsigned int*& x, const unsigned int*& y, const unsigned int*& z, const unsigned int& rSize, const unsigned int& rNbinsX, const unsigned int& rNbinsY, const unsigned int& rNbinsZ, uint16_t*& rResult)
 {
 	for (unsigned int i = 0; i < rSize; ++i) {
 		if (x[i] >= rNbinsX || y[i] >= rNbinsY || z[i] >= rNbinsZ) {

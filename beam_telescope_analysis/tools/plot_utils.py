@@ -816,7 +816,7 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, resi
         ax.scatter(res_pos[select], residuals_mean[select], color="blue", marker='o', label='Mean residual')
         ax.scatter(res_pos[~select], residuals_mean[~select], color="r", marker='o')
     if fit is not None:
-        x_lim = np.array(ax.get_xlim(), dtype=np.float32)
+        x_lim = np.array(ax.get_xlim(), dtype=np.float64)
         ax.plot(x_lim, beam_telescope_analysis.tools.analysis_utils.linear(x_lim, *fit), linestyle='-', color="darkorange", linewidth=2, label='Mean residual fit\n%.2e + %.2e x' % (fit[0], fit[1]))
     if limit is not None:
         if np.isfinite(limit[0]):
@@ -1233,7 +1233,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     if count_pixel_hits_2d_hist is not None:
         x_resolution = np.diff(hist_2d_edges[0])[0]
         y_resolution = np.diff(hist_2d_edges[1])[0]
-        pixel_sizes = np.full(pixel_center_data.shape[0], dtype=np.float32, fill_value=np.nan)
+        pixel_sizes = np.full(pixel_center_data.shape[0], dtype=np.float64, fill_value=np.nan)
         select_bins = np.sum(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1], -1), axis=2) != 0
         # different from
         # select_bins = count_tracks_with_hit_2d_hist[:].astype(np.int64) != 0
@@ -1422,7 +1422,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         # bin_center_col_row_pair_dut = bin_center_data[select]
         # _, pixel_center_col_row_pair_index = cKDTree(pixel_center_data).query(bin_center_col_row_pair_dut)
         # pixel_efficiencies = []
-        # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float32)
+        # pixel_efficiencies_bins = np.zeros(shape=stat_2d_efficiency_hist.shape, dtype=np.float64)
         # for pixel_index, pixel in enumerate(pixel_center_data):
         #     bin_center_data_indices = np.where(pixel_center_col_row_pair_index == pixel_index)[0]
         #     bin_center_data_positions = bin_center_col_row_pair_dut[bin_center_data_indices]
@@ -1437,7 +1437,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         #     if tracks == 0:
         #         continue
         #     else:
-        #         pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[index_0, index_1].astype(np.float32)) / np.sum(count_tracks_2d_hist[index_0, index_1].astype(np.float32)) * 100.0
+        #         pixel_efficiency = np.sum(count_tracks_with_hit_2d_hist[index_0, index_1].astype(np.float64)) / np.sum(count_tracks_2d_hist[index_0, index_1].astype(np.float64)) * 100.0
         #     pixel_efficiencies.append(pixel_efficiency)
         #     pixel_efficiencies_bins[index_0, index_1] = pixel_efficiency
 

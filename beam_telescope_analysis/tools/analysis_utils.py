@@ -801,7 +801,7 @@ def get_mean_efficiency(array_pass, array_total, interval=0.68):
 
     k = array_pass.sum()
     N = array_total.sum()
-    eff = k.astype(np.float32) / N
+    eff = k.astype(np.float64) / N
 
     lim_e_m, lim_e_p = find_inter(k, N, interval)
 

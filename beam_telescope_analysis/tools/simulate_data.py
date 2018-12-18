@@ -296,7 +296,7 @@ def _add_charge_sharing_hits(rel_pos, hits_digits, max_column, max_row, thicknes
     n_hits_per_seed_hit = np.zeros(hits_digits.shape[0], dtype=np.int16)
     # Result array to be filled; up to 10 hits per seed hit is possible
     result_hits = np.zeros(
-        shape=(5 * hits_digits.shape[0], 3), dtype=np.float32)
+        shape=(5 * hits_digits.shape[0], 3), dtype=np.float64)
     index = 0
     for d_index in range(hits_digits.shape[0]):
         actual_hit_digit = hits_digits[d_index]

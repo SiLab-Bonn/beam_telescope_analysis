@@ -1005,12 +1005,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         continue
 
                 # Calculate efficiency
-                stat_2d_efficiency_hist = np.full_like(count_tracks_2d_hist, fill_value=np.nan, dtype=np.float)
-                stat_2d_efficiency_hist[count_tracks_2d_hist != 0] = count_tracks_with_hit_2d_hist[count_tracks_2d_hist != 0].astype(np.float32) / count_tracks_2d_hist[count_tracks_2d_hist != 0].astype(np.float32) * 100.0
+                stat_2d_efficiency_hist = np.full_like(count_tracks_2d_hist, fill_value=np.nan, dtype=np.float64)
+                stat_2d_efficiency_hist[count_tracks_2d_hist != 0] = count_tracks_with_hit_2d_hist[count_tracks_2d_hist != 0].astype(np.float64) / count_tracks_2d_hist[count_tracks_2d_hist != 0].astype(np.float64) * 100.0
                 stat_2d_efficiency_hist = np.ma.array(stat_2d_efficiency_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
-                stat_pixel_efficiency_hist = np.full_like(count_tracks_pixel_hist, fill_value=np.nan, dtype=np.float)
-                stat_pixel_efficiency_hist[count_tracks_pixel_hist != 0] = count_tracks_with_hit_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float32) / count_tracks_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float32) * 100.0
+                stat_pixel_efficiency_hist = np.full_like(count_tracks_pixel_hist, fill_value=np.nan, dtype=np.float64)
+                stat_pixel_efficiency_hist[count_tracks_pixel_hist != 0] = count_tracks_with_hit_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float64) / count_tracks_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float64) * 100.0
                 stat_pixel_efficiency_hist = np.ma.array(stat_pixel_efficiency_hist, mask=count_tracks_pixel_hist < minimum_track_density)
 
                 # Calculate mean efficiency without any binning
@@ -1024,7 +1024,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 # Calculate in-pixel-efficiency
                 if in_pixel is True:
                     in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
-                    in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float32) / total_track_density_projected[total_track_density_projected != 0].astype(np.float32) * 100.0
+                    in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float64) / total_track_density_projected[total_track_density_projected != 0].astype(np.float64) * 100.0
                     in_pixel_efficiency = np.ma.array(in_pixel_efficiency, mask=total_track_density_projected < minimum_track_density)
                 else:
                     in_pixel_efficiency = None
@@ -1356,7 +1356,7 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
                     total_pure_hit_hist += (np.histogram2d(pure_hits_local[:, 0], pure_hits_local[:, 1], bins=(n_bin_x, n_bin_y), range=[actual_dut.x_extent(), actual_dut.y_extent()])[0]).astype(np.uint32)
 
                 purity = np.zeros_like(total_hit_hist)
-                purity[total_hit_hist != 0] = total_pure_hit_hist[total_hit_hist != 0].astype(np.float32) / total_hit_hist[total_hit_hist != 0].astype(np.float32) * 100.0
+                purity[total_hit_hist != 0] = total_pure_hit_hist[total_hit_hist != 0].astype(np.float64) / total_hit_hist[total_hit_hist != 0].astype(np.float64) * 100.0
                 purity = np.ma.array(purity, mask=total_hit_hist < minimum_hit_density)
                 # calculate sensor purity by weighting each pixel purity with total number of hits within the pixel
                 purity_sensor = np.repeat(purity.ravel(), total_hit_hist.ravel())

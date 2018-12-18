@@ -30,7 +30,7 @@ beam_telescope_analysis_dtype = np.dtype([
     ('charge', np.uint16)])
 
 
-def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_corrections=False):
+def process_dut(raw_data_file, output_filename=None, trigger_data_format=0):
     ''' Process and format raw data.
 
     Parameters
@@ -47,24 +47,12 @@ def process_dut(raw_data_file, output_filename=None, trigger_data_format=0, do_c
     output_filename : string
         Filename of the output interpreted and formatted data file.
     '''
-    if do_corrections is True:
-        fix_trigger_number, fix_event_number = False, True
-    else:
-        fix_trigger_number, fix_event_number = False, False
     analyze_raw_data(input_filename=raw_data_file, trigger_data_format=trigger_data_format)
     if isinstance(raw_data_file, (list, tuple)):
         raw_data_filename = os.path.splitext(sorted(raw_data_file)[0])[0]  # get filename with the lowest index
     else:  # string
         raw_data_filename = os.path.splitext(raw_data_file)[0]
-    if do_corrections:
-        align_events(
-            input_filename=raw_data_filename + '_interpreted.h5',
-            output_filename=raw_data_filename + '_event_aligned.h5',
-            fix_trigger_number=fix_trigger_number,
-            fix_event_number=fix_event_number)
-        output_filename = format_hit_table(input_filename=raw_data_filename + '_event_aligned.h5', output_filename=output_filename)
-    else:
-        output_filename = format_hit_table(input_filename=raw_data_filename + '_interpreted.h5', output_filename=output_filename)
+    output_filename = format_hit_table(input_filename=raw_data_filename + '_interpreted.h5', output_filename=output_filename)
     return output_filename
 
 
@@ -102,95 +90,6 @@ def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0
         analyze_raw_data.interpret_word_table()
         analyze_raw_data.interpreter.print_summary()
         analyze_raw_data.plot_histograms()
-
-
-def align_events(input_filename, output_filename, fix_event_number=True, fix_trigger_number=True, chunk_size=1000000):
-    ''' Selects only hits from good events and checks the distance between event number and trigger number for each hit.
-    If the FE data allowed a successful event recognition the distance is always constant (besides the fact that the trigger number overflows).
-    Otherwise the event number is corrected by the trigger number. How often an inconsistency occurs is counted as well as the number of events that had to be corrected.
-    Remark: Only one event analyzed wrong shifts all event numbers leading to no correlation! But usually data does not have to be corrected.
-
-    Parameters
-    ----------
-    input_filename : string
-        Filename of the input interpreted data file.
-    output_filename : string
-        Filename of the output interpreted data file.
-    chunk_size : uint
-        Chunk size of the data when reading from file.
-    '''
-    logging.info('Align events to trigger number in %s' % input_filename)
-
-    with tb.open_file(filename=input_filename, mode='r') as in_file_h5:
-        hit_table = in_file_h5.root.Hits
-        jumps = []  # variable to determine the jumps in the event-number to trigger-number offset
-        n_fixed_hits = 0  # events that were fixed
-
-        with tb.open_file(filename=output_filename, mode='w') as out_file_h5:
-            hit_table_description = data_struct.HitInfoTable().columns.copy()
-            hit_table_out = out_file_h5.create_table(
-                where=out_file_h5.root,
-                name='Hits',
-                description=hit_table_description, title='Selected hits for test beam analysis',
-                filters=tb.Filters(
-                    complib='blosc',
-                    complevel=5,
-                    fletcher32=False))
-
-            # Correct hit event number
-            for hits, _ in analysis_utils.data_aligned_at_events(hit_table, chunk_size=chunk_size):
-
-                if not np.all(np.diff(hits['event_number']) >= 0):
-                    raise RuntimeError('The event number does not always increase. This data cannot be used like this!')
-
-                if fix_trigger_number is True:
-                    selection = np.logical_or((hits['trigger_status'] & 0b00000001) == 0b00000001,
-                                              (hits['event_status'] & 0b0000000000000010) == 0b0000000000000010)
-                    selected_te_hits = np.where(selection)[0]  # select both events with and without hit that have trigger error flag set
-
-#                     assert selected_te_hits[0] > 0
-                    tmp_trigger_number = hits['trigger_number'].astype(np.int32)
-
-                    # save trigger and event number for plotting correlation between trigger number and event number
-                    event_number, trigger_number = hits['event_number'].copy(), hits['trigger_number'].copy()
-
-                    hits['trigger_number'][0] = 0
-
-                    offset = (hits['trigger_number'][selected_te_hits] - hits['trigger_number'][selected_te_hits - 1] - hits['event_number'][selected_te_hits] + hits['event_number'][selected_te_hits - 1]).astype(np.int32)  # save jumps in trigger number
-                    offset_tot = np.cumsum(offset)
-
-                    offset_tot[offset_tot > 32768] = np.mod(offset_tot[offset_tot > 32768], 32768)
-                    offset_tot[offset_tot < -32768] = np.mod(offset_tot[offset_tot < -32768], 32768)
-
-                    for start_hit_index in range(len(selected_te_hits)):
-                        start_hit = selected_te_hits[start_hit_index]
-                        stop_hit = selected_te_hits[start_hit_index + 1] if start_hit_index < (len(selected_te_hits) - 1) else None
-                        tmp_trigger_number[start_hit:stop_hit] -= offset_tot[start_hit_index]
-
-                    tmp_trigger_number[tmp_trigger_number >= 32768] = np.mod(tmp_trigger_number[tmp_trigger_number >= 32768], 32768)
-                    tmp_trigger_number[tmp_trigger_number < 0] = 32768 - np.mod(np.abs(tmp_trigger_number[tmp_trigger_number < 0]), 32768)
-
-                    hits['trigger_number'] = tmp_trigger_number
-
-                selected_hits = hits[(hits['event_status'] & 0b0000100000000000) == 0b0000000000000000]  # select not empty events
-
-                if fix_event_number is True:
-                    selector = (selected_hits['event_number'] != (np.divide(selected_hits['event_number'] + 1, 32768) * 32768 + selected_hits['trigger_number'] - 1))
-                    n_fixed_hits += np.count_nonzero(selector)
-                    selector = selected_hits['event_number'] > selected_hits['trigger_number']
-                    selected_hits['event_number'] = np.divide(selected_hits['event_number'] + 1, 32768) * 32768 + selected_hits['trigger_number'] - 1
-                    selected_hits['event_number'][selector] = np.divide(selected_hits['event_number'][selector] + 1, 32768) * 32768 + 32768 + selected_hits['trigger_number'][selector] - 1
-
-#                 FIX FOR DIAMOND:
-#                 selected_hits['event_number'] -= 1  # FIX FOR DIAMOND EVENT OFFSET
-
-                hit_table_out.append(selected_hits)
-
-        jumps = np.unique(np.array(jumps))
-        logging.info('Corrected %d inconsistencies in the event number. %d hits corrected.' % (jumps[jumps != 0].shape[0], n_fixed_hits))
-
-        if fix_trigger_number is True:
-            return (output_filename, event_number, trigger_number, hits['trigger_number'])
 
 
 def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):

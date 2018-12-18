@@ -799,15 +799,15 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, select_align_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
     fit_duts_offsets = []
     fit_duts_slopes = []
-    # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
-    x_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
-    x_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
-    y_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
-    y_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float32)
+    # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
+    x_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
+    x_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
+    y_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
+    y_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
     # reset quality flag
     quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["hit_flag"].dtype)
     if full_track_info:
-        track_estimates_chunk_full = np.full(shape=(np.count_nonzero(good_track_selection), len(telescope), 6), fill_value=np.nan, dtype=np.float32)
+        track_estimates_chunk_full = np.full(shape=(np.count_nonzero(good_track_selection), len(telescope), 6), fill_value=np.nan, dtype=np.float64)
     else:
         track_estimates_chunk_full = None
     for dut_index, dut in enumerate(telescope):
@@ -1078,7 +1078,7 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
             for index in ['offset', 'slope']:
                 for dimension in ['x', 'y', 'z']:
                     tracks_descr.append(('%s_%s_dut_%d' % (index, dimension, index_dut), track_candidates_chunk["x_dut_0"].dtype))
-    tracks_descr.extend([('track_chi2', np.float32), ('quality_flag', track_candidates_chunk["hit_flag"].dtype)])
+    tracks_descr.extend([('track_chi2', np.float64), ('quality_flag', track_candidates_chunk["hit_flag"].dtype)])
 
     # Select only fitted tracks (keep_data is False) or keep all track candidates (keep_data is True)
     if not keep_data:

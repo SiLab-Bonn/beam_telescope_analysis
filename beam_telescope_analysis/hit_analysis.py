@@ -106,10 +106,10 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
             if index_to_local:
                 for name, dtype in node.dtype.descr:
                     if name == 'column':
-                        out_dtype.append(('x', np.float32))
+                        out_dtype.append(('x', np.float64))
                     elif name == 'row':
-                        out_dtype.append(('y', np.float32))
-                        # out_dtype.append(('z', np.float32))
+                        out_dtype.append(('y', np.float64))
+                        # out_dtype.append(('z', np.float64))
                     else:
                         out_dtype.append((name, dtype))
             else:
@@ -856,11 +856,11 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     if use_positions:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
-            ('x', '<f4'),
-            ('y', '<f4'),
-            ('charge', '<u2'),  # TODO: change that
+            ('x', '<f8'),
+            ('y', '<f8'),
+            ('charge', '<u2'),
             ('frame', '<u1'),
-            ('cluster_ID', '<i2'),  # TODO: change that
+            ('cluster_ID', '<i2'),
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
             ('n_cluster', '<u4')])
@@ -877,20 +877,20 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('event_number', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
-            ('charge', '<u2'),
+            ('charge', '<f4'),
             ('frame', '<u1'),
-            ('seed_x', '<f4'),
-            ('seed_y', '<f4'),
-            ('mean_x', '<f4'),
-            ('mean_y', '<f4')])
+            ('seed_x', '<u2'),
+            ('seed_y', '<u2'),
+            ('mean_x', '<f8'),
+            ('mean_y', '<f8')])
     else:
         hit_dtype = np.dtype([
             ('event_number', '<i8'),
             ('column', '<u2'),
             ('row', '<u2'),
-            ('charge', '<u2'),  # TODO: change that
+            ('charge', '<u2'),
             ('frame', '<u1'),
-            ('cluster_ID', '<i2'),  # TODO: change that
+            ('cluster_ID', '<i2'),
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
             ('n_cluster', '<u4')])
@@ -901,12 +901,12 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('event_number', '<i8'),
             ('cluster_ID', '<u2'),
             ('n_hits', '<u4'),
-            ('charge', '<u2'),
+            ('charge', '<f4'),
             ('frame', '<u1'),
             ('seed_column', '<u2'),
             ('seed_row', '<u2'),
-            ('mean_column', '<f4'),
-            ('mean_row', '<f4')])
+            ('mean_column', '<f8'),
+            ('mean_row', '<f8')])
 
     clusterizer = HitClusterizer(
         hit_fields=hit_fields,
@@ -941,9 +941,9 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             new_hits_dtype = []
             for name, dtype in hits.dtype.descr:
                 if name == 'column':
-                    new_hits_dtype.append(('x', np.float32))
+                    new_hits_dtype.append(('x', np.float64))
                 elif name == 'row':
-                    new_hits_dtype.append(('y', np.float32))
+                    new_hits_dtype.append(('y', np.float64))
                 else:
                     new_hits_dtype.append((name, dtype))
             new_hits = np.empty(shape=hits.shape, dtype=new_hits_dtype)
@@ -1456,7 +1456,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
     description = [('event_number', np.int64)]
     for dimension in ['x', 'y', 'z']:
         for index_dut in range(n_duts):
-            description.append(('%s_dut_%d' % (dimension, index_dut), np.float32))
+            description.append(('%s_dut_%d' % (dimension, index_dut), np.float64))
     for index, _ in enumerate(input_cluster_files):
         description.append(('charge_dut_%d' % index, np.float32))
     for index, _ in enumerate(input_cluster_files):
