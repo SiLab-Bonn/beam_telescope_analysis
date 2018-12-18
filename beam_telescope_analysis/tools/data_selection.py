@@ -16,58 +16,84 @@ from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import analysis_utils
 
 
-def combine_hit_files(input_hit_files, output_hit_file=None, event_number_offsets=None, chunk_size=1000000):
-    ''' Combine hit files of runs with same parameters to increase statistics.
+def combine_files(input_files, output_file=None, names=None, event_number_offsets=None, chunk_size=1000000):
+    ''' Combine tables from different files and merge it into one single table.
 
     Parameters
     ----------
-    input_hit_files : iterable
-        List of filenames of the input hit files containing a hit array.
-    output_hit_file : string
-        Filename of the output hit file containing the combined hit array.
-    event_number_offsets : iterable
+    input_files : list
+        Filenames of the input files containing a table.
+    output_file : string
+        Filename of the output file containing the merged table.
+    names : list or string
+        List of table names that will be merged. If None, all tables will be merged
+    event_number_offsets : list
         Manually set start event number offset for each hit array.
         The event number is increased by the given number.
         If None, the event number will be generated automatically.
+        If no "event_number" column is available, this parameter will be ignored.
     chunk_size : int
-        Chunk size of the data when reading from file.
+        Chunk size of the data when reading from the table.
+
+    Returns
+    -------
+    applied_event_number_offsets : dict
+        The dictinary contains the the lists of the event numbers offsets of each table.
     '''
-    if not output_hit_file:
-        prefix = os.path.commonprefix(input_hit_files)
-        output_hit_file = os.path.splitext(prefix)[0] + '_combined.h5'
+    if not output_file:
+        prefix = os.path.commonprefix(input_files)
+        output_file = os.path.splitext(prefix)[0] + '_combined.h5'
 
-    last_event_number = 0
-    used_event_number_offsets = []
-    with tb.open_file(output_hit_file, mode="w") as out_file_h5:
-        hits_out = None
-        for index, hit_file in enumerate(input_hit_files):
-            if event_number_offsets and event_number_offsets[index] is not None:
-                event_number_offset = event_number_offsets[index]
-            elif index == 0:
-                event_number_offset = 0  # by default no offset for the first file
-            else:
-                event_number_offset += last_event_number + 1  # increase by 1 to avoid duplicate numbers
+    # convert to list
+    if names is not None and not isinstance(names, (list, tuple, set)):
+        names = [names]
 
-            with tb.open_file(hit_file, mode='r') as in_file_h5:
-                for hits, _ in analysis_utils.data_aligned_at_events(
-                        in_file_h5.root.Hits, chunk_size=chunk_size):
-                    hits[:]['event_number'] += event_number_offset
-                    if hits_out is None:
-                        hits_out = out_file_h5.create_table(
+    out_tables = {}
+    last_event_numbers = {}
+    applied_event_number_offsets = {}
+    with tb.open_file(filename=output_file, mode="w") as out_file_h5:
+        for file_index, input_file in enumerate(input_files):
+            with tb.open_file(filename=input_file, mode='r') as in_file_h5:
+                # get all nodes of type 'table'
+                in_tables = in_file_h5.list_nodes('/', classname='Table')
+                for table in in_tables:
+                    if names is not None and table.name not in names:
+                        continue
+                    if table.name not in out_tables:
+                        out_tables[table.name] = out_file_h5.create_table(
                             where=out_file_h5.root,
-                            name='Hits',
-                            description=in_file_h5.root.Hits.dtype,
-                            title=in_file_h5.root.Hits.title,
+                            name=table.name,
+                            description=table.dtype,
+                            title=table.title,
                             filters=tb.Filters(
                                 complib='blosc',
                                 complevel=5,
                                 fletcher32=False))
-                    hits_out.append(hits)
-                    hits_out.flush()
-                last_event_number = hits[-1]['event_number']
-                used_event_number_offsets.append(event_number_offset)
+                        if 'event_number' in table.dtype.names:
+                            last_event_numbers[table.name] = -1
+                            applied_event_number_offsets[table.name] = []
+                        else:
+                            last_event_numbers[table.name] = None
+                            applied_event_number_offsets[table.name] = None
 
-    return used_event_number_offsets
+                    event_number_offset = 0
+                    if last_event_numbers[table.name] is not None and event_number_offsets is not None and event_number_offsets[file_index] is not None:
+                        event_number_offset = event_number_offsets[file_index]
+                    elif last_event_numbers[table.name] is not None:
+                        # increase by 1 to avoid duplicate event number
+                        event_number_offset += last_event_numbers[table.name] + 1
+
+                    for read_index in range(0, table.nrows, chunk_size):
+                        data_chunk = table.read(start=read_index, stop=read_index + chunk_size)
+                        if last_event_numbers[table.name] is not None and event_number_offset != 0:
+                            data_chunk[:]['event_number'] += event_number_offset
+                        out_tables[table.name].append(data_chunk)
+                        out_tables[table.name].flush()
+                    if last_event_numbers[table.name] is not None:
+                        last_event_numbers[table.name] = data_chunk[-1]['event_number']
+                        applied_event_number_offsets[table.name].append(event_number_offset)
+
+    return applied_event_number_offsets
 
 
 def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
