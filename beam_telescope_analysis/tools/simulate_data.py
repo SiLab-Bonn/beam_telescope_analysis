@@ -12,13 +12,17 @@ Charge sharing between pixels is approximated using Einsteins diffusion
 equation solved at the center z position within the sensor. Track angles within
 the sensor do not influence the charge sharing.
 '''
+from __future__ import division
+
+import logging
+import math
 
 import numpy as np
 import tables as tb
-import logging
-import progressbar
 from numba import njit
-import math
+
+import progressbar
+
 import pylandau
 
 from beam_telescope_analysis.tools import geometry_utils

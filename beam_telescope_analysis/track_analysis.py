@@ -4,14 +4,15 @@ from __future__ import division
 import logging
 import os.path
 from multiprocessing import Pool, cpu_count
-from math import sqrt
+import math
 from collections import Iterable
 
-import progressbar
 import tables as tb
 import numpy as np
 from numba import njit
 from scipy.stats import gaussian_kde
+
+import progressbar
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import plot_utils
@@ -317,7 +318,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
         best_hit_distance = -1  # Value for no hit
     else:
         # Calculate the hit distance of the actual assigned DUT hit towards the actual reference hit
-        best_hit_distance = sqrt((x[index][dut_index] - actual_reference_x)**2 + (y[index][dut_index] - actual_reference_y)**2)
+        best_hit_distance = math.sqrt((x[index][dut_index] - actual_reference_x)**2 + (y[index][dut_index] - actual_reference_y)**2)
     # The shortest hit distance to the actual hit; -1 means not assigned
     # for hit_index in range(actual_event_start_index, event_numbers.shape[0]):  # Loop over all not sorted hits of actual DUT
     hit_index = event_start_index
@@ -333,7 +334,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             continue
         # Calculate the hit distance of the actual DUT hit towards the actual reference hit
         actual_x_distance, actual_y_distance = actual_hit_x - actual_reference_x, actual_hit_y - actual_reference_y
-        actual_hit_distance = sqrt(actual_x_distance**2 + actual_y_distance**2)
+        actual_hit_distance = math.sqrt(actual_x_distance**2 + actual_y_distance**2)
         if best_hit_distance >= 0 and best_hit_distance < actual_hit_distance:  # Check if actual assigned hit is better
             hit_index += 1
             continue
@@ -346,7 +347,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
         reference_x_other, reference_y_other = x[hit_index][first_dut_hit_index], y[hit_index][first_dut_hit_index]
         # Calculate hit distance to reference hit of other track
         x_distance_other, y_distance_other = actual_hit_x - reference_x_other, actual_hit_y - reference_y_other
-        hit_distance_other = sqrt(x_distance_other**2 + y_distance_other**2)
+        hit_distance_other = math.sqrt(x_distance_other**2 + y_distance_other**2)
         if actual_hit_distance > hit_distance_other and first_dut_hit_index != dut_index:  # Only take hit if it fits better to actual track; otherwise leave it with other track
             hit_index += 1
             continue

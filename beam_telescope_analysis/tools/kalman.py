@@ -1,7 +1,9 @@
-import numpy as np
+from __future__ import division
 
-from numba import njit
+import numpy as np
 from numpy import linalg
+from numba import njit
+
 from beam_telescope_analysis.tools import geometry_utils
 
 

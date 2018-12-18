@@ -1,7 +1,7 @@
 ''' Helper functions for the unittests are defined here.
 '''
+from __future__ import division
 
-import logging
 import os
 import inspect
 import itertools

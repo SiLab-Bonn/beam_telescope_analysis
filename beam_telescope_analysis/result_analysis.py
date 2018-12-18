@@ -6,7 +6,6 @@ from collections import Iterable
 import os.path
 import math
 
-import progressbar
 import tables as tb
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
@@ -14,6 +13,8 @@ from scipy.optimize import curve_fit
 from scipy import stats
 from scipy.signal import hilbert
 from scipy.spatial import cKDTree
+
+import progressbar
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import plot_utils

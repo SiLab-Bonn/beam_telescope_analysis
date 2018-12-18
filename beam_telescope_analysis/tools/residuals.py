@@ -5,6 +5,7 @@ No multiple scattering and pixel charge sharing / cluster were considered. The r
 the typical gauss in spikes structure. In reality the spikes are smeared by gaussians due to
 multiple scattering.
 '''
+from __future__ import division
 
 import numpy as np
 import matplotlib.pyplot as plt

@@ -6,10 +6,11 @@ import re
 import os
 from collections import Iterable
 
-import progressbar
 import numpy as np
 import tables as tb
 import numexpr as ne
+
+import progressbar
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import analysis_utils

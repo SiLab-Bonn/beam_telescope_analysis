@@ -1,14 +1,10 @@
 ''' Helper functions for geometrical operations.
 '''
-
 from __future__ import division
 
 import logging
-import math
 
 import numpy as np
-from scipy.optimize import minimize, basinhopping
-import scipy
 
 
 def skew(v):
