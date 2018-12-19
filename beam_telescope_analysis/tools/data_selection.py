@@ -19,6 +19,12 @@ from beam_telescope_analysis.tools import analysis_utils
 def combine_files(input_files, output_file=None, names=None, event_number_offsets=None, chunk_size=1000000):
     ''' Combine tables from different files and merge it into one single table.
 
+    Some use cases:
+    - Merging hit tables from different runs for combined analysis
+      (under the assumption that telescope geometry has not changed between the runs)
+    - Merging of tracks tables from different runs for combined efficiency analysis.
+      (telescope geometry has changed between the runs and each run requires a separate alignment)
+
     Parameters
     ----------
     input_files : list
