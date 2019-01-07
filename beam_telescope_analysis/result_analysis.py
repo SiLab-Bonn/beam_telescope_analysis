@@ -843,6 +843,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     hit_x_local, hit_y_local = tracks_chunk['x_dut_%d' % actual_dut_index], tracks_chunk['y_dut_%d' % actual_dut_index]
                     intersection_x_local, intersection_y_local = tracks_chunk['offset_x'], tracks_chunk['offset_y']
                     charge = tracks_chunk['charge_dut_%d' % actual_dut_index]
+                    frame = tracks_chunk['frame_dut_%d' % actual_dut_index]
 
                     # Calculate distance between track intersection and DUT hit location
                     x_residuals = hit_x_local - intersection_x_local
@@ -908,6 +909,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_2d_charge_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=charge[select_valid_hit], statistic='count', bins=hist_2d_edges)
                         # 1D charge
                         count_1d_charge_hist = np.bincount(charge[select_valid_hit].astype(np.int))
+                        # 2D frame
+                        stat_2d_frame_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_frame_hist = np.nan_to_num(stat_2d_frame_hist)
+                        count_2d_frame_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        # 1D frame
+                        count_1d_frame_hist = np.bincount(frame[select_valid_hit].astype(np.int))
                     else:
                         # 2D hits
                         count_hits_2d_hist += stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
@@ -942,6 +949,18 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         else:
                             count_1d_charge_hist_tmp.resize(count_1d_charge_hist.size)
                         count_1d_charge_hist += count_1d_charge_hist_tmp
+                        # 2D frame
+                        stat_2d_frame_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_frame_hist_tmp = np.nan_to_num(stat_2d_frame_hist_tmp)
+                        count_2d_frame_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='count', bins=hist_2d_edges)
+                        stat_2d_frame_hist, count_2d_frame_hist = np.ma.average(a=np.stack([stat_2d_frame_hist, stat_2d_frame_hist_tmp]), axis=0, weights=np.stack([count_2d_frame_hist, count_2d_frame_hist_tmp]), returned=True)
+                        # 1D frame
+                        count_1d_frame_hist_tmp = np.bincount(frame[select_valid_hit].astype(np.int))
+                        if count_1d_frame_hist_tmp.size > count_1d_frame_hist.size:
+                            count_1d_frame_hist.resize(count_1d_frame_hist_tmp.size)
+                        else:
+                            count_1d_frame_hist_tmp.resize(count_1d_frame_hist.size)
+                        count_1d_frame_hist += count_1d_frame_hist_tmp
 
                     # # project intersections and hits onto n x n pixel area
                     if in_pixel is True:
@@ -1044,6 +1063,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_residuals_hist=stat_2d_residuals_hist,
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,
+                        count_1d_frame_hist=count_1d_frame_hist,
+                        stat_2d_frame_hist=stat_2d_frame_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                         stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                         count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
@@ -1070,6 +1091,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_residuals_hist=stat_2d_residuals_hist,
                         count_1d_charge_hist=count_1d_charge_hist,
                         stat_2d_charge_hist=stat_2d_charge_hist,
+                        count_1d_frame_hist=count_1d_frame_hist,
+                        stat_2d_frame_hist=stat_2d_frame_hist,
                         stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                         stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                         count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
@@ -1166,6 +1189,22 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(stat_2d_charge_hist.dtype),
                     shape=stat_2d_charge_hist.shape)
                 out_stat_2d_charge_hist[:] = stat_2d_charge_hist
+
+                out_count_1d_frame_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_frame_hist',
+                    title='count_1d_frame_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_frame_hist.dtype),
+                    shape=count_1d_frame_hist.shape)
+                out_count_1d_frame_hist[:] = count_1d_frame_hist
+
+                out_stat_2d_frame_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_frame_hist',
+                    title='stat_2d_frame_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_frame_hist.dtype),
+                    shape=stat_2d_frame_hist.shape)
+                out_stat_2d_frame_hist[:] = stat_2d_frame_hist
 
                 out_stat_2d_efficiency_hist = out_file_h5.create_carray(
                     where=dut_group,
