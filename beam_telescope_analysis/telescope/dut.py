@@ -335,6 +335,13 @@ class RD53A(RectangularPixelDut):
         super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
+class PSI46(RectangularPixelDut):
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
+        super(PSI46, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=150.0, row_size=100.0, n_columns=52, n_rows=80)
+
+
 class Mimosa26(RectangularPixelDut):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
 
