@@ -356,23 +356,16 @@ def transform_to_emulsion_frame(clusters,duts=(0,1),emulsion_speed=2.6, y_offset
     clustersx0 = clusters["x_dut_0"] + (-1)**(clusters["spill"]%2) * 10000*emulsion_speed * clusters["trigger_time_stamp"]*25e-9
     clustersy0 = clusters["y_dut_0"] + clusters["spill"]*y_offset
     clustersy1 = clusters["y_dut_1"] + clusters["spill"]*y_offset
-    # clustersx1 = clusters["x_dut_1"][np.where(clusters["spill"]%2==0)]
-    # clustersx0 = clusters["x_dut_0"][np.where(clusters["spill"]%2==0)]
 
-    # x = np.concatenate((clusters["x_dut_0"],clusters["x_dut_1"]))
-    # y = np.concatenate((clusters["y_dut_0"],clusters["y_dut_1"]))
-    # x = np.concatenate((clustersx0[np.where(clusters["spill"]%2==1)],clustersx1[np.where(clusters["spill"]%2==1)]))
-    # y = np.concatenate((clustersy0[np.where(clusters["spill"]%2==1)],clustersy1[np.where(clusters["spill"]%2==1)]))
     x = np.concatenate((clustersx0,clustersx1))
     y = np.concatenate((clustersy0,clustersy1))
 
     x = x[~np.isnan(x)]
     x = x - 24000
-    x[x<0] += 124000 #np.abs(x[x<0].min())
+    x[x<0] += 124000
     y = y[~np.isnan(y)]
-    # y[y>200000] -= 100000
-
     return x,y
+
 
 def plot_spill(output_pdf,x,y,bins=[360,160],spill=None):
     fig = Figure()
@@ -390,17 +383,18 @@ def plot_spill(output_pdf,x,y,bins=[360,160],spill=None):
     ax.grid()
     if spill:
         ax.set_title("Spill %s DUT 0/1 in emulsion rest frame" %spill)
+        ax.set_ylim(10000+10000*spill,220000)
     else:
         ax.set_title("DUT 0/1 in emulsion rest frame")
     ax.set_ylabel("y position [$\mu$m]")
     ax.set_xlabel("x position [$\mu$m]")
-    ax.set_aspect(1/1.2)
-    ax.set_ylim(90000,220000)
     output_pdf.savefig(fig)
+
 
 def transform_2d_hist(merged_file_in, spills=None, duts=(0,1)):
     ''' transform clusters in rest frame of emulsion, movement speed was 2.6cm/s
     input
+    ---------------
         merged_file_in: string pointing to cluster file with merged clusters
         spills: tuple or list with first and last spill for single spill plotting
         duts :tuple of duts to plot
@@ -421,13 +415,13 @@ def transform_2d_hist(merged_file_in, spills=None, duts=(0,1)):
         plot_spill(output_pdf,x,y,bins=[360,160*2])
         output_pdf.close()
 
+
 if __name__ == '__main__':
 
     # plot_cluster_hist(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged.h5",
     #                     hit_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_2793/pyBARrun_376_plane_0_DC_module_1_local_corr_evts_clustered.h5",
     #                     cluster_size_threshold = 10)
     transform_2d_hist("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged_spills.h5", spills=[8,18])
-    raise
     plot_cluster_2dhist_global(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged.h5",
                             hit_file = None)
     # plot_timestamps("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills.h5")
