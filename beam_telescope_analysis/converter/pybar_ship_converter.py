@@ -22,10 +22,10 @@ from pybar_fei4_interpreter import data_struct
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-testbeam_analysis_dtype = np.dtype([
+beam_telescope_analysis_dtype = np.dtype([
     ('event_number', np.int64),
     ('trigger_time_stamp', np.int64),
-    ('frame', np.uint32),
+    ('frame', np.uint8),
     ('column', np.uint16),
     ('row', np.uint16),
     ('charge', np.uint16)])
@@ -220,7 +220,7 @@ def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
             output_hits_table = out_file_h5.create_table(
                 where=out_file_h5.root,
                 name='Hits',
-                description=testbeam_analysis_dtype,
+                description=beam_telescope_analysis_dtype,
                 title='Hits for test beam analysis',
                 filters=tb.Filters(
                     complib='blosc',
@@ -231,7 +231,7 @@ def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
                 if np.any(np.diff(np.concatenate((last_event_number, hits_chunk['event_number']))) < 0):
                     raise RuntimeError('The event number does not increase.')
                 last_event_number = hits_chunk['event_number'][-1:]
-                hits_data_formatted = np.zeros(shape=hits_chunk.shape[0], dtype=testbeam_analysis_dtype)
+                hits_data_formatted = np.zeros(shape=hits_chunk.shape[0], dtype=beam_telescope_analysis_dtype)
                 hits_data_formatted['event_number'] = hits_chunk['event_number']
                 hits_data_formatted['frame'] = hits_chunk['relative_BCID']
                 hits_data_formatted['column'] = hits_chunk['column']
@@ -431,7 +431,7 @@ def merge_dc_module_local(plane_files, pyBARrun, plane_number, output_dir=None, 
                                                  description= np.dtype([
                                                      ('event_number', np.int64),
                                                      ('trigger_time_stamp',np.int64),
-                                                     ('frame', np.uint32),
+                                                     ('frame', np.uint8),
                                                      ('column', np.uint16),
                                                      ('row', np.uint16),
                                                      ('charge', np.uint16)]),

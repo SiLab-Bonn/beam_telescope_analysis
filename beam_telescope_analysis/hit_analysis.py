@@ -968,7 +968,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
             ('trigger_time_stamp', '<i8'),
-            ('frame', '<u4'),
+            ('frame', '<u1'),
             ('column', '<u2'),
             ('row', '<u2'),
             ('charge', '<f4'),
