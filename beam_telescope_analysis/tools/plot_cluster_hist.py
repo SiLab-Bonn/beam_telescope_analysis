@@ -336,68 +336,98 @@ def plot_pos_vs_time(merged_file_in):
             # ax.set_ylabel("y position $\mu$m")
             # output_pdf.savefig(fig)
 
-def transform_2d_hist(merged_file_in):
-    ''' transform clusters in rest frame of emulsion, movement speed was 2.6cm/s'''
+def transform_to_emulsion_frame(clusters,duts=(0,1),emulsion_speed=2.6, y_offset=10000):
+    '''
+    input
+    ------------------
+        clusters: cluster table
+        duts: dut planes to plot
+        emulsion_speed: movement speed in x of emulsion in cm/s
+        y_offset: stepsize of emulsion between spills in y, in micrometer
+
+    output
+    ------------------
+    x and y numpy arrays with transformed coordinates in emulsion rest frame
+    '''
+    clusters["x_dut_0"],clusters["y_dut_0"],z0 = local_to_global_position(x = clusters["x_dut_0"], y = clusters["y_dut_0"], translation_x=336/2*50, translation_y= 80*250 , translation_z=None, rotation_alpha=0, rotation_beta=np.pi, rotation_gamma=-np.pi/2)
+    clusters["x_dut_1"],clusters["y_dut_1"],z1 = local_to_global_position(x = clusters["x_dut_1"], y = clusters["y_dut_1"], translation_x=336*1.5*50, translation_y= 80*250, translation_z=None, rotation_alpha=0, rotation_beta=None, rotation_gamma=np.pi/2)
+
+    clustersx1 = clusters["x_dut_1"] + (-1)**(clusters["spill"]%2) * 10000*emulsion_speed * clusters["trigger_time_stamp"]*25e-9
+    clustersx0 = clusters["x_dut_0"] + (-1)**(clusters["spill"]%2) * 10000*emulsion_speed * clusters["trigger_time_stamp"]*25e-9
+    clustersy0 = clusters["y_dut_0"] + clusters["spill"]*y_offset
+    clustersy1 = clusters["y_dut_1"] + clusters["spill"]*y_offset
+    # clustersx1 = clusters["x_dut_1"][np.where(clusters["spill"]%2==0)]
+    # clustersx0 = clusters["x_dut_0"][np.where(clusters["spill"]%2==0)]
+
+    # x = np.concatenate((clusters["x_dut_0"],clusters["x_dut_1"]))
+    # y = np.concatenate((clusters["y_dut_0"],clusters["y_dut_1"]))
+    # x = np.concatenate((clustersx0[np.where(clusters["spill"]%2==1)],clustersx1[np.where(clusters["spill"]%2==1)]))
+    # y = np.concatenate((clustersy0[np.where(clusters["spill"]%2==1)],clustersy1[np.where(clusters["spill"]%2==1)]))
+    x = np.concatenate((clustersx0,clustersx1))
+    y = np.concatenate((clustersy0,clustersy1))
+
+    x = x[~np.isnan(x)]
+    x = x - 24000
+    x[x<0] += 124000 #np.abs(x[x<0].min())
+    y = y[~np.isnan(y)]
+    # y[y>200000] -= 100000
+
+    return x,y
+
+def plot_spill(output_pdf,x,y,bins=[360,160],spill=None):
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    hist, xbins, ybins = np.histogram2d(x, y, bins = bins)
+    zmin = np.min(hist[hist >= 1])
+    zmax = np.max(hist)
+    cmap = cm.get_cmap("viridis")
+    cmap.set_bad('w')
+
+    im = ax.imshow(hist.T, interpolation='none', origin='lower', aspect="auto", extent = [xbins.min(),xbins.max(),ybins.min(),ybins.max()], cmap=cmap, clim=(zmin, zmax))
+    bounds = np.linspace(start=zmin, stop=zmax, num=256, endpoint=True)
+    fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=zmin, stop=zmax, num=9, endpoint=True), fraction=0.04, pad=0.05)
+    ax.grid()
+    if spill:
+        ax.set_title("Spill %s DUT 0/1 in emulsion rest frame" %spill)
+    else:
+        ax.set_title("DUT 0/1 in emulsion rest frame")
+    ax.set_ylabel("y position [$\mu$m]")
+    ax.set_xlabel("x position [$\mu$m]")
+    ax.set_aspect(1/1.2)
+    ax.set_ylim(90000,220000)
+    output_pdf.savefig(fig)
+
+def transform_2d_hist(merged_file_in, spills=None, duts=(0,1)):
+    ''' transform clusters in rest frame of emulsion, movement speed was 2.6cm/s
+    input
+        merged_file_in: string pointing to cluster file with merged clusters
+        spills: tuple or list with first and last spill for single spill plotting
+        duts :tuple of duts to plot
+    '''
     with tb.open_file(merged_file_in,'r') as cluster_file_in:
-        clusters = cluster_file_in.root.MergedClusters[:]
-        with PdfPages(merged_file_in.replace(".h5","_emulsion_rest_frame.pdf")) as output_pdf:
-
-            clusters["x_dut_0"],clusters["y_dut_0"],z0 = local_to_global_position(x = clusters["x_dut_0"], y = clusters["y_dut_0"], translation_x=336/2*50, translation_y= 80*250 , translation_z=None, rotation_alpha=0, rotation_beta=np.pi, rotation_gamma=-np.pi/2)
-            clusters["x_dut_1"],clusters["y_dut_1"],z1 = local_to_global_position(x = clusters["x_dut_1"], y = clusters["y_dut_1"], translation_x=336*1.5*50, translation_y= 80*250, translation_z=None, rotation_alpha=0, rotation_beta=None, rotation_gamma=np.pi/2)
-
-            clustersx1 = clusters["x_dut_1"] + (-1)**(clusters["spill"]%2) * 26000 * clusters["trigger_time_stamp"]*25e-9
-            clustersx0 = clusters["x_dut_0"] + (-1)**(clusters["spill"]%2) * 26000 * clusters["trigger_time_stamp"]*25e-9
-            clustersy0 = clusters["y_dut_0"] + clusters["spill"]*10000
-            clustersy1 = clusters["y_dut_1"] + clusters["spill"]*10000
-            # clustersx1 = clusters["x_dut_1"][np.where(clusters["spill"]%2==0)]
-            # clustersx0 = clusters["x_dut_0"][np.where(clusters["spill"]%2==0)]
-
-            # x = np.concatenate((clusters["x_dut_0"],clusters["x_dut_1"]))
-            # y = np.concatenate((clusters["y_dut_0"],clusters["y_dut_1"]))
-            # x = np.concatenate((clustersx0[np.where(clusters["spill"]%2==1)],clustersx1[np.where(clusters["spill"]%2==1)]))
-            # y = np.concatenate((clustersy0[np.where(clusters["spill"]%2==1)],clustersy1[np.where(clusters["spill"]%2==1)]))
-            x = np.concatenate((clustersx0,clustersx1))
-            y = np.concatenate((clustersy0,clustersy1))
-
-            x = x[~np.isnan(x)]
-            x = x - 24000
-            x[x<0] += 124000 #np.abs(x[x<0].min())
-            y = y[~np.isnan(y)]
-            bins = [336,336]
-            # bins = [672,160]
-            fig = Figure()
-            _ = FigureCanvas(fig)
-            ax = fig.add_subplot(111)
-            hist, xbins, ybins = np.histogram2d(x, y, bins = bins)
-            zmin = np.min(hist[hist >= 1])
-            zmax = np.max(hist)
-            cmap = cm.get_cmap("viridis")
-            cmap.set_bad('w')
-
-            im = ax.imshow(hist.T, interpolation='none', origin='lower', aspect="auto", extent = [xbins.min(),xbins.max(),ybins.min(),ybins.max()], cmap=cmap, clim=(zmin, zmax))
-            bounds = np.linspace(start=zmin, stop=zmax, num=256, endpoint=True)
-            fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=zmin, stop=zmax, num=9, endpoint=True), fraction=0.04, pad=0.05)
-            ax.grid()
-            ax.set_title("DUT 0/1 in emulsion rest frame")
-            ax.set_ylabel("y position $\mu$m")
-            ax.set_xlabel("x position $\mu$m")
-            # ax.set_ylim(70000,210000)
-            output_pdf.savefig(fig)
-
-            plt.hist2d(x,y, bins = bins)
-            # plt.ylim(70000, 196775)
-            plt.title("DUT 0 / 1 in emulsion rest frame")
-            plt.ylabel("y position $\mu$m")
-            plt.xlabel("x position $\mu$m")
-            plt.grid()
-            plt.show()
+        clustertable = cluster_file_in.root.MergedClusters[:]
+        output_pdf = PdfPages(merged_file_in.replace(".h5","_emulsion_rest_frame_per_spill.pdf"))
+        if spills:
+            for spill in range(spills[0],spills[1]+1):
+                print "plotting spill %s" %spill
+                clusters = clustertable[np.where(clustertable["spill"]==spill)]
+                x,y = transform_to_emulsion_frame(clusters,duts)
+                plot_spill(output_pdf,x,y,spill=spill)
+        ''' now plot all spills'''
+        print "plotting all spills"
+        clusters = clustertable
+        x,y = transform_to_emulsion_frame(clusters,duts)
+        plot_spill(output_pdf,x,y,bins=[360,160*2])
+        output_pdf.close()
 
 if __name__ == '__main__':
 
     # plot_cluster_hist(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged.h5",
     #                     hit_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_2793/pyBARrun_376_plane_0_DC_module_1_local_corr_evts_clustered.h5",
     #                     cluster_size_threshold = 10)
-    transform_2d_hist("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged_spills.h5")
+    transform_2d_hist("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged_spills.h5", spills=[8,18])
+    raise
     plot_cluster_2dhist_global(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged.h5",
                             hit_file = None)
     # plot_timestamps("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills.h5")
