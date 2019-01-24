@@ -10,7 +10,7 @@ from numba import njit, jit
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-from testbeam_analysis.converter.pybar_ship_converter import get_plane_files, merge_dc_module_local
+from beam_telescope_analysis.converter.pybar_ship_converter import get_plane_files, merge_dc_module_local
 
 
 def sort_modules_by_timestamp(pybar_runs, partition_dirs):
