@@ -5,6 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
+analysis_functions.cpp
 
 # Distribution / packaging
 .Python
