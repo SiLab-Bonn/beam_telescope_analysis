@@ -779,12 +779,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 if efficiency_regions_dut is not None:
                     efficiency_regions_efficiency = []
                     efficiency_regions_stat = []
+                    efficiency_regions_count_1d_charge_hist = []
                     for region in efficiency_regions_dut:
                         efficiency_regions_efficiency.append(0.0)
                         efficiency_regions_stat.append(0)
+                        efficiency_regions_count_1d_charge_hist.append(None)
                 else:
                     efficiency_regions_efficiency = None
                     efficiency_regions_stat = None
+                    efficiency_regions_count_1d_charge_hist = None
                 if in_pixel is True:
                     n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
                     if len(n_bins_in_pixel) == 1:
@@ -873,6 +876,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             select_valid_tracks_efficiency_region &= intersection_y_local < max(region[1])
                             efficiency_regions_efficiency[region_index] = (efficiency_regions_efficiency[region_index] * efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])) / (efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region))
                             efficiency_regions_stat[region_index] = efficiency_regions_stat[region_index] + select_valid_tracks_efficiency_region.shape[0]
+                            if efficiency_regions_count_1d_charge_hist[region_index] is None:
+                                efficiency_regions_count_1d_charge_hist[region_index] = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int))
+                            else:
+                                efficiency_region_count_1d_charge_hist_tmp = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int))
+                                if efficiency_region_count_1d_charge_hist_tmp.size > efficiency_regions_count_1d_charge_hist[region_index].size:
+                                    efficiency_regions_count_1d_charge_hist[region_index].resize(efficiency_region_count_1d_charge_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_charge_hist_tmp.resize(efficiency_regions_count_1d_charge_hist[region_index].size)
+                                efficiency_regions_count_1d_charge_hist[region_index] += efficiency_region_count_1d_charge_hist_tmp
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -1040,7 +1052,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 logging.info('Efficiency = %.2f (+%.2f / %.2f)%%' % (eff * 100.0, eff_err_pl * 100.0, eff_err_min * 100.0))
                 if efficiency_regions_dut is not None:
                     for region_index, efficiency in enumerate(efficiency_regions_efficiency):
-                        logging.info('Efficiency for region %d = %.2f%%' % (region_index, efficiency * 100.0))
+                        logging.info('Efficiency for region %d = %.2f%%' % (region_index + 1, efficiency * 100.0))
+                    # resize so that all histograms have the same size
+                    if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
+                        efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
 
                 # Calculate in-pixel-efficiency
                 if in_pixel is True:
@@ -1076,6 +1091,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         plot_range=plot_range,
                         efficiency_regions=efficiency_regions_dut,
                         efficiency_regions_efficiency=efficiency_regions_efficiency,
+                        efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
                         in_pixel_efficiency=in_pixel_efficiency,
                         plot_range_in_pixel=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
                         mask_zero=False,
@@ -1104,6 +1120,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         plot_range=plot_range,
                         efficiency_regions=efficiency_regions_dut,
                         efficiency_regions_efficiency=efficiency_regions_efficiency,
+                        efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
                         in_pixel_efficiency=None,
                         plot_range_in_pixel=None,
                         mask_zero=True,
@@ -1263,6 +1280,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_group._v_attrs.dut_extent = dut_extent
                 dut_group._v_attrs.hist_extent = hist_extent
                 dut_group._v_attrs.efficiency = (eff, eff_err_pl, eff_err_min)
+                dut_group._v_attrs.efficiency_regions = efficiency_regions_dut
                 dut_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency
 
                 if in_cluster_file_h5:

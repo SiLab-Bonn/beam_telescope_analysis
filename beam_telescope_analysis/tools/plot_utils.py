@@ -1064,7 +1064,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -1342,8 +1342,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    hist_charge_99, indices = beam_telescope_analysis.tools.analysis_utils.hist_quantiles(hist=count_1d_charge_hist, prob=(0.0, 0.99), return_indices=True)
-    ax.bar(x=range(indices[1] + 1), height=hist_charge_99[:indices[1] + 1], align='center')
+    hist_charge_99, charge_indices = beam_telescope_analysis.tools.analysis_utils.hist_quantiles(hist=count_1d_charge_hist, prob=(0.0, 0.99), return_indices=True)
+    ax.bar(x=range(charge_indices[1] + 1), height=hist_charge_99[:charge_indices[1] + 1], align='center')
     ax.set_title('Charge distribution for %s' % actual_dut.name)
     output_pdf.savefig(fig)
 
@@ -1351,7 +1351,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    z_max = indices[1] + 1
+    z_max = charge_indices[1] + 1
     plot_2d_pixel_hist(fig, ax, stat_2d_charge_hist.T, hist_extent, title='Mean charge for %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
@@ -1404,11 +1404,19 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             for index, region in enumerate(efficiency_regions):
                 rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, 'Efficiency %.2f%%' % (efficiency_regions_efficiency[index] * 100.0), horizontalalignment='center', verticalalignment='center', fontsize=8)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, 'Region %d\nefficiency:\n%.2f%%' % (index + 1, efficiency_regions_efficiency[index] * 100.0), horizontalalignment='center', verticalalignment='center', fontsize=8)
 
             ax.set_xlim(plot_range[0])
             ax.set_ylim(plot_range[1])
             output_pdf.savefig(fig)
+
+            for index, efficiency_region_count_1d_charge_hist in enumerate(efficiency_regions_count_1d_charge_hist):
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x=range(charge_indices[1] + 1), height=efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1] / np.sum(efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1]).astype(np.float32), align='center')
+                ax.set_title('Region %d charge distribution for %s' % (index + 1, actual_dut.name))
+                output_pdf.savefig(fig)
 
         fig = Figure()
         _ = FigureCanvas(fig)
