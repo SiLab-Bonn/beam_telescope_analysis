@@ -127,7 +127,7 @@ def open_files(files):
             hit_tables.append(in_file.root.Hits[:])
     return hit_tables
 
-def save_new_tables(files, arrays):
+def save_new_tables(files, arrays,remove_empty_events=True):
     '''
     saves tables with new event numbers, also removes empty events!!
     '''
@@ -147,7 +147,10 @@ def save_new_tables(files, arrays):
                     complevel=5,
                     fletcher32=False))
             # remove emtpy events for testbeam analysis
-            hit_table_out.append(array[np.where((array['column']!=0) & (array['row']!=0))])
+            if remove_empty_events:
+                hit_table_out.append(array[np.where((array['column']!=0) & (array['row']!=0))])
+            else:
+                hit_table_out.append(array)
 #         elif os.path.exists(out_file_name):
 #             with tb.open_file(out_file_name, 'a') as out_file_h5:
 #                 hit_table_out = out_file_h5.root.Hits
