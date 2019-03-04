@@ -186,9 +186,14 @@ def merge_hits(hit_tables_in, chunk_size=None, files = None):
         value = hit_tables_in[i][0]['trigger_time_stamp']
         evt = hit_tables_in[i][0]['event_number']
         tss.append(value)
+        # new_tables.append(hit_tables_in[i].copy())
+        # print hit_tables_in[i][[row+1 for row in np.where((np.diff(hit_tables_in[i]['trigger_time_stamp'])==0) & (np.diff(hit_tables_in[i]['event_number'])!=0))]]
+        mask = np.ones(len(hit_tables_in[i]), dtype=bool)
+        condition = np.where((np.diff(hit_tables_in[i]['trigger_time_stamp'])==0) & (np.diff(hit_tables_in[i]['event_number'])!=0))
+        mask[condition[0]] = False
+        hit_tables_in[i] = hit_tables_in[i][mask]
         new_tables.append(hit_tables_in[i].copy())
-        print hit_tables_in[i][[row+1 for row in np.where((np.diff(hit_tables_in[i]['trigger_time_stamp'])==0) & (np.diff(hit_tables_in[i]['event_number'])!=0))]]
-
+        logging.info("removed %s empty event duplicates from table %s" % (condition[0].shape[0] ,i))
     max_rows = [table.shape[0]-1 for table in hit_tables_in]
 
     tss = np.array(tss)
