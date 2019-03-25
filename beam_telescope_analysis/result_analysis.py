@@ -1053,9 +1053,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 if efficiency_regions_dut is not None:
                     for region_index, efficiency in enumerate(efficiency_regions_efficiency):
                         logging.info('Efficiency for region %d = %.2f%%' % (region_index + 1, efficiency * 100.0))
-                    # resize so that all histograms have the same size
-                    if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
-                        efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
+                        # resize so that all histograms have the same size
+                        if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
+                            efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
+                        logging.info('Mean charge for region %d = %.2f' % (region_index + 1, analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))))
 
                 # Calculate in-pixel-efficiency
                 if in_pixel is True:

@@ -216,6 +216,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
                 dut_name = telescope[dut_index].name
                 ref_name = telescope[select_reference_dut].name
+                pixel_size = telescope[dut_index].column_size if x_direction else telescope[dut_index].row_size
                 logging.info('Pre-aligning data from %s', node.name)
                 bin_size = node.attrs.resolution
                 ref_hist_extent = node.attrs.ref_hist_extent
@@ -268,7 +269,9 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                 _, _, _, x_list, y_list = find_ransac(
                     x=dut_pos[max_select != 0],
                     y=(max_select[max_select != 0] * bin_size - ref_hist_size / 2.0 + bin_size / 2.0),
-                    threshold=bin_size)
+                    iterations=1000,
+                    threshold=pixel_size * 2,
+                    ratio=0.9)
                 dut_pos_limit = [np.min(x_list), np.max(x_list)]
 
                 plot_utils.plot_hough(
