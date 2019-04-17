@@ -14,6 +14,7 @@ from matplotlib.backends.backend_agg import FigureCanvas
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.artist import setp
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
 import matplotlib.patches
 from matplotlib.collections import LineCollection, PolyCollection
 from matplotlib import colors, cm
@@ -60,6 +61,49 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
     if show_colorbar:
         bounds = np.linspace(start=z_min, stop=z_max, num=256, endpoint=True)
         fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
+
+
+def add_value_labels(ax, spacing=5):
+    """ Adding labels to the end of each bar in a bar chart.
+
+    Shamelessly stolen from: https://stackoverflow.com/questions/28931224/adding-value-labels-on-a-matplotlib-bar-chart
+
+    ax : matplotlib.axes.Axes
+        The matplotlib object containing the axes of the plot to annotate.
+    spacing : int
+        The distance between the labels and the bars.
+    """
+
+    # For each bar: Place a label
+    for rect in ax.patches:
+        # Get X and Y placement of label from rect.
+        y_value = rect.get_height()
+        x_value = rect.get_x() + rect.get_width() / 2
+
+        # Number of points between bar and label. Change to your liking.
+        space = spacing
+        # Vertical alignment for positive values
+        va = 'bottom'
+
+        # If value of bar is negative: Place label below bar
+        if y_value < 0:
+            # Invert space to place label below
+            space *= -1
+            # Vertically align label at top
+            va = 'top'
+
+        # Use Y value as label and format number with 3 decimal places
+        label = "{:.3G}".format(y_value)
+
+        # Create annotation
+        ax.annotate(
+            label,  # Use 'label' as label
+            (x_value, y_value),  # Place label at end of the bar
+            xytext=(0, space),  # Vertically shift label by 'space'
+            textcoords="offset points",  # Interpret 'xytext' as offset in points
+            ha='center',  # Horizontally center label
+            va=va,  # Vertically align label differently for positive and negative values
+            fontsize=5)
 
 
 def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_pdf_file=None):
@@ -1344,6 +1388,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax = fig.add_subplot(111)
     hist_charge_99, charge_indices = beam_telescope_analysis.tools.analysis_utils.hist_quantiles(hist=count_1d_charge_hist, prob=(0.0, 0.99), return_indices=True)
     ax.bar(x=range(charge_indices[1] + 1), height=hist_charge_99[:charge_indices[1] + 1], align='center')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    add_value_labels(ax=ax)
     ax.set_title('Charge distribution for %s' % actual_dut.name)
     output_pdf.savefig(fig)
 
@@ -1364,6 +1410,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax = fig.add_subplot(111)
     max_frame = count_1d_frame_hist.shape[0]
     ax.bar(x=range(max_frame), height=count_1d_frame_hist, align='center')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    add_value_labels(ax=ax)
     ax.set_title('Frame distribution for %s' % actual_dut.name)
     ax.set_yscale('log')
     output_pdf.savefig(fig)
@@ -1415,6 +1463,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.bar(x=range(charge_indices[1] + 1), height=efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1] / np.sum(efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1]).astype(np.float32), align='center')
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                add_value_labels(ax=ax)
                 ax.set_title('Region %d charge distribution for %s' % (index + 1, actual_dut.name))
                 output_pdf.savefig(fig)
 
