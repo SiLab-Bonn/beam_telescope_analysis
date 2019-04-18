@@ -1108,7 +1108,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_stat_pixel_efficiency_hist, in_pixel_efficiency=None, plot_range_in_pixel=None, mask_zero=True, output_pdf=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -1466,6 +1466,18 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 add_value_labels(ax=ax)
                 ax.set_title('Region %d charge distribution for %s' % (index + 1, actual_dut.name))
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.grid()
+                ax.set_title('Region %d efficiency per pixel for %s' % (index + 1, actual_dut.name))
+                ax.set_xlabel('Efficiency [%]')
+                ax.set_ylabel('#')
+                ax.set_yscale('log')
+                ax.set_xlim([-0.5, 100.5])
+                ax.hist(efficiency_regions_stat_pixel_efficiency_hist[index].compressed(), bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
                 output_pdf.savefig(fig)
 
         fig = Figure()
