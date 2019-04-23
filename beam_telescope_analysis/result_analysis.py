@@ -1278,6 +1278,24 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     shape=stat_2d_efficiency_hist.mask.shape)
                 out_stat_2d_efficiency_hist_mask[:] = stat_2d_efficiency_hist.mask
 
+                efficiency_regions_count_1d_charge_hist = np.array(efficiency_regions_count_1d_charge_hist)
+                out_efficiency_regions_count_1d_charge_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='efficiency_regions_count_1d_charge_hist',
+                    title='efficiency_regions_count_1d_charge_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(efficiency_regions_count_1d_charge_hist.dtype),
+                    shape=efficiency_regions_count_1d_charge_hist.shape)
+                out_efficiency_regions_count_1d_charge_hist[:] = efficiency_regions_count_1d_charge_hist
+
+                efficiency_regions_stat_pixel_efficiency_hist = np.array(efficiency_regions_stat_pixel_efficiency_hist)
+                out_efficiency_regions_stat_pixel_efficiency_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='efficiency_regions_stat_pixel_efficiency_hist',
+                    title='efficiency_regions_stat_pixel_efficiency_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(efficiency_regions_stat_pixel_efficiency_hist.dtype),
+                    shape=efficiency_regions_stat_pixel_efficiency_hist.shape)
+                out_efficiency_regions_stat_pixel_efficiency_hist[:] = efficiency_regions_stat_pixel_efficiency_hist
+
                 if in_cluster_file_h5:
                     out_count_pixel_hits_2d_hist = out_file_h5.create_carray(
                         where=dut_group,
