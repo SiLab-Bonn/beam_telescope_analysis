@@ -1465,19 +1465,19 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.bar(x=range(charge_indices[1] + 1), height=efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1] / np.sum(efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1]).astype(np.float32), align='center')
                 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 add_value_labels(ax=ax)
-                ax.set_title('Region %d charge distribution for %s' % (index + 1, actual_dut.name))
+                ax.set_title('Region %d charge distribution for %s\n(%d Pixels)' % (index + 1, actual_dut.name, np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[index]))))
                 output_pdf.savefig(fig)
 
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.grid()
-                ax.set_title('Region %d efficiency per pixel for %s' % (index + 1, actual_dut.name))
+                ax.set_title('Region %d efficiency per pixel for %s\n(%d Pixels)' % (index + 1, actual_dut.name, np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[index]))))
                 ax.set_xlabel('Efficiency [%]')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
                 ax.set_xlim([-0.5, 100.5])
-                ax.hist(efficiency_regions_stat_pixel_efficiency_hist[index].compressed(), bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
+                ax.hist(efficiency_regions_stat_pixel_efficiency_hist[index], bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
                 output_pdf.savefig(fig)
 
         fig = Figure()
