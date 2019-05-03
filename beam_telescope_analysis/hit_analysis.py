@@ -339,14 +339,14 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
                     if np.any(data_chunk['column'] < 1) or np.any(data_chunk['row'] < 1):
                         raise RuntimeError('The column/row index does not start at 1!')
                     if np.any(data_chunk['column'] > dut.n_columns) or np.any(data_chunk['row'] > dut.n_rows):
-                        raise RuntimeError('The column/row index exceeds the number of pixels (max. %s/%s)!', dut.n_columns, dut.n_rows)
+                        raise RuntimeError('The column/row index exceeds the number of pixels (max. %s/%s)!' % (dut.n_columns, dut.n_rows))
                 if use_positions is True:
                     x_extent = dut.x_extent()
                     y_extent = dut.y_extent()
                     if np.any(data_chunk['x'] < x_extent[0]) or np.any(data_chunk['x'] > x_extent[1]):
-                        raise RuntimeError('The local x coordinates are exceeding the limits (min./max. %s/%s)!', dut.x_extent[0], dut.x_extent[1])
+                        raise RuntimeError('The local x coordinates are exceeding the limits (min./max. %s/%s)!' % (dut.x_extent[0], dut.x_extent[1]))
                     if np.any(data_chunk['y'] < y_extent[0]) or np.any(data_chunk['y'] > y_extent[1]):
-                        raise RuntimeError('The local y coordinates are exceeding the limits (min./max. %s/%s)!', dut.y_extent[0], dut.y_extent[1])
+                        raise RuntimeError('The local y coordinates are exceeding the limits (min./max. %s/%s)!' % (dut.y_extent[0], dut.y_extent[1]))
 
                 if use_clusters:
                     if use_positions:
