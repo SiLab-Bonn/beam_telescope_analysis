@@ -945,41 +945,38 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
 
         # distance to find close-by hits and tracks
-        if reject_quality_distances[dut_index] is None:
-            reject_quality_distance_x = np.inf
-            reject_quality_distance_y = np.inf
-        else:
+        if reject_quality_distances[dut_index] is not None:
             reject_quality_distance_x = reject_quality_distances[dut_index][0]
             reject_quality_distance_y = reject_quality_distances[dut_index][1]
-        # Select tracks that are too close when extrapolated to the actual DUT
-        # All selected tracks will result in a quality_flag = 0 for the actual DUT
-        dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
-        _find_small_distance(
-            event_number_array=track_candidates_chunk['event_number'][good_track_selection],
-            position_array_x=intersection_x_local,
-            position_array_y=intersection_y_local,
-            max_distance_x=reject_quality_distance_x,
-            max_distance_y=reject_quality_distance_y,
-            small_distance_flag_array=dut_small_track_distance_flag_sel,
-            use_ellipse=True)
-        # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
-        # unset quality flag
-        quality_flag[dut_small_track_distance_flag_sel] &= np.uint32(~(1 << dut_index))
+            # Select tracks that are too close when extrapolated to the actual DUT
+            # All selected tracks will result in a quality_flag = 0 for the actual DUT
+            dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
+            _find_small_distance(
+                event_number_array=track_candidates_chunk['event_number'][good_track_selection],
+                position_array_x=intersection_x_local,
+                position_array_y=intersection_y_local,
+                max_distance_x=reject_quality_distance_x,
+                max_distance_y=reject_quality_distance_y,
+                small_distance_flag_array=dut_small_track_distance_flag_sel,
+                use_ellipse=True)
+            # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_track_distance_flag_sel] &= np.uint32(~(1 << dut_index))
 
-        # Select hits that are too close in a DUT
-        # All selected hits will result in a quality_flag = 0 for the actual DUT
-        dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
-        _find_small_distance(
-            event_number_array=track_candidates_chunk['event_number'],
-            position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
-            position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
-            max_distance_x=reject_quality_distance_x,
-            max_distance_y=reject_quality_distance_y,
-            small_distance_flag_array=dut_small_hit_distance_flag_sel,
-            use_ellipse=use_ellipse)
-        # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
-        # unset quality flag
-        quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint32(~(1 << dut_index))
+            # Select hits that are too close in a DUT
+            # All selected hits will result in a quality_flag = 0 for the actual DUT
+            dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
+            _find_small_distance(
+                event_number_array=track_candidates_chunk['event_number'],
+                position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
+                position_array_y=track_candidates_chunk['y_dut_%s' % dut_index],
+                max_distance_x=reject_quality_distance_x,
+                max_distance_y=reject_quality_distance_y,
+                small_distance_flag_array=dut_small_hit_distance_flag_sel,
+                use_ellipse=use_ellipse)
+            # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
+            # unset quality flag
+            quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint32(~(1 << dut_index))
 
         if dut_index in fit_duts:
             # use offsets at the location of the fit DUT, local coordinates
@@ -1055,7 +1052,7 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
             while (event_index < max_index) and (event_number_array[event_index] == current_event_number):  # Loop over other event hits
                 if np.isfinite(position_array_x[index]) and np.isfinite(position_array_x[event_index]):
                     # check if distance is smaller than limit
-                    if use_ellipse:  # use ellipse
+                    if use_ellipse and max_distance_x > 0 and max_distance_y > 0:  # use ellipse
                         if ((np.square(position_array_x[index] - position_array_x[event_index]) / max_distance_x**2) + (np.square(position_array_y[index] - position_array_y[event_index]) / max_distance_y**2)) <= 1:
                             small_distance_flag_array[index] = 1
                             small_distance_flag_array[event_index] = 1
