@@ -934,6 +934,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             quality_distance_x = quality_distances[dut_index][0]
             quality_distance_y = quality_distances[dut_index][1]
 
+        if quality_distance_x < 0 or quality_distance_y < 0:
+            raise ValueError("Must use non-negative values for quality distance.")
+
         # select data where distance between the hit and track is smaller than the given value and set quality flag
         if quality_distance_x >= 2.5 * dut.pixel_size[0] and quality_distance_y >= 2.5 * dut.pixel_size[1]:  # use ellipse
             use_ellipse = True
@@ -948,6 +951,10 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         if reject_quality_distances[dut_index] is not None:
             reject_quality_distance_x = reject_quality_distances[dut_index][0]
             reject_quality_distance_y = reject_quality_distances[dut_index][1]
+
+            if reject_quality_distance_x < 0 or reject_quality_distance_y < 0:
+                raise ValueError("Must use non-negative values for reject quality distance.")
+
             # Select tracks that are too close when extrapolated to the actual DUT
             # All selected tracks will result in a quality_flag = 0 for the actual DUT
             dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
