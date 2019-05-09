@@ -760,6 +760,8 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     output_prealigned_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_prealigned.h5'
     prealigned_telescope = Telescope(configuration_file=input_telescope_configuration)
     aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
+    # For the case where not all DUTs are aligned,
+    # only revert the alignment for the DUTs that will be aligned.
     for dut in align_duts:
         aligned_telescope[dut] = prealigned_telescope[dut]
     aligned_telescope.save_configuration()
