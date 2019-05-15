@@ -907,7 +907,6 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         x_residuals = hit_x_local - intersection_x_local
         y_residuals = hit_y_local - intersection_y_local
-        y_residuals = hit_y_local - intersection_y_local
         select_finite_distance = np.isfinite(x_residuals)
         select_finite_distance &= np.isfinite(y_residuals)
 
