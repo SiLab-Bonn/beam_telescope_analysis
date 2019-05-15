@@ -11,6 +11,7 @@ import tables as tb
 import numpy as np
 from numba import njit
 from scipy.stats import gaussian_kde
+from matplotlib.backends.backend_pdf import PdfPages
 
 import progressbar
 
@@ -475,6 +476,11 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     if output_tracks_file is None:
         output_tracks_file = os.path.join(os.path.dirname(input_track_candidates_file), 'Tracks_%s.h5' % method.title())
+    if plot:
+        output_pdf_file = os.path.splitext(output_tracks_file)[0] + '.pdf'
+        output_pdf = PdfPages(output_pdf_file, keep_empty=False)
+    else:
+        output_pdf = None
 
     if select_duts is None:
         select_duts = range(n_duts)  # standard setting: fit tracks for all DUTs
@@ -592,8 +598,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
             for fit_dut_index, actual_fit_dut in enumerate(select_duts):  # Loop over the DUTs where tracks shall be fitted for
                 if actual_fit_dut in fitted_duts:
                     continue
-                # test whether other DUTs have identical tracks
-                # if yes, save some CPU time and fit only once
+                # Test whether other DUTs have identical tracks
+                # if yes, save some CPU time and fit only once.
+                # This following list contains all DUT indices that will be fitted
+                # during this step of the loop.
                 actual_fit_duts = []
                 for curr_fit_dut_index, curr_fit_dut in enumerate(select_duts):
                     if ((curr_fit_dut == actual_fit_dut) or (exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index])):
@@ -633,12 +641,16 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 progress_bar = progressbar.ProgressBar(widgets=widgets,
                                                        maxval=total_n_tracks,
                                                        term_width=80)
-#                 progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], term_width=80)
+                # progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], term_width=80)
                 progress_bar.start()
 
+                chunk_indices = []
+                chunk_stats = []
+                dut_stats = []
                 for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=chunk_size):
-                    #                     if max_tracks is not None and total_n_tracks >= max_tracks:
-                    #                         break
+                    chunk_indices.append(index_chunk)
+                    # if max_tracks is not None and total_n_tracks >= max_tracks:
+                    #     break
                     # Select tracks based on the DUTs that are required to have a hit (dut_selection) with a certain quality (track_quality)
                     n_tracks_chunk = track_candidates_chunk.shape[0]
                     good_track_selection = (track_candidates_chunk['hit_flag'] & dut_hit_selection) == dut_hit_selection
@@ -648,24 +660,20 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             continue
                         dut_fit_selection_dut_removed = dut_fit_selection & ~(1 << index)
                         good_track_selection &= (track_candidates_chunk['hit_flag'] & dut_fit_selection_dut_removed) > 0
-                    n_tracks_quality = np.count_nonzero(good_track_selection)
+                    n_good_tracks = np.count_nonzero(good_track_selection)
+                    chunk_stats.append(n_good_tracks / n_tracks_chunk)
 
-                    logging.info('Selected %d of %d (%.1f%%) track candidates for track fitting due to hit requirements',
-                                 n_tracks_quality,
-                                 n_tracks_chunk,
-                                 100.0 * n_tracks_quality / n_tracks_chunk)
-
-#                     if max_tracks is not None:
-#                         cut_index = np.where(np.cumsum(good_track_selection) + total_n_tracks > max_tracks)[0]
-#                         print "cut index", cut_index
-#                         if len(cut_index) > 0:
-#                             event_indices = np.where(track_candidates_chunk["event_number"][:-1] != track_candidates_chunk["event_number"][1:])[0] + 1
-#                             event_cut_index = event_indices[event_indices >= cut_index[0]][0]
-# #                             print track_candidates_chunk[event_cut_index-2:event_cut_index+2]["event_number"]
-# #                             print track_candidates_chunk[event_cut_index-2:event_cut_index]["event_number"]
-#                             good_track_selection = good_track_selection[:event_cut_index]
-#                             track_candidates_chunk = track_candidates_chunk[:event_cut_index]
-# #                             print "event_cut_index", event_cut_index, total_n_tracks, max_tracks
+                    # if max_tracks is not None:
+                    #     cut_index = np.where(np.cumsum(good_track_selection) + total_n_tracks > max_tracks)[0]
+                    #     print "cut index", cut_index
+                    #     if len(cut_index) > 0:
+                    #         event_indices = np.where(track_candidates_chunk["event_number"][:-1] != track_candidates_chunk["event_number"][1:])[0] + 1
+                    #         event_cut_index = event_indices[event_indices >= cut_index[0]][0]
+                    #         # print track_candidates_chunk[event_cut_index-2:event_cut_index+2]["event_number"]
+                    #         # print track_candidates_chunk[event_cut_index-2:event_cut_index]["event_number"]
+                    #         good_track_selection = good_track_selection[:event_cut_index]
+                    #         track_candidates_chunk = track_candidates_chunk[:event_cut_index]
+                    #         # print "event_cut_index", event_cut_index, total_n_tracks, max_tracks
 
                     unique_events = np.unique(track_candidates_chunk["event_number"][good_track_selection])
                     n_events_chunk = unique_events.shape[0]
@@ -683,9 +691,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             # calculate correction of number of selected events
                             correction = (total_n_tracks - index_chunk) / total_n_tracks * 1 / (((total_n_tracks - last_index_chunk) / total_n_tracks) / ((max_events - total_n_events_stored_last) / max_events)) \
                                 + (index_chunk) / total_n_tracks * 1 / (((last_index_chunk) / total_n_tracks) / ((total_n_events_stored_last) / max_events))
-    #                         select_n_events = np.ceil(n_events_chunk * correction)
-    #                         # calculate correction of number of selected events
-    #                         correction = 1/(((total_n_tracks-last_index_chunk)/total_n_tracks_last)/((max_events-total_n_events_stored_last)/max_events))
+                            # select_n_events = np.ceil(n_events_chunk * correction)
+                            # calculate correction of number of selected events
+                            # correction = 1/(((total_n_tracks-last_index_chunk)/total_n_tracks_last)/((max_events-total_n_events_stored_last)/max_events))
                             select_n_events = int(round(max_events * (n_tracks_chunk / total_n_tracks) * correction))
                             # print "correction", correction
                         # do not store more events than in current chunk
@@ -701,7 +709,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         # TODO: total_n_tracks_stored not used...
                         store_n_tracks = np.count_nonzero(good_track_selection)
                         total_n_tracks_stored += store_n_tracks
-#                         track_candidates_chunk = track_candidates_chunk[select_tracks]
+                        # track_candidates_chunk = track_candidates_chunk[select_tracks]
 
                     # Prepare track hits array to be fitted
                     n_good_tracks = np.count_nonzero(good_track_selection)  # Index of tmp track hits array
@@ -759,7 +767,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     slopes = np.concatenate([result.get()[1] for result in results])  # Merge slopes from all cores in results
                     # Store the data
                     # Check if all DUTs were fitted at once
-                    store_track_data(
+                    dut_stats.append(store_track_data(
                         out_file_h5=out_file_h5,
                         track_candidates_chunk=track_candidates_chunk,
                         good_track_selection=good_track_selection,
@@ -774,7 +782,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         use_limits=use_limits,
                         keep_data=keep_data,
                         method=method,
-                        full_track_info=full_track_info)
+                        full_track_info=full_track_info))
 
                     # total_n_tracks += n_good_tracks
                     total_n_events_stored_last = total_n_events_stored
@@ -788,8 +796,19 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # print "total_n_events_stored", total_n_events_stored
                 fitted_duts.extend(actual_fit_duts)
 
+                plot_utils.plot_fit_tracks_statistics(
+                    telescope=telescope,
+                    fit_duts=actual_fit_duts,
+                    chunk_indices=chunk_indices,
+                    chunk_stats=chunk_stats,
+                    dut_stats=dut_stats,
+                    output_pdf=output_pdf)
+
     pool.close()
     pool.join()
+
+    if output_pdf is not None:
+        output_pdf.close()
 
     if plot:
         plot_utils.plot_track_chi2(input_tracks_file=output_tracks_file, output_pdf_file=None, dut_names=telescope.dut_names, chunk_size=chunk_size)
@@ -798,20 +817,23 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
 
 def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, select_align_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
+    dut_stats = []
     fit_duts_offsets = []
     fit_duts_slopes = []
-    # xy_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
-    x_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
-    x_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
-    y_residuals_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
-    y_err_squared = np.empty((np.count_nonzero(good_track_selection), len(telescope)), dtype=np.float64)
+    n_good_tracks = np.count_nonzero(good_track_selection)
+    # xy_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
+    x_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
+    x_err_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
+    y_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
+    y_err_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
     # reset quality flag
-    quality_flag = np.zeros(np.count_nonzero(good_track_selection), dtype=track_candidates_chunk["hit_flag"].dtype)
+    quality_flag = np.zeros(n_good_tracks, dtype=track_candidates_chunk["hit_flag"].dtype)
     if full_track_info:
-        track_estimates_chunk_full = np.full(shape=(np.count_nonzero(good_track_selection), len(telescope), 6), fill_value=np.nan, dtype=np.float64)
+        track_estimates_chunk_full = np.full(shape=(n_good_tracks, len(telescope), 6), fill_value=np.nan, dtype=np.float64)
     else:
         track_estimates_chunk_full = None
     for dut_index, dut in enumerate(telescope):
+        dut_stats.append([])
         if use_limits:
             # local_limit_positions = dut.index_to_local_position(
             #     column=[dut.column_limit[0], dut.column_limit[1]],
@@ -889,6 +911,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         select_finite_distance = np.isfinite(x_residuals)
         select_finite_distance &= np.isfinite(y_residuals)
 
+        n_good_tracks_with_hits = np.count_nonzero(select_finite_distance)
+        dut_stats[dut_index].append(n_good_tracks_with_hits / n_good_tracks)
+
         if select_align_duts is not None and dut_index in select_align_duts:
             center_x = np.median(x_residuals[select_finite_distance])
             std_x = np.std(x_residuals[select_finite_distance])
@@ -947,6 +972,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             dut_quality_flag_sel[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= quality_distance_y)
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
 
+        n_quality_tracks = np.count_nonzero(dut_quality_flag_sel)
+        dut_stats[dut_index].append(n_quality_tracks / n_good_tracks_with_hits)
+
         # distance to find close-by hits and tracks
         if reject_quality_distances[dut_index] is not None:
             reject_quality_distance_x = reject_quality_distances[dut_index][0]
@@ -970,6 +998,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             # unset quality flag
             quality_flag[dut_small_track_distance_flag_sel] &= np.uint32(~(1 << dut_index))
 
+            n_quality_tracks_rejected_tracks = np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel)
+            dut_stats[dut_index].append(n_quality_tracks_rejected_tracks / n_quality_tracks)
+
             # Select hits that are too close in a DUT
             # All selected hits will result in a quality_flag = 0 for the actual DUT
             dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
@@ -984,6 +1015,14 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
             # unset quality flag
             quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint32(~(1 << dut_index))
+
+            n_quality_tracks_rejected_hits = np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel)
+            dut_stats[dut_index].append(n_quality_tracks_rejected_hits / n_quality_tracks)
+
+            n_quality_tracks = np.count_nonzero(dut_quality_flag_sel & ~dut_small_track_distance_flag_sel & ~dut_small_hit_distance_flag_sel[good_track_selection])
+            dut_stats[dut_index].append(n_quality_tracks / track_candidates_chunk.shape[0])
+        else:
+            dut_stats[dut_index].extend([0.0, 0.0, n_quality_tracks / track_candidates_chunk.shape[0]])
 
         if dut_index in fit_duts:
             # use offsets at the location of the fit DUT, local coordinates
@@ -1046,6 +1085,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         tracklets_table.append(tracks_array)
         tracklets_table.flush()
+
+    return dut_stats
 
 
 @njit

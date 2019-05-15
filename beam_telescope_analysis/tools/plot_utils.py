@@ -740,6 +740,39 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                 output_pdf.savefig(fig)
 
 
+def plot_fit_tracks_statistics(telescope, fit_duts, chunk_indices, chunk_stats, dut_stats, output_pdf=None):
+    '''Plot the residuals as a function of the position.
+    '''
+    if not output_pdf:
+        return
+
+    for actual_dut_index, actual_dut in enumerate(telescope):
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        ax.grid()
+        ax.plot(chunk_indices, chunk_stats, label="Share of tracks fulfilling hit requirements")
+        curr_stats = []
+        if dut_stats and len(dut_stats[-1]) > actual_dut_index and dut_stats[-1][actual_dut_index]:
+            for item in dut_stats:
+                curr_stats.append(item[actual_dut_index])
+        stat_labels = ["... of which the share of DUT with hit", "... of which the share of tracks with quality flag set", "... of which the share of tracks with quality flag unset due to nearby tracks", "... of which the share of tracks with quality flag unset due to nearby hits", "Share of tracks fulfilling hit requirements and quality flag set"]
+        for index, stat in enumerate(zip(*curr_stats)):
+            for i in range(3)[::-1]:
+                if np.all(np.less_equal(stat, 10**-i)):
+                    factor = 10**i
+                    label_extent = r' ($\times %d$)' % factor
+                    break
+            ax.plot(chunk_indices, np.array(stat) * factor, label=stat_labels[index] + ("" if factor == 1 else label_extent))
+        ax.set_title("Fit statistics for %s\nFit DUTs: %s" % (actual_dut.name, ', '.join([telescope[dut_index].name for dut_index in fit_duts])))
+        ax.set_xlim(left=0.0)
+        ax.set_ylim([0.0, 1.1])
+        ax.set_xlabel("Index")
+        ax.set_ylabel("#")
+        ax.legend(loc=1, prop={'size': 6})
+        output_pdf.savefig(fig)
+
+
 def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chunk_size=1000000):
     if not output_pdf_file:
         output_pdf_file = os.path.splitext(input_tracks_file)[0] + '_chi2.pdf'
