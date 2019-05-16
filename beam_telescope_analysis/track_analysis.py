@@ -911,7 +911,10 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         select_finite_distance &= np.isfinite(y_residuals)
 
         n_good_tracks_with_hits = np.count_nonzero(select_finite_distance)
-        dut_stats[dut_index].append(n_good_tracks_with_hits / n_good_tracks)
+        if n_good_tracks == 0:
+            dut_stats[dut_index].append(0)
+        else:
+            dut_stats[dut_index].append(n_good_tracks_with_hits / n_good_tracks)
 
         if select_align_duts is not None and dut_index in select_align_duts:
             center_x = np.median(x_residuals[select_finite_distance])
@@ -972,7 +975,10 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
 
         n_quality_tracks = np.count_nonzero(dut_quality_flag_sel)
-        dut_stats[dut_index].append(n_quality_tracks / n_good_tracks_with_hits)
+        if n_good_tracks_with_hits == 0:
+            dut_stats[dut_index].append(0)
+        else:
+            dut_stats[dut_index].append(n_quality_tracks / n_good_tracks_with_hits)
 
         # distance to find close-by hits and tracks
         if reject_quality_distances[dut_index] is not None:
@@ -998,7 +1004,10 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             quality_flag[dut_small_track_distance_flag_sel] &= np.uint32(~(1 << dut_index))
 
             n_quality_tracks_rejected_tracks = np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel)
-            dut_stats[dut_index].append(n_quality_tracks_rejected_tracks / n_quality_tracks)
+            if n_quality_tracks == 0:
+                dut_stats[dut_index].append(0)
+            else:
+                dut_stats[dut_index].append(n_quality_tracks_rejected_tracks / n_quality_tracks)
 
             # Select hits that are too close in a DUT
             # All selected hits will result in a quality_flag = 0 for the actual DUT
@@ -1016,7 +1025,10 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             quality_flag[dut_small_hit_distance_flag_sel[good_track_selection]] &= np.uint32(~(1 << dut_index))
 
             n_quality_tracks_rejected_hits = np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel)
-            dut_stats[dut_index].append(n_quality_tracks_rejected_hits / n_quality_tracks)
+            if n_quality_tracks == 0:
+                dut_stats[dut_index].append(0)
+            else:
+                dut_stats[dut_index].append(n_quality_tracks_rejected_hits / n_quality_tracks)
 
             n_quality_tracks = np.count_nonzero(dut_quality_flag_sel & ~dut_small_track_distance_flag_sel & ~dut_small_hit_distance_flag_sel[good_track_selection])
             dut_stats[dut_index].append(n_quality_tracks / track_candidates_chunk.shape[0])
