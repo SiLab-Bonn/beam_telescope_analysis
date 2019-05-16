@@ -624,7 +624,7 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                 output_pdf.savefig(fig)
 
 
-def plot_events(telescope_configuration, input_tracks_file, select_duts, event_range, output_pdf_file=None, chunk_size=1000000):
+def plot_events(telescope_configuration, input_tracks_file, select_duts, event_range, output_pdf_file=None, show=False, chunk_size=1000000):
     '''Plots the tracks (or track candidates) of the events in the given event range.
 
     Parameters
@@ -639,6 +639,8 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
         Tuple of start event number and stop event number (excluding), e.g. (0, 100).
     output_pdf_file : string
         Filename of the output PDF file. If None, the filename is derived from the input file.
+    plot : bool
+        If True, show interactive plot.
     '''
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
@@ -652,13 +654,17 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                 dut_name = telescope[actual_dut_index].name
                 logging.info('== Plotting events for %s ==', dut_name)
 
-                fig = Figure()
-                _ = FigureCanvas(fig)
+                if show:
+                    import matplotlib.pyplot as plt
+                    fig = plt.gcf()
+                else:
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111, projection='3d')
                 colors = cycle('bgrcmyk')
 
-                min_z = 0.0
-                max_z = 0.0
+                min_z_dut_index = 0
+                max_z_dut_index = 0
                 for dut_index in range(0, n_duts):
                     actual_dut = telescope[dut_index]
                     plane_x, plane_y, plane_z = actual_dut.index_to_global_position(
@@ -674,8 +680,10 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                     plane_y = plane_y.reshape(2, -1)
                     plane_z = plane_z.reshape(2, -1)
                     ax.plot_surface(plane_x, plane_y, plane_z, color='lightgray', alpha=0.3, linewidth=1.0, zorder=-1)
-                    min_z = min(min_z, actual_dut.translation_z * 1.e-3)
-                    max_z = max(max_z, actual_dut.translation_z * 1.e-3)
+                    if telescope[min_z_dut_index].translation_z > actual_dut.translation_z:
+                        min_z_dut_index = dut_index
+                    if telescope[max_z_dut_index].translation_z < actual_dut.translation_z:
+                        max_z_dut_index = dut_index
 
                 # Loop over the tracks
                 events = 0
@@ -708,7 +716,7 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                                 y=track['offset_y'],
                                 z=track['offset_z'])
                             # convert to mm
-                            offset = np.column_stack((track_offset_x, track_offset_y, track_offset_z)) * 1.e-3
+                            offset = np.column_stack((track_offset_x, track_offset_y, track_offset_z))
                             track_slope_x, track_slope_y, track_slope_z = telescope[actual_dut_index].local_to_global_position(
                                 x=track['slope_x'],
                                 y=track['slope_y'],
@@ -721,23 +729,44 @@ def plot_events(telescope_configuration, input_tracks_file, select_duts, event_r
                                 rotation_beta=telescope[actual_dut_index].rotation_beta,
                                 rotation_gamma=telescope[actual_dut_index].rotation_gamma)
                             slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-                            linepts = offset + slope * np.mgrid[min_z - telescope[actual_dut_index].translation_z * 1.e-3 - 10:max_z - telescope[actual_dut_index].translation_z * 1.e-3 + 10:2j][:, np.newaxis]
+                            offse_min_z_dut = beam_telescope_analysis.tools.geometry_utils.get_line_intersections_with_dut(
+                                line_origins=offset,
+                                line_directions=slope,
+                                translation_x=telescope[min_z_dut_index].translation_x,
+                                translation_y=telescope[min_z_dut_index].translation_y,
+                                translation_z=telescope[min_z_dut_index].translation_z,
+                                rotation_alpha=telescope[min_z_dut_index].rotation_alpha,
+                                rotation_beta=telescope[min_z_dut_index].rotation_beta,
+                                rotation_gamma=telescope[min_z_dut_index].rotation_gamma) * 1.e-3
+                            offset_max_z_dut = beam_telescope_analysis.tools.geometry_utils.get_line_intersections_with_dut(
+                                line_origins=offset,
+                                line_directions=slope,
+                                translation_x=telescope[max_z_dut_index].translation_x,
+                                translation_y=telescope[max_z_dut_index].translation_y,
+                                translation_z=telescope[max_z_dut_index].translation_z,
+                                rotation_alpha=telescope[max_z_dut_index].rotation_alpha,
+                                rotation_beta=telescope[max_z_dut_index].rotation_beta,
+                                rotation_gamma=telescope[max_z_dut_index].rotation_gamma) * 1.e-3
+                            linepts = offse_min_z_dut + slope * np.mgrid[-offse_min_z_dut[0, 2] + 10:-offset_max_z_dut[0, 2] - 10:2j][:, np.newaxis]
                             no_fit = False
                         else:
                             no_fit = True
 
-                        if no_fit is False:
+                        if no_fit:
+                            ax.plot(x, y, z, 'x', color=color)
+                        else:
                             ax.plot(x, y, z, 's' if track['hit_flag'] == track['quality_flag'] else 'o', color=color)
                             ax.plot3D(*linepts.T, color=color)
-                        else:
-                            ax.plot(x, y, z, 'x', color=color)
 
                 ax.set_xlabel('x [mm]')
                 ax.set_ylabel('y [mm]')
                 ax.set_zlabel('z [mm]')
                 ax.set_title('%d tracks in %d events for %s' % (tracks, events, dut_name))
 
-                output_pdf.savefig(fig)
+                if show:
+                    plt.show()
+                else:
+                    output_pdf.savefig(fig)
 
 
 def plot_fit_tracks_statistics(telescope, fit_duts, chunk_indices, chunk_stats, dut_stats, output_pdf=None):
