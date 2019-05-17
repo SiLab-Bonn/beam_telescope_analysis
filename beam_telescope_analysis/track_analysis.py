@@ -297,7 +297,7 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z):
                     indices=indices,
                     z_sorted_dut_indices=z_sorted_dut_indices,
                     event_start_index=actual_event_start_index,
-                    index=track_index,
+                    track_index=track_index,
                     dut_index=dut_index,
                     x=x,
                     y=y,
@@ -307,26 +307,26 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z):
 
 
 @njit
-def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, index, dut_index, x, y, z):
+def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, track_index, dut_index, x, y, z):
     # The hit distance of the actual assigned hit; -1 means not assigned
     reference_dut_index = _get_first_dut_index(
         x=x,
-        index=index,
+        track_index=track_index,
         z_sorted_dut_indices=z_sorted_dut_indices)
-    actual_reference_x, actual_reference_y = x[index][reference_dut_index], y[index][reference_dut_index]
-    best_index = index
-    if np.isnan(x[index][dut_index]):
+    actual_reference_x, actual_reference_y = x[track_index][reference_dut_index], y[track_index][reference_dut_index]
+    best_track_index = track_index
+    if np.isnan(x[track_index][dut_index]):
         best_hit_distance = -1  # Value for no hit
     else:
         # Calculate the hit distance of the actual assigned DUT hit towards the actual reference hit
-        best_hit_distance = math.sqrt((x[index][dut_index] - actual_reference_x)**2 + (y[index][dut_index] - actual_reference_y)**2)
+        best_hit_distance = math.sqrt((x[track_index][dut_index] - actual_reference_x)**2 + (y[track_index][dut_index] - actual_reference_y)**2)
     # The shortest hit distance to the actual hit; -1 means not assigned
     # for hit_index in range(actual_event_start_index, event_numbers.shape[0]):  # Loop over all not sorted hits of actual DUT
     hit_index = event_start_index
     while hit_index < event_numbers.shape[0]:
         if event_numbers[hit_index] != event_numbers[event_start_index]:  # Abort condition
             break
-        if index == hit_index:  # Check if hit swapping is needed
+        if track_index == hit_index:  # Check if hit swapping is needed
             hit_index += 1
             continue
         actual_hit_x, actual_hit_y = x[hit_index][dut_index], y[hit_index][dut_index]
@@ -343,7 +343,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
         # Get reference DUT index of other track
         first_dut_hit_index = _get_first_dut_index(
             x=x,
-            index=hit_index,
+            track_index=hit_index,
             z_sorted_dut_indices=z_sorted_dut_indices)
         reference_x_other, reference_y_other = x[hit_index][first_dut_hit_index], y[hit_index][first_dut_hit_index]
         # Calculate hit distance to reference hit of other track
@@ -353,31 +353,31 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             hit_index += 1
             continue
         # setting best hit
-        best_index = hit_index
+        best_track_index = hit_index
         best_hit_distance = actual_hit_distance
         hit_index += 1
     # swapping hits
-    tmp_x, tmp_y, tmp_z = x[index][dut_index], y[index][dut_index], z[index][dut_index]
-    tmp_index = indices[index][dut_index]
+    tmp_x, tmp_y, tmp_z = x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index]
+    tmp_index = indices[track_index][dut_index]
 
-    x[index][dut_index], y[index][dut_index], z[index][dut_index] = x[best_index][dut_index], y[best_index][dut_index], z[best_index][dut_index]
-    indices[index][dut_index] = indices[best_index][dut_index]
+    x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index] = x[best_track_index][dut_index], y[best_track_index][dut_index], z[best_track_index][dut_index]
+    indices[track_index][dut_index] = indices[best_track_index][dut_index]
 
-    x[best_index][dut_index], y[best_index][dut_index], z[best_index][dut_index] = tmp_x, tmp_y, tmp_z
-    indices[best_index][dut_index] = tmp_index
+    x[best_track_index][dut_index], y[best_track_index][dut_index], z[best_track_index][dut_index] = tmp_x, tmp_y, tmp_z
+    indices[best_track_index][dut_index] = tmp_index
     # recursively call _find_tracks in case of swapping
     # hits with other finished tracks
     first_dut_hit_index = _get_first_dut_index(
         x=x,
-        index=best_index,
+        track_index=best_track_index,
         z_sorted_dut_indices=z_sorted_dut_indices)
-    if index > best_index and first_dut_hit_index != dut_index:
+    if track_index > best_track_index and first_dut_hit_index != dut_index:
         _find_tracks(
             event_numbers=event_numbers,
             indices=indices,
             z_sorted_dut_indices=z_sorted_dut_indices,
             event_start_index=event_start_index,
-            index=best_index,
+            track_index=best_track_index,
             dut_index=dut_index,
             x=x,
             y=y,
@@ -385,10 +385,10 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
 
 
 @njit
-def _get_first_dut_index(x, index, z_sorted_dut_indices):
-    ''' Returns the first DUT that has a hit for the track at index '''
+def _get_first_dut_index(x, track_index, z_sorted_dut_indices):
+    ''' Returns the first DUT that has a hit for the track at given index '''
     for dut_index in z_sorted_dut_indices:  # Loop over duts, to get first DUT hit of track
-        if not np.isnan(x[index][dut_index]):
+        if not np.isnan(x[track_index][dut_index]):
             return dut_index
     return -1
 
