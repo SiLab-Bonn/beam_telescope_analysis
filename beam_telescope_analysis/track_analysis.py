@@ -214,13 +214,16 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 x_global = []
                 y_global = []
                 z_global = []
-                for dut_index in range(n_duts):
-                    x_global_dut, y_global_dut, z_global_dut = telescope[dut_index].local_to_global_position(
+                translation = []
+                rotation = []
+                normal = []
+                for dut_index, dut in enumerate(telescope):
+                    x_global_dut, y_global_dut, z_global_dut = dut.local_to_global_position(
                         x=tracklets_data_chunk['x_dut_%d' % dut_index],
                         y=tracklets_data_chunk['y_dut_%d' % dut_index],
                         z=tracklets_data_chunk['z_dut_%d' % dut_index])
                     if align_to_beam:
-                        x_global_dut, y_global_dut, z_global_dut = telescope[dut_index].local_to_global_position(
+                        x_global_dut, y_global_dut, z_global_dut = dut.local_to_global_position(
                             x=x_global_dut,
                             y=y_global_dut,
                             z=z_global_dut,
@@ -233,9 +236,22 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                     x_global.append(x_global_dut)
                     y_global.append(y_global_dut)
                     z_global.append(z_global_dut)
+                    translation.append([dut.translation_x, dut.translation_y, dut.translation_z])
+                    dut_rotation_matrix = geometry_utils.rotation_matrix(
+                        alpha=dut.rotation_alpha,
+                        beta=dut.rotation_beta,
+                        gamma=dut.rotation_gamma)
+                    basis_global = dut_rotation_matrix.T.dot(np.eye(3, dtype=np.float64))
+                    dut_normal = basis_global[2]
+                    dut_normal /= np.sqrt(np.dot(dut_normal, dut_normal))
+                    if dut_normal[2] < 0:
+                        dut_normal = -dut_normal
+                    normal.append(dut_normal)
                 x_global = np.column_stack(x_global)
                 y_global = np.column_stack(y_global)
                 z_global = np.column_stack(z_global)
+                translation = np.row_stack(translation)
+                normal = np.row_stack(normal)
                 hit_flag = np.zeros_like(tracklets_data_chunk['hit_flag'])
                 # Perform the track finding with jitted loop
                 _find_tracks_loop(
@@ -244,7 +260,9 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                     z_sorted_dut_indices=z_sorted_dut_indices,
                     x=x_global,
                     y=y_global,
-                    z=z_global)
+                    z=z_global,
+                    translation=translation,
+                    normal=normal)
                 # copy the columns to the result array
                 for dut_index in range(n_duts):
                     for column_name in tracklets_data_chunk.dtype.names:
@@ -268,52 +286,97 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 
 
 @njit
-def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z):
+def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, translation, normal):
     ''' This function provides an algorithm to generates the track candidates from the tracklets array.
     Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
     '''
-    actual_event_number = event_numbers[0]
-
-    # Numba uses c scopes, thus define all used variables here
+    analyze_event_number = -1
     track_index = 0
-    actual_event_start_index = 0
-    # for track_index, curr_event_number in enumerate(event_numbers):  # Loop over all possible tracks
     while track_index < event_numbers.shape[0]:
         curr_event_number = event_numbers[track_index]
-        # Set variables for new event
-        if curr_event_number != actual_event_number:  # Detect new event
-            actual_event_number = curr_event_number
-            actual_event_start_index = track_index  # Smallest index of current event
-
-        reference_hit_set = False  # The first real hit (column, row != nan) is the reference hit of the actual track
-        for dut_index in z_sorted_dut_indices:  # loop over all DUTs in the actual track
-            if not reference_hit_set and not np.isnan(x[track_index][dut_index]):  # Search for first DUT that registered a hit
-                # actual_reference_x, actual_reference_y = x[track_index][dut_index], y[track_index][dut_index]
-                reference_hit_set = True
-            elif reference_hit_set:  # First hit found, now find best (closest) DUT hit
-                _find_tracks(
-                    event_numbers=event_numbers,
-                    indices=indices,
-                    z_sorted_dut_indices=z_sorted_dut_indices,
-                    event_start_index=actual_event_start_index,
-                    track_index=track_index,
-                    dut_index=dut_index,
-                    x=x,
-                    y=y,
-                    z=z)
+        if curr_event_number != analyze_event_number or track_index == 0:  # Detect new event
+            analyze_event_number = curr_event_number
+            for dut_index in z_sorted_dut_indices[1:]:  # loop over all DUTs in the actual track
+                track_index2 = track_index
+                while track_index2 < event_numbers.shape[0]:
+                    if analyze_event_number != event_numbers[track_index2]:
+                        break
+                    else:
+                        _find_tracks(
+                            event_numbers=event_numbers,
+                            indices=indices,
+                            z_sorted_dut_indices=z_sorted_dut_indices,
+                            event_start_index=track_index,
+                            track_index=track_index2,
+                            dut_index=dut_index,
+                            x=x,
+                            y=y,
+                            z=z,
+                            translation=translation,
+                            normal=normal)
+                    track_index2 += 1
         # goto next possible track
         track_index += 1
 
 
 @njit
-def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, track_index, dut_index, x, y, z):
+def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, track_index, dut_index, x, y, z, translation, normal):
+    swap = False
     # The hit distance of the actual assigned hit; -1 means not assigned
-    reference_dut_index = _get_first_dut_index(
+    first_reference_dut_index = _get_first_dut_index(
         x=x,
         track_index=track_index,
         z_sorted_dut_indices=z_sorted_dut_indices)
-    actual_reference_x, actual_reference_y = x[track_index][reference_dut_index], y[track_index][reference_dut_index]
+    sorted_dut_index = -1
+    for i, val in enumerate(z_sorted_dut_indices):
+        if val == dut_index:
+            sorted_dut_index = i
+    sorted_ref_dut_index = -1
+    for i, val in enumerate(z_sorted_dut_indices):
+        if val == first_reference_dut_index:
+            sorted_ref_dut_index = i
+    if sorted_ref_dut_index >= sorted_dut_index or first_reference_dut_index == -1:
+        return
+
+    curr_dut_index = dut_index
+    reference_dut_index = -1
+    cnt = 0
+    while cnt < 2:
+        sorted_dut_index = -1
+        for i, val in enumerate(z_sorted_dut_indices):
+            if val == curr_dut_index:
+                sorted_dut_index = i
+        if sorted_dut_index <= 0:
+            break
+        reference_dut_index = _get_last_dut_index(
+            x=x,
+            track_index=track_index,
+            z_sorted_dut_indices=z_sorted_dut_indices[:sorted_dut_index])
+        if cnt == 0 and reference_dut_index != -1:
+            second_ref_dut_index = reference_dut_index
+            cnt = cnt + 1
+        elif cnt == 1 and reference_dut_index != -1:
+            first_ref_dut_index = reference_dut_index
+            cnt = cnt + 1
+        curr_dut_index = reference_dut_index
+    if cnt == 2:
+        u_0 = x[track_index][second_ref_dut_index] - x[track_index][first_ref_dut_index]
+        u_1 = y[track_index][second_ref_dut_index] - y[track_index][first_ref_dut_index]
+        u_2 = z[track_index][second_ref_dut_index] - z[track_index][first_ref_dut_index]
+        u_len = np.sqrt(u_0**2 + u_1**2 + u_2**2)
+        u_0 /= u_len
+        u_1 /= u_len
+        u_2 /= u_len
+        w_0 = x[track_index][second_ref_dut_index] - translation[dut_index][0]
+        w_1 = y[track_index][second_ref_dut_index] - translation[dut_index][1]
+        w_2 = z[track_index][second_ref_dut_index] - translation[dut_index][2]
+        s_i = -(normal[dut_index][0] * w_0 + normal[dut_index][1] * w_1 + normal[dut_index][2] * w_2) / (normal[dut_index][0] * u_0 + normal[dut_index][1] * u_1 + normal[dut_index][2] * u_2)
+        actual_reference_x = translation[dut_index][0] + w_0 + s_i * u_0
+        actual_reference_y = translation[dut_index][1] + w_1 + s_i * u_1
+    else:
+        actual_reference_x, actual_reference_y = x[track_index][first_reference_dut_index], y[track_index][first_reference_dut_index]
+
     best_track_index = track_index
     if np.isnan(x[track_index][dut_index]):
         best_hit_distance = -1  # Value for no hit
@@ -341,21 +404,61 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             continue
         # TODO: do not take all hits, check for valid hits (i.e., inside scatter cone)
         # Get reference DUT index of other track
-        first_dut_hit_index = _get_first_dut_index(
+        first_other_dut_hit_index = _get_first_dut_index(
             x=x,
             track_index=hit_index,
             z_sorted_dut_indices=z_sorted_dut_indices)
-        reference_x_other, reference_y_other = x[hit_index][first_dut_hit_index], y[hit_index][first_dut_hit_index]
-        # Calculate hit distance to reference hit of other track
-        x_distance_other, y_distance_other = actual_hit_x - reference_x_other, actual_hit_y - reference_y_other
-        hit_distance_other = math.sqrt(x_distance_other**2 + y_distance_other**2)
-        if actual_hit_distance > hit_distance_other and first_dut_hit_index != dut_index:  # Only take hit if it fits better to actual track; otherwise leave it with other track
-            hit_index += 1
-            continue
+        if first_other_dut_hit_index != dut_index:
+            curr_other_dut_index = dut_index
+            other_reference_dut_index = -1
+            cnt = 0
+            while cnt < 2:
+                sorted_dut_index = -1
+                for i, val in enumerate(z_sorted_dut_indices):
+                    if val == curr_other_dut_index:
+                        sorted_dut_index = i
+                if sorted_dut_index <= 0:
+                    break
+                other_reference_dut_index = _get_last_dut_index(
+                    x=x,
+                    track_index=hit_index,
+                    z_sorted_dut_indices=z_sorted_dut_indices[:sorted_dut_index])
+                if cnt == 0 and other_reference_dut_index != -1:
+                    second_ref_dut_index = other_reference_dut_index
+                    cnt = cnt + 1
+                elif cnt == 1 and other_reference_dut_index != -1:
+                    first_ref_dut_index = other_reference_dut_index
+                    cnt = cnt + 1
+                curr_other_dut_index = other_reference_dut_index
+            if cnt == 2:
+                u_0 = x[hit_index][second_ref_dut_index] - x[hit_index][first_ref_dut_index]
+                u_1 = y[hit_index][second_ref_dut_index] - y[hit_index][first_ref_dut_index]
+                u_2 = z[hit_index][second_ref_dut_index] - z[hit_index][first_ref_dut_index]
+                u_len = np.sqrt(u_0**2 + u_1**2 + u_2**2)
+                u_0 /= u_len
+                u_1 /= u_len
+                u_2 /= u_len
+                w_0 = x[hit_index][second_ref_dut_index] - translation[dut_index][0]
+                w_1 = y[hit_index][second_ref_dut_index] - translation[dut_index][1]
+                w_2 = z[hit_index][second_ref_dut_index] - translation[dut_index][2]
+                s_i = -(normal[dut_index][0] * w_0 + normal[dut_index][1] * w_1 + normal[dut_index][2] * w_2) / (normal[dut_index][0] * u_0 + normal[dut_index][1] * u_1 + normal[dut_index][2] * u_2)
+                reference_x_other = translation[dut_index][0] + w_0 + s_i * u_0
+                reference_y_other = translation[dut_index][1] + w_1 + s_i * u_1
+            else:
+                reference_x_other, reference_y_other = x[hit_index][first_other_dut_hit_index], y[hit_index][first_other_dut_hit_index]
+            # Calculate hit distance to reference hit of other track
+            x_distance_other, y_distance_other = actual_hit_x - reference_x_other, actual_hit_y - reference_y_other
+            hit_distance_other = math.sqrt(x_distance_other**2 + y_distance_other**2)
+            if actual_hit_distance > hit_distance_other:  # Only take hit if it fits better to actual track; otherwise leave it with other track
+                hit_index += 1
+                continue
         # setting best hit
         best_track_index = hit_index
         best_hit_distance = actual_hit_distance
         hit_index += 1
+        swap = True
+    if not swap:
+        return
     # swapping hits
     tmp_x, tmp_y, tmp_z = x[track_index][dut_index], y[track_index][dut_index], z[track_index][dut_index]
     tmp_index = indices[track_index][dut_index]
@@ -381,13 +484,24 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             dut_index=dut_index,
             x=x,
             y=y,
-            z=z)
+            z=z,
+            translation=translation,
+            normal=normal)
 
 
 @njit
 def _get_first_dut_index(x, track_index, z_sorted_dut_indices):
     ''' Returns the first DUT that has a hit for the track at given index '''
     for dut_index in z_sorted_dut_indices:  # Loop over duts, to get first DUT hit of track
+        if not np.isnan(x[track_index][dut_index]):
+            return dut_index
+    return -1
+
+
+@njit
+def _get_last_dut_index(x, track_index, z_sorted_dut_indices):
+    ''' Returns the first DUT that has a hit for the track at given index '''
+    for dut_index in z_sorted_dut_indices[::-1]:  # Loop over duts, to get first DUT hit of track
         if not np.isnan(x[track_index][dut_index]):
             return dut_index
     return -1
