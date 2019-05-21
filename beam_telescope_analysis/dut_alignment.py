@@ -302,12 +302,12 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                 if x_direction:
                     select = (x_global_pixel > dut_pos_limit[0]) & (x_global_pixel < dut_pos_limit[1])
                     if slope < 0.0:
-                        R = np.linalg.multi_dot([R, geometry_utils.rotation_matrix_y(beta=np.pi)])
+                        R = np.linalg.multi_dot([geometry_utils.rotation_matrix_y(beta=np.pi), R])
                     translation_x = offset_center
                 else:
                     select &= (y_global_pixel > dut_pos_limit[0]) & (y_global_pixel < dut_pos_limit[1])
                     if slope < 0.0:
-                        R = np.linalg.multi_dot([R, geometry_utils.rotation_matrix_x(alpha=np.pi)])
+                        R = np.linalg.multi_dot([geometry_utils.rotation_matrix_x(alpha=np.pi), R])
                     translation_y = offset_center
             # Calculate index of the limit before setting new alignment parameters
             # Use indices
