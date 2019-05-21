@@ -338,9 +338,17 @@ def euler_angles(R):
             beta_1 = 0.0
         beta_2 = np.pi - beta_1
         alpha_1 = np.arctan2(R[2, 1] / np.cos(beta_1), R[2, 2] / np.cos(beta_1))
+        if alpha_1 <= np.finfo(alpha_1.dtype).eps and alpha_1 >= -np.finfo(alpha_1.dtype).eps:
+            alpha_1 = 0.0
         alpha_2 = np.arctan2(R[2, 1] / np.cos(beta_2), R[2, 2] / np.cos(beta_2))
+        if alpha_2 <= np.finfo(alpha_2.dtype).eps and alpha_2 >= -np.finfo(alpha_2.dtype).eps:
+            alpha_2 = 0.0
         gamma_1 = np.arctan2(R[1, 0] / np.cos(beta_1), R[0, 0] / np.cos(beta_1))
+        if gamma_1 <= np.finfo(gamma_1.dtype).eps and gamma_1 >= -np.finfo(gamma_1.dtype).eps:
+            gamma_1 = 0.0
         gamma_2 = np.arctan2(R[1, 0] / np.cos(beta_2), R[0, 0] / np.cos(beta_2))
+        if gamma_2 <= np.finfo(gamma_2.dtype).eps and gamma_2 >= -np.finfo(gamma_2.dtype).eps:
+            gamma_2 = 0.0
         # chose the angles with smaller values
         if np.sum(np.abs([alpha_1, beta_1, gamma_1])) <= np.sum(np.abs([alpha_2, beta_2, gamma_2])):
             alpha, beta, gamma = alpha_1, beta_1, gamma_1
