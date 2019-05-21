@@ -616,7 +616,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         if alignment_parameter is None:
             alignment_parameters[index] = [None] * len(select_duts[index])
         if len(alignment_parameters[index]) != len(select_duts[index]):  # check the length of the items
-            raise ValueError("item in alignment_parameter wrong length")
+            raise ValueError("item in alignment_parameter has the wrong length")
 
     # Create track, hit selection
     if select_hit_duts is None:  # If None: use all DUTs
