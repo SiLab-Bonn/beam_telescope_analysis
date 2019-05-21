@@ -333,6 +333,9 @@ def euler_angles(R):
         beta = -np.pi / 2
     else:
         beta_1 = -np.arcsin(R[2, 0])
+        # for very small values use 0.0 and remove minus sign from 0.0
+        if beta_1 <= np.finfo(beta_1.dtype).eps and beta_1 >= -np.finfo(beta_1.dtype).eps:
+            beta_1 = 0.0
         beta_2 = np.pi - beta_1
         alpha_1 = np.arctan2(R[2, 1] / np.cos(beta_1), R[2, 2] / np.cos(beta_1))
         alpha_2 = np.arctan2(R[2, 1] / np.cos(beta_2), R[2, 2] / np.cos(beta_2))

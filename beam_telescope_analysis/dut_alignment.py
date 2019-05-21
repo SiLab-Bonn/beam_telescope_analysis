@@ -209,6 +209,14 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                 x_global_pixel = np.hstack([x_global_pixel, global_positions[0]])
                 y_global_pixel = np.hstack([y_global_pixel, global_positions[1]])
                 z_global_pixel = np.hstack([z_global_pixel, global_positions[2]])
+            # calculate rotation matrix for later rotation corrections
+            rotation_alpha = telescope[dut_index].rotation_alpha
+            rotation_beta = telescope[dut_index].rotation_beta
+            rotation_gamma = telescope[dut_index].rotation_gamma
+            R = geometry_utils.rotation_matrix(
+                alpha=rotation_alpha,
+                beta=rotation_beta,
+                gamma=rotation_gamma)
             for x_direction in [True, False]:
                 if reduce_background:
                     node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d_reduced_background' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
@@ -294,22 +302,12 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                 if x_direction:
                     select = (x_global_pixel > dut_pos_limit[0]) & (x_global_pixel < dut_pos_limit[1])
                     if slope < 0.0:
-                        if telescope[dut_index].rotation_beta <= 0.0:
-                            rotation_beta = telescope[dut_index].rotation_beta + np.pi
-                        else:
-                            rotation_beta = telescope[dut_index].rotation_beta - np.pi
-                    else:
-                        rotation_beta = telescope[dut_index].rotation_beta
+                        R = np.linalg.multi_dot([R, geometry_utils.rotation_matrix_y(beta=np.pi)])
                     translation_x = offset_center
                 else:
                     select &= (y_global_pixel > dut_pos_limit[0]) & (y_global_pixel < dut_pos_limit[1])
                     if slope < 0.0:
-                        if telescope[dut_index].rotation_alpha <= 0.0:
-                            rotation_alpha = telescope[dut_index].rotation_alpha + np.pi
-                        else:
-                            rotation_alpha = telescope[dut_index].rotation_alpha - np.pi
-                    else:
-                        rotation_alpha = telescope[dut_index].rotation_alpha
+                        R = np.linalg.multi_dot([R, geometry_utils.rotation_matrix_x(alpha=np.pi)])
                     translation_y = offset_center
             # Calculate index of the limit before setting new alignment parameters
             # Use indices
@@ -329,8 +327,10 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
             telescope[dut_index].row_limit = (min(local_coordinates[1]), max(local_coordinates[1]))
             telescope[dut_index].translation_x = translation_x
             telescope[dut_index].translation_y = translation_y
+            rotation_alpha, rotation_beta, rotation_gamma = geometry_utils.euler_angles(R=R)
             telescope[dut_index].rotation_alpha = rotation_alpha
             telescope[dut_index].rotation_beta = rotation_beta
+            telescope[dut_index].rotation_gamma = rotation_gamma
 
     telescope.save_configuration(configuration_file=output_telescope_configuration)
 
