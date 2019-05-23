@@ -520,6 +520,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     max_iterations : uint
         Maximum number of iterations of calc residuals, apply rotation refit loop until constant result is expected.
         Usually the procedure converges rather fast (< 5 iterations).
+        Non-telescope DUTs usually require 2 itearations.
     max_events: uint
         Radomly select max_events for alignment. If None, use all events, which might slow down the alignment.
     fit_method : string
