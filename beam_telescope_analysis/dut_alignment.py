@@ -464,7 +464,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -508,6 +508,11 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         The given DUTs will be used to align the telescope along the z-axis.
         Usually the coordinates of these DUTs are well specified.
         At least 2 DUTs need to be specified. The z-position of the selected DUTs will not be changed by default.
+    select_extrapolation_duts : list
+        The given DUTs will be used for track extrapolation for improving track finding efficiency.
+        In some rare cases, removing DUTs with a coarse resolution might improve track finding efficiency.
+        If None, select all DUTs.
+        If list is empty or has a single entry, disable extrapolation (at least 2 DUTs are required for extrapolation to work).
     select_fit_duts : iterable or iterable of iterable
         Defines for each select_duts combination wich devices to use in the track fit.
         E.g. To use only the telescope planes (first and last 3 planes) but not the 2 center devices
@@ -737,6 +742,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             align_duts=align_duts,
             alignment_parameters=alignment_parameters[index],
             select_telescope_duts=select_telescope_duts,
+            select_extrapolation_duts=select_extrapolation_duts,
             select_fit_duts=select_fit_duts[index],
             select_hit_duts=select_hit_duts[index],
             max_iterations=max_iterations[index],
@@ -755,7 +761,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, alignment_parameters, select_telescope_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
     output_prealigned_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_prealigned.h5'
@@ -770,6 +776,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
         telescope_configuration=input_telescope_configuration,
         input_merged_file=merged_file,
         output_track_candidates_file=output_prealigned_track_candidates_file,
+        select_extrapolation_duts=select_extrapolation_duts,
         align_to_beam=True,
         max_events=max_events)
     output_track_candidates_file = None
@@ -804,6 +811,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
                 telescope_configuration=output_telescope_configuration,
                 input_merged_file=merged_file,
                 output_track_candidates_file=output_track_candidates_file,
+                select_extrapolation_duts=select_extrapolation_duts,
                 align_to_beam=True,
                 max_events=max_events)
 
@@ -912,6 +920,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
     #         telescope_configuration=output_telescope_configuration,
     #         input_merged_file=merged_file,
     #         output_track_candidates_file=final_track_candidates_file,
+    #         select_extrapolation_duts=select_extrapolation_duts,
     #         align_to_beam=True,
     #         max_events=max_events)
 

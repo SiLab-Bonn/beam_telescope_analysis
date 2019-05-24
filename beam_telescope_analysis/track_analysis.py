@@ -23,7 +23,7 @@ from beam_telescope_analysis.tools import geometry_utils
 from beam_telescope_analysis.tools import kalman
 
 
-def find_tracks(telescope_configuration, input_merged_file, output_track_candidates_file=None, max_events=None, align_to_beam=True, chunk_size=1000000):
+def find_tracks(telescope_configuration, input_merged_file, output_track_candidates_file=None, select_extrapolation_duts=None, align_to_beam=True, max_events=None, chunk_size=1000000):
     '''Sorting DUT hits and tries to find hits in subsequent DUTs matching the hits in the first DUT.
     The output is the track candidates array which has the hits in a different order compared to the tracklets array (merged array).
 
@@ -35,13 +35,18 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
         Filename of the input merged cluster file containing the hit information from all DUTs.
     output_track_candidates_file : string
         Filename of the output track candidates file.
-    max_events : uint
-        Maximum number of randomly chosen events. If None, all events are taken.
+    select_extrapolation_duts : list
+        The given DUTs will be used for track extrapolation for improving track finding efficiency.
+        In some rare cases, removing DUTs with a coarse resolution might improve track finding efficiency.
+        If None, select all DUTs.
+        If list is empty or has a single entry, disable extrapolation (at least 2 DUTs are required for extrapolation to work).
     align_to_beam : bool
         If True, the telescope alignment is used to align the DUTs so that the beam axis is parallel to the z axis.
         This improves the performance of track finding algorithm.
         If False, the beam axis is not corrected and large track angles and high track densities
         have an impact on the performance of the track finding algorithm.
+    max_events : uint
+        Maximum number of randomly chosen events. If None, all events are taken.
     chunk_size : uint
         Chunk size of the data when reading from file.
 
@@ -56,6 +61,14 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 
     if output_track_candidates_file is None:
         output_track_candidates_file = os.path.join(os.path.dirname(input_merged_file), 'Track_Candidates.h5')
+
+    if select_extrapolation_duts is None:
+        select_extrapolation_duts = range(n_duts)
+    elif isinstance(select_extrapolation_duts, (list, tuple)):
+        if set(select_extrapolation_duts) - set(range(n_duts)):
+            raise ValueError("Found invalid DUTs in select_extrapolation_duts: %s" % ', '.join(str(dut) for dut in (set(select_extrapolation_duts) - set(range(n_duts)))))
+    else:
+        raise ValueError("Invalid value for select_extrapolation_duts")
 
 # TODO: implement max_events into SMC
 #     def work(tracklets_data_chunk):
@@ -261,6 +274,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                     x=x_global,
                     y=y_global,
                     z=z_global,
+                    select_extrapolation_duts=select_extrapolation_duts,
                     translation=translation,
                     normal=normal)
                 # copy the columns to the result array
@@ -286,7 +300,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 
 
 @njit
-def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, translation, normal):
+def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, select_extrapolation_duts, translation, normal):
     ''' This function provides an algorithm to generates the track candidates from the tracklets array.
     Each hit is put to the best fitting track. Tracks are assumed to have
     no big angle, otherwise this approach does not work.
@@ -313,6 +327,7 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, tra
                             x=x,
                             y=y,
                             z=z,
+                            select_extrapolation_duts=select_extrapolation_duts,
                             translation=translation,
                             normal=normal)
                     track_index2 += 1
@@ -321,7 +336,7 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, tra
 
 
 @njit
-def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, track_index, dut_index, x, y, z, translation, normal):
+def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index, track_index, dut_index, x, y, z, select_extrapolation_duts, translation, normal):
     swap = False
     # The hit distance of the actual assigned hit; -1 means not assigned
     first_reference_dut_index = _get_first_dut_index(
@@ -347,16 +362,18 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
         for i, val in enumerate(z_sorted_dut_indices):
             if val == curr_dut_index:
                 sorted_dut_index = i
-        if sorted_dut_index <= 0:
+        if sorted_dut_index == 0:
             break
         reference_dut_index = _get_last_dut_index(
             x=x,
             track_index=track_index,
             z_sorted_dut_indices=z_sorted_dut_indices[:sorted_dut_index])
-        if cnt == 0 and reference_dut_index != -1:
+        if reference_dut_index == -1:
+            break
+        if cnt == 0 and reference_dut_index in select_extrapolation_duts:
             second_ref_dut_index = reference_dut_index
             cnt = cnt + 1
-        elif cnt == 1 and reference_dut_index != -1:
+        elif cnt == 1 and reference_dut_index in select_extrapolation_duts:
             first_ref_dut_index = reference_dut_index
             cnt = cnt + 1
         curr_dut_index = reference_dut_index
@@ -417,30 +434,32 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
                 for i, val in enumerate(z_sorted_dut_indices):
                     if val == curr_other_dut_index:
                         sorted_dut_index = i
-                if sorted_dut_index <= 0:
+                if sorted_dut_index == 0:
                     break
                 other_reference_dut_index = _get_last_dut_index(
                     x=x,
                     track_index=hit_index,
                     z_sorted_dut_indices=z_sorted_dut_indices[:sorted_dut_index])
-                if cnt == 0 and other_reference_dut_index != -1:
-                    second_ref_dut_index = other_reference_dut_index
+                if other_reference_dut_index == -1:
+                    break
+                if cnt == 0 and other_reference_dut_index in select_extrapolation_duts:
+                    second_other_ref_dut_index = other_reference_dut_index
                     cnt = cnt + 1
-                elif cnt == 1 and other_reference_dut_index != -1:
-                    first_ref_dut_index = other_reference_dut_index
+                elif cnt == 1 and other_reference_dut_index in select_extrapolation_duts:
+                    first_other_ref_dut_index = other_reference_dut_index
                     cnt = cnt + 1
                 curr_other_dut_index = other_reference_dut_index
             if cnt == 2:
-                u_0 = x[hit_index][second_ref_dut_index] - x[hit_index][first_ref_dut_index]
-                u_1 = y[hit_index][second_ref_dut_index] - y[hit_index][first_ref_dut_index]
-                u_2 = z[hit_index][second_ref_dut_index] - z[hit_index][first_ref_dut_index]
+                u_0 = x[hit_index][second_other_ref_dut_index] - x[hit_index][first_other_ref_dut_index]
+                u_1 = y[hit_index][second_other_ref_dut_index] - y[hit_index][first_other_ref_dut_index]
+                u_2 = z[hit_index][second_other_ref_dut_index] - z[hit_index][first_other_ref_dut_index]
                 u_len = np.sqrt(u_0**2 + u_1**2 + u_2**2)
                 u_0 /= u_len
                 u_1 /= u_len
                 u_2 /= u_len
-                w_0 = x[hit_index][second_ref_dut_index] - translation[dut_index][0]
-                w_1 = y[hit_index][second_ref_dut_index] - translation[dut_index][1]
-                w_2 = z[hit_index][second_ref_dut_index] - translation[dut_index][2]
+                w_0 = x[hit_index][second_other_ref_dut_index] - translation[dut_index][0]
+                w_1 = y[hit_index][second_other_ref_dut_index] - translation[dut_index][1]
+                w_2 = z[hit_index][second_other_ref_dut_index] - translation[dut_index][2]
                 s_i = -(normal[dut_index][0] * w_0 + normal[dut_index][1] * w_1 + normal[dut_index][2] * w_2) / (normal[dut_index][0] * u_0 + normal[dut_index][1] * u_1 + normal[dut_index][2] * u_2)
                 reference_x_other = translation[dut_index][0] + w_0 + s_i * u_0
                 reference_y_other = translation[dut_index][1] + w_1 + s_i * u_1
@@ -485,6 +504,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             x=x,
             y=y,
             z=z,
+            select_extrapolation_duts=select_extrapolation_duts,
             translation=translation,
             normal=normal)
 
@@ -1348,19 +1368,16 @@ def _fit_tracks_loop(track_hits):
     return offset, slope
 
 
-def line_fit_3d(positions, n=None):
+def line_fit_3d(positions):
     ''' Do 3D line fit and calculate chi2 for each fit.
     '''
     # remove NaNs from data
     positions = positions[~np.isnan(positions).any(axis=1)]
-    if n:
-        positions = positions[:n]
-    # subtract mean for each component (x,y,z) for SVD calculation
-    datamean = positions.mean(axis=0)
-    offset = datamean
-    # calculating offset and slope
+    # calculating offset and slope for given set of 3D points
+    # calculate mean to subtract mean for each component (x,y,z) for SVD calculation
+    offset = positions.mean(axis=0)
     # TODO: mean calculation and substraction can be raplced with svd(cov(points))
-    slope = np.linalg.svd(positions - datamean, full_matrices=False)[2][0]  # http://stackoverflow.com/questions/2298390/fitting-a-line-in-3d
+    slope = np.linalg.svd(positions - offset, full_matrices=False)[2][0]  # http://stackoverflow.com/questions/2298390/fitting-a-line-in-3d
     # normalize to 1
     slope_mag = np.sqrt(slope.dot(slope))
     slope /= slope_mag
