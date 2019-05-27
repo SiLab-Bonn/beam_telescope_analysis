@@ -1224,17 +1224,17 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
                 slopes_y_local,
                 slopes_z_local])
 
-     # Calculate chi2
-     if method != 'kalman':
-         # calculate the sum of the squared x/y residuals of the fit DUT planes in the local coordinate system, divided by n fit DUT hits per track (normalization)
-         # track_chi2s = np.sum(np.ma.masked_invalid(xy_residuals_squared[:, select_fit_duts]), axis=1) / np.count_nonzero(~np.isnan(xy_residuals_squared[:, select_fit_duts]), axis=1)
-         track_chi2s = (np.sum(np.ma.masked_invalid(x_residuals_squared[:, select_fit_duts] / x_err_squared[:, select_fit_duts]), axis=1) + np.sum(np.ma.masked_invalid(y_residuals_squared[:, select_fit_duts] / y_err_squared[:, select_fit_duts]), axis=1))
-         # select tracks that have more than 2 data points
-         select_nonzero = (track_chi2s != 0.0)
-         # divide by d.o.f.
-         track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
-     else:
-         track_chi2s = track_chi2s
+        # Calculate chi2
+        if method != 'kalman':
+            # calculate the sum of the squared x/y residuals of the fit DUT planes in the local coordinate system, divided by n fit DUT hits per track (normalization)
+            # track_chi2s = np.sum(np.ma.masked_invalid(xy_residuals_squared[:, select_fit_duts]), axis=1) / np.count_nonzero(~np.isnan(xy_residuals_squared[:, select_fit_duts]), axis=1)
+            track_chi2s = (np.sum(np.ma.masked_invalid(x_residuals_squared[:, select_fit_duts] / x_err_squared[:, select_fit_duts]), axis=1) + np.sum(np.ma.masked_invalid(y_residuals_squared[:, select_fit_duts] / y_err_squared[:, select_fit_duts]), axis=1))
+            # select tracks that have more than 2 data points
+            select_nonzero = (track_chi2s != 0.0)
+            # divide by d.o.f.
+            track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
+        else:
+            track_chi2s = track_chi2s
 
     for dut_index, dut in enumerate(telescope):
         if dut_index not in fit_duts:
