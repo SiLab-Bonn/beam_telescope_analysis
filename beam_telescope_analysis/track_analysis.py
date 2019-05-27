@@ -6,6 +6,9 @@ import os.path
 from multiprocessing import Pool, cpu_count
 import math
 from collections import Iterable
+import functools
+import itertools
+from itertools import combinations
 
 import tables as tb
 import numpy as np
@@ -521,7 +524,7 @@ def _get_last_dut_index(x, track_index, z_sorted_dut_indices):
     return -1
 
 
-def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, select_align_duts=None, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
+def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, exclude_dut_hit=True, select_align_duts=None, min_track_hits=None, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
     '''Calculate tracks and set tracks quality flag for selected DUTs.
     Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
 
@@ -553,6 +556,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     select_align_duts : list
         Specify the DUTs for which a residual offset correction is to be carried out.
         Note: This functionality is only used for the alignment of the DUTs.
+    min_track_hits : int
+        Minimum number of hits in DUTs required for track fitting (excluding DUTs in select_hit_duts).
     method : string
         Available methods are 'kalman', which uses a Kalman Filter for track calculation, and 'fit', which uses a simple
         straight line fit for track calculation.
@@ -722,6 +727,13 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
         raise ValueError("Not all items in parameter exclude_dut_hit are boolean.")
 
+    # Check iterable and length
+    if not isinstance(min_track_hits, Iterable):
+        min_track_hits = [min_track_hits] * len(select_duts)
+    # Finally check length of all arrays
+    if len(min_track_hits) != len(select_duts):  # empty iterable
+        raise ValueError("min_track_hits has the wrong length")
+
     fitted_duts = []
     pool = Pool()
     with tb.open_file(input_track_candidates_file, mode='r') as in_file_h5:
@@ -751,11 +763,35 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 total_n_events_stored = 0
 
                 # select hit DUTs based on input parameters
-                dut_hit_selection = 0  # DUTs required to have hits
                 hit_duts = list(set(select_hit_duts[fit_dut_index]) - set(actual_fit_duts)) if exclude_dut_hit[fit_dut_index] else select_hit_duts[fit_dut_index]
-                for dut_index in hit_duts:
-                    dut_hit_selection |= ((1 << dut_index))
-                logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
+                actual_min_track_hits = min_track_hits[fit_dut_index]
+                if actual_min_track_hits is None:
+                    dut_hit_selection = 0  # DUTs required to have hits
+                    for dut_index in hit_duts:
+                        dut_hit_selection |= ((1 << dut_index))
+                    dut_hit_selection = [dut_hit_selection]
+                else:
+                    dut_hit_selection = []
+                    all_dut_hit_selection = 0
+                    can_have_hits = list(set(range(len(telescope))) - set(select_hit_duts[fit_dut_index]))  # DUTs which can have a hit (exclude DUTs which require a hit)
+                    dut_hit_combinations = combinations(can_have_hits, actual_min_track_hits)  # Get all possible combinations of DUTs which can have a hit
+
+                    all_hit_duts = can_have_hits + hit_duts  # Duts which are allowed to have a hit
+                    for index in all_hit_duts:
+                        all_dut_hit_selection |= (1 << index)
+
+                    # Create dut hit selection
+                    for dut_hit_combination in list(dut_hit_combinations):  # Loop over all combinations
+                        hit_selection = all_dut_hit_selection  # Reset hit selection for every combination
+                        no_hit_duts = set(can_have_hits) - set(dut_hit_combination)
+                        for index in no_hit_duts:
+                            hit_selection -= (1 << index)  # Substract each DUT
+                        dut_hit_selection.append(hit_selection)
+                if actual_min_track_hits is None:
+                    logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
+                else:
+                    logging.info('Require at least %d hits in the following DUTs for track selection: %s', actual_min_track_hits, ', '.join([telescope[curr_dut].name for curr_dut in can_have_hits]))
+                    logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
                 # select fit DUTs based on input parameters
                 dut_fit_selection = 0  # DUTs to be used for the fit
                 fit_duts = list(set(select_fit_duts[fit_dut_index]) - set(actual_fit_duts)) if exclude_dut_hit[fit_dut_index] else select_fit_duts[fit_dut_index]
@@ -778,7 +814,11 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     #     break
                     # Select tracks based on the DUTs that are required to have a hit (dut_selection) with a certain quality (track_quality)
                     n_tracks_chunk = track_candidates_chunk.shape[0]
-                    good_track_selection = (track_candidates_chunk['hit_flag'] & dut_hit_selection) == dut_hit_selection
+                    for i, dut_hit_sel in enumerate(dut_hit_selection):  # Loop over possible dut_hit_selections
+                        if i == 0:
+                            good_track_selection = (track_candidates_chunk['hit_flag'] & dut_hit_sel) == dut_hit_sel
+                        else:
+                            good_track_selection = np.logical_or(good_track_selection, (track_candidates_chunk['hit_flag'] & dut_hit_sel) == dut_hit_sel)
                     # remove tracks that have only a single DUT with a hit
                     for index, bit in enumerate(np.binary_repr(dut_fit_selection)[::-1]):  # iterate from LSB to MSB
                         if bit == "0":
