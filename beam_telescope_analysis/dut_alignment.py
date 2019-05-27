@@ -958,6 +958,8 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             select_duts=actual_align_duts,
             select_hit_duts=actual_hit_duts,
             select_quality_duts=actual_quality_duts,
+            select_track_isolation_duts=actual_quality_duts,
+            select_hit_isolation_duts=actual_quality_duts,
             # Select good tracks und limit cluster size to 4
             condition=select_condition,
             max_events=None,
