@@ -1568,6 +1568,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
         observation_covariances[index, duts_with_hits, 1, 1] = np.square(actual_hits[duts_with_hits, 4])
         # FIXME: include meaningful error on z-position and investigate behavior of z_err
         # observation_covariances[index, duts_with_hits, 2, 2] = np.square(actual_hits[duts_with_hits, 5])
+        observation_covariances[index, duts_with_hits, 2, 2] = np.square(1e3)  # Assume 1 mm error on z-position measurement
 
         if np.isnan(actual_hits[z_sorted_dut_indices[0], 0]):  # The first plane has no hit
             # Take planes from fit selction and fit a line to the hits,
