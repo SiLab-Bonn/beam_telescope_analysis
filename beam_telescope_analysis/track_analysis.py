@@ -890,6 +890,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # Store results
                     offsets = np.concatenate([result.get()[0] for result in results])  # Merge offsets from all cores in results
                     slopes = np.concatenate([result.get()[1] for result in results])  # Merge slopes from all cores in results
+                    if method == 'kalman':
+                        track_chi2s = np.concatenate([result.get()[2] for result in results])  # Merge track chi2 from all cores in results
+                    else:
+                        track_chi2s = None
                     # Store the data
                     # Check if all DUTs were fitted at once
                     dut_stats.append(store_track_data(
@@ -899,6 +903,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         telescope=telescope,
                         offsets=offsets,
                         slopes=slopes,
+                        track_chi2s=track_chi2s,
                         fit_duts=actual_fit_duts,  # storing tracks for these DUTs
                         select_fit_duts=fit_duts,  # DUTs used for fitting tracks
                         select_align_duts=select_align_duts,
@@ -940,7 +945,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, fit_duts, select_fit_duts, select_align_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, track_chi2s, fit_duts, select_fit_duts, select_align_duts, quality_distances, reject_quality_distances, use_limits, keep_data, method, full_track_info):
     dut_stats = []
     fit_duts_offsets = []
     fit_duts_slopes = []
@@ -1179,13 +1184,17 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
                 slopes_y_local,
                 slopes_z_local])
 
-    # calculate the sum of the squared x/y residuals of the fit DUT planes in the local coordinate system, divided by n fit DUT hits per track (normalization)
-    # track_chi2s = np.sum(np.ma.masked_invalid(xy_residuals_squared[:, select_fit_duts]), axis=1) / np.count_nonzero(~np.isnan(xy_residuals_squared[:, select_fit_duts]), axis=1)
-    track_chi2s = (np.sum(np.ma.masked_invalid(x_residuals_squared[:, select_fit_duts] / x_err_squared[:, select_fit_duts]), axis=1) + np.sum(np.ma.masked_invalid(y_residuals_squared[:, select_fit_duts] / y_err_squared[:, select_fit_duts]), axis=1))
-    # select tracks that have more than 2 data points
-    select_nonzero = (track_chi2s != 0.0)
-    # divide by d.o.f.
-    track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
+     # Calculate chi2
+     if method != 'kalman':
+         # calculate the sum of the squared x/y residuals of the fit DUT planes in the local coordinate system, divided by n fit DUT hits per track (normalization)
+         # track_chi2s = np.sum(np.ma.masked_invalid(xy_residuals_squared[:, select_fit_duts]), axis=1) / np.count_nonzero(~np.isnan(xy_residuals_squared[:, select_fit_duts]), axis=1)
+         track_chi2s = (np.sum(np.ma.masked_invalid(x_residuals_squared[:, select_fit_duts] / x_err_squared[:, select_fit_duts]), axis=1) + np.sum(np.ma.masked_invalid(y_residuals_squared[:, select_fit_duts] / y_err_squared[:, select_fit_duts]), axis=1))
+         # select tracks that have more than 2 data points
+         select_nonzero = (track_chi2s != 0.0)
+         # divide by d.o.f.
+         track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
+     else:
+         track_chi2s = track_chi2s
 
     for dut_index, dut in enumerate(telescope):
         if dut_index not in fit_duts:
@@ -1562,7 +1571,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             # initial_state_covariance[index, 2, 2] = np.square(actual_hits[z_sorted_dut_indices[0], 5])
 
     # run kalman filter
-    track_estimates_chunk, x_err, y_err = _kalman_fit_3d(
+    track_estimates_chunk, x_err, y_err, chi2 = _kalman_fit_3d(
         dut_planes=all_dut_planes,
         z_sorted_dut_indices=z_sorted_dut_indices,
         hits=track_hits[:, :, 0:3],
@@ -1588,7 +1597,10 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     slopes_mag = np.sqrt(np.einsum('ijk,ijk->ij', slopes, slopes))
     slopes /= slopes_mag[:, :, np.newaxis]
 
-    return offsets, slopes, x_err, y_err
+    # Sum up all chi2 and divide by number of degrees of freedom
+    chi2 = np.nansum(chi2, axis=1) / np.count_nonzero(~np.isnan(chi2), axis=1)
+
+    return offsets, slopes, chi2, x_err, y_err
 
 
 def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_duts, transition_offsets, observation_matrices, observation_covariances, observation_offsets, initial_state_mean, initial_state_covariance):
@@ -1637,7 +1649,7 @@ def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_du
         state covariance matrix.
     '''
     kf = kalman.KalmanFilter()
-    smoothed_state_estimates, cov = kf.smooth(
+    smoothed_state_estimates, cov, chi2 = kf.smooth(
         dut_planes=dut_planes,
         z_sorted_dut_indices=z_sorted_dut_indices,
         observations=hits[:, :, 0:3],
@@ -1661,4 +1673,4 @@ def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_du
     if np.any(np.isnan(smoothed_state_estimates)):
         logging.warning('Smoothed state estimates contain invalid values (NaNs). Check input of Kalman Filter.')
 
-    return smoothed_state_estimates, x_err, y_err
+    return smoothed_state_estimates, x_err, y_err, chi2

@@ -94,7 +94,12 @@ def _filter_correct(observation_matrix, observation_covariance,
     filtered_state[no_observation_indices, :] = predicted_state[no_observation_indices, :]
     filtered_state_covariance[no_observation_indices, :, :] = predicted_state_covariance[no_observation_indices, :, :]
 
-    return kalman_gain, filtered_state, filtered_state_covariance
+    # Calculate chi2
+    filtered_residuals = observation - _vec_mul(observation_matrix, filtered_state)
+    filtered_residuals_covariance = observation_covariance - _mat_mul(observation_matrix, _mat_mul(filtered_state_covariance, _mat_trans(observation_matrix)))[:, :3, :3]
+    chi2 = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
+
+    return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
 
 def _filter(dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_duts,
@@ -159,6 +164,7 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_d
     kalman_gains = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_obs))
     filtered_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
     filtered_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
+    chi2 = np.zeros((chunk_size, n_timesteps))
     # array where new transition matrices are stored, needed to pass it to kalman smoother
     transition_matrices_update = np.zeros_like(transition_covariances)
 
@@ -235,7 +241,7 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_d
             # DUT is a fit dut:
             # set filter to prediction where no hit is available,
             # otherwise calculate filtered state.
-            kalman_gains[:, dut_index], filtered_states[:, dut_index], filtered_state_covariances[:, dut_index] = _filter_correct(
+            kalman_gains[:, dut_index], filtered_states[:, dut_index], filtered_state_covariances[:, dut_index], chi2[:, dut_index] = _filter_correct(
                 observation_matrix=observation_matrices[:, dut_index],
                 observation_covariance=observation_covariances[:, dut_index],
                 observation_offset=observation_offsets[:, dut_index],
@@ -262,11 +268,12 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_d
         # set x/y/z
         filtered_states[:, dut_index, 0:3] = intersections
 
-    return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, transition_matrices_update
+    return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, transition_matrices_update, chi2
 
 
 @njit
-def _smooth_update(transition_matrix, filtered_state,
+def _smooth_update(observation, observation_matrix, observation_covariance,
+                   transition_matrix, filtered_state,
                    filtered_state_covariance, predicted_state,
                    predicted_state_covariance, next_smoothed_state,
                    next_smoothed_state_covariance):
@@ -309,10 +316,18 @@ def _smooth_update(transition_matrix, filtered_state,
     smoothed_state_covariance = filtered_state_covariance + _mat_mul(kalman_smoothing_gain,
                                                                      _mat_mul((next_smoothed_state_covariance - predicted_state_covariance),
                                                                               _mat_trans(kalman_smoothing_gain)))
-    return smoothed_state, smoothed_state_covariance, kalman_smoothing_gain
+
+    # Calculate chi2
+    smoothed_residuals = observation - _vec_mul(observation_matrix, smoothed_state)
+    smoothed_residuals_covariance = observation_covariance - _mat_mul(observation_matrix, _mat_mul(smoothed_state_covariance, _mat_trans(observation_matrix)))[:, :3, :3]
+    chi2 = _vec_vec_mul(smoothed_residuals, _vec_mul(_mat_inverse(smoothed_residuals_covariance), smoothed_residuals))
+
+    return smoothed_state, smoothed_state_covariance, kalman_smoothing_gain, chi2
 
 
-def _smooth(dut_planes, z_sorted_dut_indices, transition_matrices, filtered_states,
+def _smooth(dut_planes, z_sorted_dut_indices,
+            observations, observation_matrices, observation_covariances,
+            transition_matrices, filtered_states,
             filtered_state_covariances, predicted_states,
             predicted_state_covariances):
     """Apply the Kalman Smoother to filtered states. Estimate the smoothed states.
@@ -348,6 +363,7 @@ def _smooth(dut_planes, z_sorted_dut_indices, transition_matrices, filtered_stat
     smoothed_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
     smoothed_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
     kalman_smoothing_gains = np.zeros((chunk_size, n_timesteps - 1, n_dim_state, n_dim_state))
+    chi2 = np.zeros((chunk_size, n_timesteps))
 
     smoothed_states[:, -1] = filtered_states[:, -1]
     smoothed_state_covariances[:, -1] = filtered_state_covariances[:, -1]
@@ -355,9 +371,11 @@ def _smooth(dut_planes, z_sorted_dut_indices, transition_matrices, filtered_stat
     # reverse order for smoother
     for i, dut_index in enumerate(z_sorted_dut_indices[:-1][::-1]):
         dut = dut_planes[dut_index]
-        transition_matrix = transition_matrices[:, dut_index]
-        smoothed_states[:, dut_index], smoothed_state_covariances[:, dut_index], kalman_smoothing_gains[:, dut_index] = _smooth_update(
-            transition_matrix,
+        smoothed_states[:, dut_index], smoothed_state_covariances[:, dut_index], kalman_smoothing_gains[:, dut_index], chi2[:, dut_index] = _smooth_update(
+            observations[:, dut_index],
+            observation_matrices[:, dut_index],
+            observation_covariances[:, dut_index],
+            transition_matrices[:, dut_index],
             filtered_states[:, dut_index],
             filtered_state_covariances[:, dut_index],
             predicted_states[:, z_sorted_dut_indices[::-1][i]],  # next plane in +z direction
@@ -378,7 +396,19 @@ def _smooth(dut_planes, z_sorted_dut_indices, transition_matrices, filtered_stat
 
         smoothed_states[:, dut_index, 0:3] = intersections_smooth
 
-    return smoothed_states, smoothed_state_covariances, kalman_smoothing_gains
+    return smoothed_states, smoothed_state_covariances, kalman_smoothing_gains, chi2
+
+
+@njit
+def _vec_vec_mul(X, Y):
+    '''Helper function to multiply 3D vector with 3D vector. Multiplication is done on last two axes.
+    '''
+    result = np.zeros((X.shape[0]))
+    for l in range(X.shape[0]):
+        # iterate through rows of X
+        for i in range(X.shape[1]):
+            result[l] += X[l][i] * Y[l][i]
+    return result
 
 
 @njit
@@ -542,7 +572,7 @@ class KalmanFilter(object):
                                                        [0] * n_duts]).T
         transition_covariances[:, :, :, 5] = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-        predicted_states, predicted_state_covariances, _, filtered_states, filtered_state_covariances, transition_matrices = _filter(
+        predicted_states, predicted_state_covariances, _, filtered_states, filtered_state_covariances, transition_matrices, chi2s_filter = _filter(
             dut_planes=dut_planes,
             z_sorted_dut_indices=z_sorted_dut_indices,
             thetas=thetas,
@@ -557,13 +587,16 @@ class KalmanFilter(object):
             initial_state=initial_state,
             initial_state_covariance=initial_state_covariance)
 
-        smoothed_states, smoothed_state_covariances, smoothed_kalman_gains = _smooth(
+        smoothed_states, smoothed_state_covariances, smoothed_kalman_gains, chi2s_smooth = _smooth(
             dut_planes=dut_planes,
             z_sorted_dut_indices=z_sorted_dut_indices,
+            observations=observations,
+            observation_matrices=observation_matrices,
+            observation_covariances=observation_covariances,
             transition_matrices=transition_matrices,
             filtered_states=filtered_states,
             filtered_state_covariances=filtered_state_covariances,
             predicted_states=predicted_states,
             predicted_state_covariances=predicted_state_covariances)
 
-        return smoothed_states, smoothed_state_covariances
+        return smoothed_states, smoothed_state_covariances, chi2s_smooth
