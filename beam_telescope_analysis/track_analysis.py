@@ -1535,6 +1535,8 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
 
     # rms angle of multiple scattering
     thetas = np.array(((13.6 / momentum / beta) * np.sqrt(material_budget) * (1. + 0.038 * np.log(material_budget))))
+    # error on z-position
+    z_error = 1e3  # Assume 1 mm error on z-position (alignment, precision of setup,...)
 
     # express transition and observation offset matrices
     # these are additional offsets, which are not used at the moment
@@ -1566,9 +1568,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
         duts_with_hits = np.array(range(n_duts), dtype=np.int)[~np.isnan(actual_hits[:, 0])]
         observation_covariances[index, duts_with_hits, 0, 0] = np.square(actual_hits[duts_with_hits, 3])
         observation_covariances[index, duts_with_hits, 1, 1] = np.square(actual_hits[duts_with_hits, 4])
-        # FIXME: include meaningful error on z-position and investigate behavior of z_err
-        # observation_covariances[index, duts_with_hits, 2, 2] = np.square(actual_hits[duts_with_hits, 5])
-        observation_covariances[index, duts_with_hits, 2, 2] = np.square(1e3)  # Assume 1 mm error on z-position measurement
+        observation_covariances[index, duts_with_hits, 2, 2] = np.square(z_error)  # Assume 1 mm error on z-position measurement
 
         if np.isnan(actual_hits[z_sorted_dut_indices[0], 0]):  # The first plane has no hit
             # Take planes from fit selction and fit a line to the hits,
@@ -1608,8 +1608,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             initial_state_mean[index] = [actual_hits[z_sorted_dut_indices[0], 0], actual_hits[z_sorted_dut_indices[0], 1], actual_hits[z_sorted_dut_indices[0], 2], 0.0, 0.0, 1.0]
             initial_state_covariance[index, 0, 0] = np.square(actual_hits[z_sorted_dut_indices[0], 3])  # x_err
             initial_state_covariance[index, 1, 1] = np.square(actual_hits[z_sorted_dut_indices[0], 4])  # y_err
-            # FIXME: include meaningful error on z-position and investigate behavior of z_err
-            # initial_state_covariance[index, 2, 2] = np.square(actual_hits[z_sorted_dut_indices[0], 5])
+            initial_state_covariance[index, 2, 2] = np.square(z_error)
 
     # run kalman filter
     track_estimates_chunk, x_err, y_err, chi2 = _kalman_fit_3d(
