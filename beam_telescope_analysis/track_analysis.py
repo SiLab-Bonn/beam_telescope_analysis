@@ -1637,7 +1637,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     slopes_mag = np.sqrt(np.einsum('ijk,ijk->ij', slopes, slopes))
     slopes /= slopes_mag[:, :, np.newaxis]
 
-    # Sum up all chi2 and divide by number of degrees of freedom
+    # Sum up all chi2 and divide by number of degrees of freedom. TODO: check why chi2 is sometimes negative.
     # chi2 = np.nansum(chi2, axis=1) / np.count_nonzero(~np.isnan(chi2), axis=1)
     chi2 = np.nansum(chi2, axis=1) / (3 * (np.count_nonzero(~np.isnan(chi2[:, select_fit_duts]), axis=1) - 3))
 

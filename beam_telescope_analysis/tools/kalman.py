@@ -456,11 +456,12 @@ def _mat_trans(X):
 
 @njit
 def _mat_inverse(X):
+    # TODO: check if inverse is correct (A x inverse(A) = E). Potential source of errors
     '''Helper function to calculate inverese of 3D matrix. Inversion is done on last two axes.
     '''
     inv = np.zeros((X.shape))
     for i in range(X.shape[0]):
-            inv[i] = linalg.pinv(X[i])
+        inv[i] = linalg.pinv(X[i])
     return inv
 
 
