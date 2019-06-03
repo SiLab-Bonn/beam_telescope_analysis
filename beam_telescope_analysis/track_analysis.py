@@ -556,6 +556,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
         If False, use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
         If True, do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
+    select_align_duts : list
+        Specify the DUTs for which a residual offset correction is to be carried out.
+        Note: This functionality is only used for the alignment of the DUTs.
     method : string
         Available methods are 'kalman', which uses a Kalman Filter for track calculation, and 'fit', which uses a simple
         straight line fit for track calculation.
