@@ -676,8 +676,8 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
 
     if not isinstance(track_chi2, Iterable):
         track_chi2 = [track_chi2] * len(select_duts)
-    # Finally check length of all arrays
-    if len(track_chi2) != len(track_chi2):  # empty iterable
+    # Finally check length
+    if len(track_chi2) != len(select_duts):
         raise ValueError("track_chi2 has the wrong length")
 
     # Create quality distance
@@ -726,8 +726,8 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
 
     if not isinstance(max_events, Iterable):
         max_events = [max_events] * len(select_duts)
-    # Finally check length of all arrays
-    if len(max_events) != len(select_duts):  # empty iterable
+    # Finally check length
+    if len(max_events) != len(select_duts):
         raise ValueError("max_events has the wrong length")
 
     # Loop over all combinations of DUTs to align, simplest case: use all DUTs at once to align
