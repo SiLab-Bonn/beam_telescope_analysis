@@ -852,6 +852,8 @@ def simple_peak_detect(x, y):
     fwhm_value = fwhm_left_right[-1] - fwhm_left_right[0]
     max_position = x[np.argmax(y)]
     center = (fwhm_left_right[0] + fwhm_left_right[-1]) / 2.0
+    if fwhm_value == 0:
+        raise RuntimeError("Cannot determine peak")
     return max_position, center, fwhm_value, fwhm_left_right
 
 
