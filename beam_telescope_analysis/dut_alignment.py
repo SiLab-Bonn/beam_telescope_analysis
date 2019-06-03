@@ -571,18 +571,6 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     n_duts = len(telescope)
     logging.info('=== Alignment of %d DUTs ===' % len(set(np.unique(np.hstack(np.array(select_duts))).tolist())))
 
-    if output_telescope_configuration is None:
-        if 'prealigned' in telescope_configuration:
-            output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned')
-        else:
-            output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
-    elif output_telescope_configuration == telescope_configuration:
-        raise ValueError('Output configuration file must be different from input configuration file.')
-    if os.path.isfile(output_telescope_configuration):
-        logging.info('Configuration file already exists.')
-    else:
-        telescope.save_configuration(configuration_file=output_telescope_configuration)
-
     # Create list with combinations of DUTs to align
     if select_duts is None:  # If None: align all DUTs
         select_duts = range(n_duts)
@@ -730,15 +718,48 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     if len(max_events) != len(select_duts):
         raise ValueError("max_events has the wrong length")
 
-    # Loop over all combinations of DUTs to align, simplest case: use all DUTs at once to align
-    # Usual case: align high resolution devices first, then other devices
-    for index, align_duts in enumerate(select_duts):
-        logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
+    if output_telescope_configuration is None:
+        if 'prealigned' in telescope_configuration:
+            output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned')
+        else:
+            output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
+    elif output_telescope_configuration == telescope_configuration:
+        raise ValueError('Output configuration file must be different from input configuration file.')
+    if os.path.isfile(output_telescope_configuration):
+        logging.info('Output configuration file already exists. Keeping configuration file.')
+        aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
+        # For the case where not all DUTs are aligned,
+        # only revert the alignment for the DUTs that will be aligned.
+        for align_duts in select_duts:
+            for dut in align_duts:
+                aligned_telescope[dut] = telescope[dut]
+        aligned_telescope.save_configuration()
+    else:
+        telescope.save_configuration(configuration_file=output_telescope_configuration)
+    prealigned_track_candidates_file = os.path.splitext(input_merged_file)[0] + '_track_candidates_prealigned_tmp.h5'
+    # clean up remaining files
+    if os.path.isfile(prealigned_track_candidates_file):
+        os.remove(prealigned_track_candidates_file)
 
+    for index, align_duts in enumerate(select_duts):
+        # Find pre-aligned tracks for the 1st step of the alignment.
+        # This file can be used for different sets of alignment DUTs,
+        # so keep the file and remove later.
+        if not os.path.isfile(prealigned_track_candidates_file):
+            logging.info('= Alignment step 0: Finding pre-aligned tracks =')
+            find_tracks(
+                telescope_configuration=telescope_configuration,
+                input_merged_file=input_merged_file,
+                output_track_candidates_file=prealigned_track_candidates_file,
+                select_extrapolation_duts=select_extrapolation_duts,
+                align_to_beam=True,
+                max_events=None)
+
+        logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
         _duts_alignment(
-            input_telescope_configuration=telescope_configuration,  # pre-aligned configuration
             output_telescope_configuration=output_telescope_configuration,  # aligned configuration
             merged_file=input_merged_file,
+            prealigned_track_candidates_file=prealigned_track_candidates_file,
             align_duts=align_duts,
             alignment_parameters=alignment_parameters[index],
             select_telescope_duts=select_telescope_duts,
@@ -758,27 +779,17 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             plot=plot,
             chunk_size=chunk_size)
 
+    if os.path.isfile(prealigned_track_candidates_file):
+        os.remove(prealigned_track_candidates_file)
+
     return output_telescope_configuration
 
 
-def _duts_alignment(input_telescope_configuration, output_telescope_configuration, merged_file, align_duts, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
-    output_prealigned_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_prealigned.h5'
-    prealigned_telescope = Telescope(configuration_file=input_telescope_configuration)
     aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
-    # For the case where not all DUTs are aligned,
-    # only revert the alignment for the DUTs that will be aligned.
-    for dut in align_duts:
-        aligned_telescope[dut] = prealigned_telescope[dut]
-    aligned_telescope.save_configuration()
-    find_tracks(
-        telescope_configuration=input_telescope_configuration,
-        input_merged_file=merged_file,
-        output_track_candidates_file=output_prealigned_track_candidates_file,
-        select_extrapolation_duts=select_extrapolation_duts,
-        align_to_beam=True,
-        max_events=max_events)
+
     output_track_candidates_file = None
     iteration_steps = range(max_iterations)
     for iteration_step in iteration_steps:
@@ -821,7 +832,7 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
         output_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
         fit_tracks(
             telescope_configuration=output_telescope_configuration,
-            input_track_candidates_file=output_prealigned_track_candidates_file if iteration_step == 0 else output_track_candidates_file,
+            input_track_candidates_file=prealigned_track_candidates_file if iteration_step == 0 else output_track_candidates_file,
             output_tracks_file=output_tracks_file,
             select_duts=actual_align_duts,
             select_fit_duts=actual_fit_duts,
@@ -910,7 +921,6 @@ def _duts_alignment(input_telescope_configuration, output_telescope_configuratio
         os.remove(output_selected_tracks_file)
 
     # Delete temporary files
-    os.remove(output_prealigned_track_candidates_file)
     if output_track_candidates_file is not None:
         os.remove(output_track_candidates_file)
 
