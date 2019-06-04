@@ -834,6 +834,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             telescope_configuration=output_telescope_configuration,
             input_track_candidates_file=prealigned_track_candidates_file if iteration_step == 0 else output_track_candidates_file,
             output_tracks_file=output_tracks_file,
+            max_events=None if iteration_step > 0 else max_events,
             select_duts=actual_align_duts,
             select_fit_duts=actual_fit_duts,
             select_hit_duts=actual_hit_duts,
