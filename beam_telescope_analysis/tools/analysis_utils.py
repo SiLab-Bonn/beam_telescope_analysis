@@ -848,7 +848,10 @@ def simple_peak_detect(x, y):
     x = np.array(x)
     # get center of indices for higher precision peak position and FWHM
     x_center = (x[1:] + x[:-1]) / 2.0
-    fwhm_left_right = (x_center[change_indices[0]], x_center[change_indices[-1]])
+    try:
+        fwhm_left_right = (x_center[change_indices[0]], x_center[change_indices[-1]])
+    except IndexError:
+        raise RuntimeError("Cannot determine peak")
     fwhm_value = fwhm_left_right[-1] - fwhm_left_right[0]
     max_position = x[np.argmax(y)]
     center = (fwhm_left_right[0] + fwhm_left_right[-1]) / 2.0
