@@ -254,6 +254,9 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_d
             kalman_gains[:, dut_index] = np.zeros((chunk_size, n_dim_state, n_dim_obs), dtype=np.float64)
             filtered_states[:, dut_index] = predicted_states[:, dut_index]
             filtered_state_covariances[:, dut_index] = predicted_state_covariances[:, dut_index]
+            filtered_residuals = observations[:, dut_index] - _vec_mul(observation_matrices[:, dut_index], filtered_states[:, dut_index])
+            filtered_residuals_covariance = observation_covariances[:, dut_index] - _mat_mul(observation_matrices[:, dut_index], _mat_mul(filtered_state_covariances[:, dut_index], _mat_trans(observation_matrices[:, dut_index])))[:, :3, :3]
+            chi2[:, dut_index] = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
 
         # Set the offset to the track intersection with the tilted plane
         intersections = geometry_utils.get_line_intersections_with_dut(
@@ -365,8 +368,13 @@ def _smooth(dut_planes, z_sorted_dut_indices,
     kalman_smoothing_gains = np.zeros((chunk_size, n_timesteps - 1, n_dim_state, n_dim_state))
     chi2 = np.zeros((chunk_size, n_timesteps))
 
+    # Smoother not done for last plane (At last plane smoothed states are the same as filtered states)
     smoothed_states[:, -1] = filtered_states[:, -1]
     smoothed_state_covariances[:, -1] = filtered_state_covariances[:, -1]
+    # Calculate chi2 for last plane
+    smoothed_residuals = observations[:, -1] - _vec_mul(observation_matrices[:, -1], smoothed_states[:, -1])
+    smoothed_residuals_covariance = observation_covariances[:, -1] - _mat_mul(observation_matrices[:, -1], _mat_mul(smoothed_state_covariances[:, -1], _mat_trans(observation_matrices[:, -1])))[:, :3, :3]
+    chi2[:, -1] = _vec_vec_mul(smoothed_residuals, _vec_mul(_mat_inverse(smoothed_residuals_covariance), smoothed_residuals))
 
     # reverse order for smoother
     for i, dut_index in enumerate(z_sorted_dut_indices[:-1][::-1]):
