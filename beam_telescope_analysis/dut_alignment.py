@@ -746,7 +746,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         # This file can be used for different sets of alignment DUTs,
         # so keep the file and remove later.
         if not os.path.isfile(prealigned_track_candidates_file):
-            logging.info('= Alignment step 0: Finding pre-aligned tracks =')
+            logging.info('= Alignment step 1: Finding pre-aligned tracks =')
             find_tracks(
                 telescope_configuration=telescope_configuration,
                 input_merged_file=input_merged_file,
@@ -812,8 +812,8 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         #         fit_quality_distances[index, 0] = item[0]
         #         fit_quality_distances[index, 1] = item[1]
         # fit_quality_distances = fit_quality_distances.tolist()
-        logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
         if iteration_step > 0:
+            logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
             # remove temporary file
             if output_track_candidates_file is not None:
                 os.remove(output_track_candidates_file)
