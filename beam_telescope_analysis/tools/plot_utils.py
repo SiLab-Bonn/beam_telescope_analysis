@@ -1160,9 +1160,11 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
             verts.append(vert)
     cmap = cm.get_cmap('viridis')
     cmap.set_bad('w')
+    norm = colors.Normalize(vmin=z_min, vmax=z_max)
     p = PolyCollection(
         verts=verts,
-        cmap=cmap)
+        cmap=cmap,
+        norm=norm)
     p.set_array(values)
     ax.add_collection(p)
     bounds = np.linspace(start=z_min, stop=z_max, num=255, endpoint=True)
