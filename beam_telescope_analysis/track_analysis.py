@@ -1597,10 +1597,11 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
 
             # The beam angle goes along the z axis (0.0, 0.0, 1.0).
             initial_state_mean[index] = [intersections[0, 0], intersections[0, 1], intersections[0, 2], 0.0, 0.0, 1.0]
-            initial_state_covariance[index, 0, 0] = 0.0
-            initial_state_covariance[index, 1, 1] = 0.0
-            # initial_state_covariance[index, 0, 0] = np.square(first_dut_pixel_size[0])
-            # initial_state_covariance[index, 1, 1] = np.square(first_dut_pixel_size[1])
+            # initial_state_covariance[index, 0, 0] = np.square(x_error_init_no_hit)
+            # initial_state_covariance[index, 1, 1] = np.square(y_error_init_no_hit)
+            initial_state_covariance[index, 0, 0] = np.square(dut.pixel_size[0])
+            initial_state_covariance[index, 1, 1] = np.square(dut.pixel_size[1])
+            initial_state_covariance[index, 2, 2] = np.square(z_error)
         else:  # The first plane has a hit
             # If first plane should be included in track building, take first dut hit as initial value and
             # its corresponding cluster position error as the error on the measurement.
@@ -1609,6 +1610,18 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             initial_state_covariance[index, 0, 0] = np.square(actual_hits[z_sorted_dut_indices[0], 3])  # x_err
             initial_state_covariance[index, 1, 1] = np.square(actual_hits[z_sorted_dut_indices[0], 4])  # y_err
             initial_state_covariance[index, 2, 2] = np.square(z_error)
+
+    # Do some sanity check: Covariance matrices should be positive semidefinite (all eigenvalues have to be non-negative)
+    if np.any(np.isnan(observation_covariances)):
+        print('observation_covariances has NAN items')
+    if np.any(observation_covariances < 0.0):
+        print('observation_covariances has negative items')
+    if not np.all(np.linalg.eigvals(observation_covariances) >= 0.0):
+        print('observation_covariances are not positive semidefinite')
+    if not np.all(np.linalg.eigvals(initial_state_covariance) >= 0.0):
+        print('initial_state_covariance are not positive semidefinite')
+
+    # TODO: check if every covariance matrix has non-zero eigenvalues
 
     # run kalman filter
     track_estimates_chunk, x_err, y_err, chi2 = _kalman_fit_3d(
@@ -1638,9 +1651,9 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     slopes /= slopes_mag[:, :, np.newaxis]
 
     if np.any(chi2[~np.isnan(chi2)] < 0.0):
-        print("WARNING: Not all chi2 values are positive!")
+        raise RuntimeError("Not all chi-square values are positive!")
 
-    # Sum up all chi2 and divide by number of degrees of freedom. TODO: check why chi2 is sometimes negative.
+    # Sum up all chi2 and divide by number of degrees of freedom.
     # chi2 = np.nansum(chi2, axis=1) / np.count_nonzero(~np.isnan(chi2), axis=1)
     chi2 = np.nansum(chi2[:, select_fit_duts], axis=1) / (3 * (np.count_nonzero(~np.isnan(chi2[:, select_fit_duts]), axis=1) - 3))
 
