@@ -1611,17 +1611,10 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             initial_state_covariance[index, 1, 1] = np.square(actual_hits[z_sorted_dut_indices[0], 4])  # y_err
             initial_state_covariance[index, 2, 2] = np.square(z_error)
 
-    # Do some sanity check: Covariance matrices should be positive semidefinite (all eigenvalues have to be non-negative)
-    if np.any(np.isnan(observation_covariances)):
-        print('observation_covariances has NAN items')
-    if np.any(observation_covariances < 0.0):
-        print('observation_covariances has negative items')
-    if not np.all(np.linalg.eigvals(observation_covariances) >= 0.0):
-        print('observation_covariances are not positive semidefinite')
-    if not np.all(np.linalg.eigvals(initial_state_covariance) >= 0.0):
-        print('initial_state_covariance are not positive semidefinite')
-
-    # TODO: check if every covariance matrix has non-zero eigenvalues
+    # Do some sanity check: Covariance matrices should be positive semi-definite (all eigenvalues have to be non-negative)
+    for cov in [observation_covariances, initial_state_covariance]:
+        if not np.all(np.linalg.eigvalsh(cov) >= 0.0):
+            raise RuntimeError('Covariance matrices are not positive semi-definite!')
 
     # run kalman filter
     track_estimates_chunk, x_err, y_err, chi2 = _kalman_fit_3d(
