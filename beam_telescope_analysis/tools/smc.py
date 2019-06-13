@@ -1,43 +1,42 @@
 ''' Implements the often needed split, map, combine paradigm '''
 from __future__ import division
 
-import os
-import tempfile
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, TimeoutError
+from threading import Thread, Event
+from collections import deque
 
 import dill
 import numpy as np
 import tables as tb
 
+from beam_telescope_analysis.tools import analysis_utils
 
-def apply_async(pool, fun, args=None, **kwargs):
+
+def apply_async(pool, data, func, args=None, **kwargs):
     ''' Run fun(*args, **kwargs) in different process.
 
     fun can be a complex function since pickling is not done with the
     cpickle module as multiprocessing.apply_async would do, but with
     the more powerfull dill serialization.
     Additionally kwargs can be given and args can be given'''
-    payload = dill.dumps((fun, args, kwargs))
-    return pool.apply_async(_run_with_dill, (payload,))
+    payload = dill.dumps((func, args, kwargs))
+    return pool.apply_async(_run_with_dill, (data, payload,))
 
 
-def _run_with_dill(payload):
+def _run_with_dill(data, payload):
     ''' Unpickle payload with dill.
 
     The payload is the function plus arguments and keyword arguments.
     '''
-    fun, args, kwargs = dill.loads(payload)
+    func, args, kwargs = dill.loads(payload)
     if args:
-        return fun(*args, **kwargs)
+        return func(data, *args, **(kwargs["func_kwargs"]))
     else:
-        return fun(**kwargs)
+        return func(data, **(kwargs["func_kwargs"]))
 
 
 class SMC(object):
-
-    def __init__(self, input_filename, output_filename,
-                 func, func_kwargs=None, node_desc=None, table=None,
-                 align_at=None, n_cores=None, mode='w', chunk_size=1000000):
+    def __init__(self, input_filename, output_filename, func, func_kwargs=None, node_desc=None, table=None, align_at=None, n_cores=None, mode='w', chunk_size=1000000):
         ''' Apply a function to a pytable on multiple cores in chunks.
 
             Parameters
@@ -101,7 +100,7 @@ class SMC(object):
         self.mode = mode
         self.func_kwargs = {} if func_kwargs is None else func_kwargs
 
-        if self.align_at and self.align_at != 'event_number':
+        if self.align_at is not None and self.align_at != 'event_number':
             raise NotImplementedError('Data alignment is only supported on event_number')
 
         # Get the table node name
@@ -143,301 +142,187 @@ class SMC(object):
                     curr_node_desc.setdefault('name', node.name)
                 curr_node_desc.setdefault('filters', node.filters)
 
-        if not self.n_cores:  # Set n_cores to maximum cores available
+        # By default set n_cores to maximum cores available
+        if not self.n_cores:
             self.n_cores = cpu_count()
-            # Deactivate multithreading for small data sets
-            # Overhead of pools can make multiprocesssing slower
-            if self.n_rows < 2. * self.chunk_size:
-                self.n_cores = 1
 
-        # The three main steps
-        self._split()
-        self._map()
-        self._combine()
+        self.pool = None
+        self.reader_thread = None
+        self.async_worker_thread = None
+        self.writer_thread = None
+        self.out_file = None
+        self.out_file_opened = Event()
+        self.force_stop = Event()
+        self.data_deque = deque()
+        self.res_deque = deque()
+        self.reader_thread = None
+        # compute data
+        self.split_map_combine()
 
-    def _split(self):
-        self.start_i, self.stop_i = self._get_split_indeces()
-        assert len(self.start_i) == len(self.stop_i)
-
-    def _map(self):
-        chunk_size_per_core = int(self.chunk_size / self.n_cores)
-        if self.n_cores == 1:
-            self.tmp_files = [self._work(input_filename=self.input_filename,
-                                         node_name=self.node_name,
-                                         func=self.func,
-                                         func_kwargs=self.func_kwargs,
-                                         node_desc=self.node_desc,
-                                         start_i=self.start_i[0],
-                                         stop_i=self.stop_i[0],
-                                         chunk_size=chunk_size_per_core)]
+    def _reader(self):
+        if self.input_filename == self.output_filename:
+            self.out_file_opened.wait()
+            in_file = self.out_file
         else:
-            # Run function in parallel
-            pool = Pool(self.n_cores)
+            try:
+                in_file = tb.open_file(self.input_filename, mode='r')
+            except Exception:
+                self.force_stop.set()
+        node = in_file.get_node(in_file.root, self.node_name)
+        gen_data = analysis_utils.data_aligned_at_events(node, chunk_size=self.chunk_size)
+        try:
+            while not self.force_stop.wait(0.01):
+                try:
+                    data = next(gen_data)[0]
+                except StopIteration:
+                    break
+                self.data_deque.append(data)
+                while len(self.data_deque) >= 1 and not self.force_stop.wait(0.01):
+                    pass
+            if self.input_filename != self.output_filename:
+                in_file.close()
+        except Exception:
+            self.force_stop.set()
+            raise
+        self.data_deque.append(None)
 
-            jobs = []
-            for i in range(self.n_cores):
-                job = apply_async(pool=pool,
-                                  fun=self._work,
-                                  input_filename=self.input_filename,
-                                  node_name=self.node_name,
-                                  func=self.func,
-                                  func_kwargs=self.func_kwargs,
-                                  node_desc=self.node_desc,
-                                  start_i=self.start_i[i],
-                                  stop_i=self.stop_i[i],
-                                  chunk_size=chunk_size_per_core)
-                jobs.append(job)
+    def _async_worker(self):
+        while not self.force_stop.wait(0.01):
+            try:
+                data = self.data_deque.popleft()
+            except IndexError:
+                continue
+            if data is None:
+                break
+            while len(self.res_deque) >= (self.n_cores + 1) and not self.force_stop.wait(0.01):
+                pass
+            res = apply_async(
+                pool=self.pool,
+                # fun=self._work,
+                data=data,
+                func=self.func,
+                func_kwargs=self.func_kwargs)
+            self.res_deque.append(res)
+        self.res_deque.append(None)
 
-            # Gather results
-            self.tmp_files = []
-            for job in jobs:
-                self.tmp_files.append(job.get())
-
-            pool.close()
-            pool.join()
-
-            del pool
-
-    def _work(self, input_filename, node_name, func, func_kwargs,
-              node_desc, start_i, stop_i, chunk_size):
-        ''' Defines the work per worker.
-
-        Reads data, applies the function and stores data in chunks into a table
-        or a histogram.
-        '''
-        with tb.open_file(input_filename, mode='r') as in_file:
-            node = in_file.get_node(in_file.root, node_name)
-            output_file = tempfile.NamedTemporaryFile(delete=False, dir=os.getcwd())
-            with tb.open_file(output_file.name, mode='w') as out_file:
+    def _writer(self):
+        init = True
+        res = None
+        try:
+            with tb.open_file(self.output_filename, mode=self.mode) as self.out_file:
+                self.out_file_opened.set()
                 # Create result table later
-                table_out = []
+                out_tables = []
                 # Create result histogram later
-                hist_out = []
-
-                for data, _ in self._chunks_at_event(table=node,
-                                                     start_index=start_i,
-                                                     stop_index=stop_i,
-                                                     chunk_size=chunk_size):
-
-                    data_ret = func(data, **func_kwargs)
-                    if not isinstance(data_ret, (list, tuple)):
-                        data_ret = (data_ret,)
-                    if not isinstance(node_desc, (list, tuple)):
-                        node_desc = (node_desc,)
-                    if len(data_ret) != len(node_desc):
-                        raise RuntimeError('Return value of "func" does not match "node_desc"')
+                hists = []
+                while not self.force_stop.wait(0.01):
+                    if res is None:
+                        try:
+                            res = self.res_deque.popleft()
+                        except IndexError:
+                            continue
+                        if res is None:
+                            break
+                    try:
+                        res_data = res.get(timeout=0.01)
+                    except TimeoutError:
+                        continue
+                    res = None
+                    if not isinstance(res_data, (list, tuple)):
+                        res_data = (res_data,)
                     # Loop over all tables and histograms
-                    for i, curr_node_desc in enumerate(node_desc):
-                        if not isinstance(data_ret[i], np.ndarray):
+                    for item in res_data:
+                        if not isinstance(item, np.ndarray):
                             raise RuntimeError('Return value of "func" must be numpy.ndarray')
-                        # Create table or histogram on first iteration over data
-                        if len(table_out) != len(node_desc):
-                            if data_ret[i].dtype.names:  # Recarray, thus table needed
+                    if not isinstance(self.node_desc, (list, tuple)):
+                        self.node_desc = (self.node_desc,)
+                    if len(res_data) != len(self.node_desc):
+                        raise RuntimeError('Return value of "func" does not match "node_desc"')
+                    # Create table or histogram on first iteration over data
+                    if init:
+                        for i, curr_node_desc in enumerate(self.node_desc):
+                            if res_data[i].dtype.names:  # Recarray, thus table needed
                                 # Create result table with specified data format
                                 # If not provided, get description from returned data
                                 if 'description' not in curr_node_desc:
                                     # update dict
-                                    curr_node_desc['description'] = data_ret[i].dtype
-                                table_out.append(out_file.create_table(where=out_file.root,
-                                                                       **curr_node_desc))
-                                hist_out.append(None)
-                            else:  # Create histogram if data is not a table
+                                    curr_node_desc['description'] = res_data[i].dtype
+                                # create temporary node in case input and output node are the same
+                                curr_node_desc["name"] = curr_node_desc["name"] + "_tmp"
+                                table = self.out_file.create_table(
+                                    where=self.out_file.root,
+                                    **curr_node_desc)
+                                out_tables.append(table)
+                                hists.append(None)
+                            else:  # Create histogram if data is not a Recarray
                                 # Copy needed for reshape
-                                table_out.append(None)
-                                hist_out.append(np.zeros_like(data_ret[i]))
+                                out_tables.append(None)
+                                hists.append(np.zeros_like(res_data[i]))
+                        init = False
 
-                        if table_out[i] is not None:
-                            table_out[i].append(data_ret[i])  # Data is appended to the table
+                    for i, curr_node_desc in enumerate(self.node_desc):
+                        if out_tables[i] is not None:
+                            out_tables[i].append(res_data[i])  # Data is appended to the table
+                            out_tables[i].flush()
                         else:
                             # Check if array needs to be resized
-                            new_shape = np.maximum(hist_out[i].shape, data_ret[i].shape)
-                            hist_out[i].resize(new_shape)
-                            # Add array
-                            data_ret[i].resize(new_shape)
-                            hist_out[i] += data_ret[i]
+                            new_shape = np.maximum(hists[i].shape, res_data[i].shape)
+                            hists[i].resize(new_shape)
+                            # Copym resize and add array to result
+                            hist_copy = res_data[i].copy()
+                            hist_copy.resize(new_shape)
+                            hists[i] += hist_copy
 
-                for i, curr_node_desc in enumerate(node_desc):
-                    # Create CArray for histogram
-                    if hist_out and hist_out[i] is not None:
+                for i, curr_node_desc in enumerate(self.node_desc):
+                    if res_data[i].dtype.names:  # Recarray
+                        # rename temporary node
+                        self.out_file.rename_node(self.out_file.root, newname=curr_node_desc["name"][:-4], name=curr_node_desc["name"], overwrite=True)
+                    else:
                         # Store histogram to file
-                        hist_dtype = hist_out[i].dtype
-                        out = out_file.create_carray(where=out_file.root,
-                                                     atom=tb.Atom.from_dtype(hist_dtype),
-                                                     shape=hist_out[i].shape,
-                                                     **curr_node_desc)
-                        out[:] = hist_out[i]
+                        hist_dtype = hists[i].dtype
+                        try:
+                            self.out_file.remove_node(self.out_file.root, curr_node_desc["name"])
+                        except tb.NoSuchNodeError:
+                            pass
+                        out_hist = self.out_file.create_carray(
+                            where=self.out_file.root,
+                            atom=tb.Atom.from_dtype(hist_dtype),
+                            shape=hists[i].shape,
+                            **curr_node_desc)
+                        out_hist[:] = hists[i]
+        except Exception:
+            self.force_stop.set()
+            raise
 
-        return output_file.name
+    def split_map_combine(self):
+        self.pool = Pool(self.n_cores)
 
-    def _combine(self):
-        file_mode = self.mode
-        for curr_node_desc in self.node_desc:
-            curr_node_name = curr_node_desc['name']
-            # Check data type to decide on combine procedure
-            with tb.open_file(self.tmp_files[0], mode='r') as in_file:
-                input_node = in_file.get_node(in_file.root, curr_node_name)
-                if isinstance(input_node, tb.carray.CArray):
-                    data_type = 'array'
-                else:
-                    data_type = 'table'
+        self.out_file_opened.clear()
+        self.force_stop.clear()
+        self.writer_thread = Thread(target=self._writer, name='WriterThread')
+        self.writer_thread.daemon = True
+        self.writer_thread.start()
 
-            if data_type == 'table':
-                with tb.open_file(self.output_filename, mode=file_mode) as out_file:
-                    for index, tmp_file in enumerate(self.tmp_files):
-                        with tb.open_file(tmp_file, mode="r") as in_file:
-                            input_node = in_file.get_node(in_file.root, curr_node_name)
-                            # Copy node from first result file to output file
-                            if index == 0:
-                                try:
-                                    out_file.remove_node(out_file.root, curr_node_name)
-                                except tb.NoSuchNodeError:
-                                    pass
-                                out_file.copy_node(input_node, out_file.root, overwrite=False, recursive=True)
-                                output_node = out_file.get_node(out_file.root, curr_node_name)
-                            else:
-                                output_node.append(input_node[:])
-            else:
-                # Merge arrays from several temprary files,
-                # merge them by adding up array data and resizing shape if necessary
-                with tb.open_file(self.output_filename, mode=file_mode) as out_file:
-                    for index, tmp_file in enumerate(self.tmp_files):
-                        with tb.open_file(tmp_file, mode='r') as in_file:
-                            tmp_data = in_file.get_node(in_file.root, curr_node_name)[:]
-                            if index == 0:
-                                # Copy needed for reshape
-                                hist_data = tmp_data.copy()
-                            else:
-                                # Check if array needs to be resized
-                                new_shape = np.maximum(hist_data.shape, tmp_data.shape)
-                                hist_data.resize(new_shape)
-                                # Add array
-                                tmp_data.resize(new_shape)
-                                hist_data += tmp_data
+        self.async_worker_thread = Thread(target=self._async_worker, name='AsyncWorkerThread')
+        self.async_worker_thread.daemon = True
+        self.async_worker_thread.start()
 
-                    data_dtype = hist_data.dtype
-                    try:
-                        out_file.remove_node(out_file.root, curr_node_name)
-                    except tb.NoSuchNodeError:
-                        pass
-                    out = out_file.create_carray(where=out_file.root,
-                                                 atom=tb.Atom.from_dtype(data_dtype),
-                                                 shape=hist_data.shape,
-                                                 **curr_node_desc)
-                    out[:] = hist_data
-            # append to output file if more than one node exists
-            file_mode = 'r+'
+        self.reader_thread = Thread(target=self._reader, name='ReaderThread')
+        self.reader_thread.daemon = True
+        self.reader_thread.start()
 
-        for tmp_file in self.tmp_files:
-            os.remove(tmp_file)
+        self.reader_thread.join()
+        self.reader_thread = None
 
-    def _get_split_indeces(self):
-        ''' Calculates the data range for each core.
+        self.async_worker_thread.join()
+        self.async_worker_thread = None
 
-            Return two lists with start/stop indeces.
-            Stop indeces are exclusive.
-        '''
-        core_chunk_size = self.n_rows // self.n_cores
-        start_indeces = list(range(0,
-                                   self.n_rows,
-                                   core_chunk_size)
-                             [:self.n_cores])
+        self.writer_thread.join()
+        self.writer_thread = None
 
-        if not self.align_at:
-            stop_indeces = start_indeces[1:]
-        else:
-            stop_indeces = self._get_next_index(start_indeces)
-            start_indeces = [0] + stop_indeces
-
-        stop_indeces.append(self.n_rows)  # Last index always table size
-
-        assert len(stop_indeces) == self.n_cores
-        assert len(start_indeces) == self.n_cores
-
-        return start_indeces, stop_indeces
-
-    def _get_next_index(self, indeces):
-        ''' Get closest index where the alignment column changes '''
-
-        next_indeces = []
-        for index in indeces[1:]:
-            with tb.open_file(self.input_filename, mode='r') as in_file:
-                node = in_file.get_node(in_file.root, self.node_name)
-                values = node[index:index + self.chunk_size][self.align_at]
-                value = values[0]
-                for i, v in enumerate(values):
-                    if v != value:
-                        next_indeces.append(index + i)
-                        break
-                    value = v
-
-        return next_indeces
-
-    def _chunks_at_event(self, table, start_index=None, stop_index=None,
-                         chunk_size=1000000):
-        '''Takes the table with a event_number column and returns chunks.
-
-        The chunks are chosen in a way that the events are not splitted.
-        Start and the stop indices limiting the table size can be specified to
-        improve performance. The event_number column must be sorted.
-
-        Parameters
-        ----------
-        table : pytables.table
-            The data.
-        start_index : int
-            Start index of data. If None, no limit is set.
-        stop_index : int
-            Stop index of data. If None, no limit is set.
-        chunk_size : int
-            Maximum chunk size per read.
-
-        Returns
-        -------
-        Iterator of tuples
-            Data of the actual data chunk and start index for the next chunk.
-
-        Example
-        -------
-        for data, index in chunk_aligned_at_events(table):
-            do_something(data)
-            show_progress(index)
-        '''
-        # Initialize variables
-        if not start_index:
-            start_index = 0
-        if not stop_index:
-            stop_index = table.shape[0]
-
-        # Limit max index
-        if stop_index > table.shape[0]:
-            stop_index = table.shape[0]
-
-        # Special case, one read is enough, data not bigger than one chunk and
-        # the indices are known
-        if start_index + chunk_size >= stop_index:
-            yield table.read(start=start_index, stop=stop_index), stop_index
-        else:  # Read data in chunks, chunks do not divide events
-            current_start_index = start_index
-            while current_start_index < stop_index:
-                current_stop_index = min(current_start_index + chunk_size,
-                                         stop_index)
-                chunk = table[current_start_index:current_stop_index]
-                if current_stop_index == stop_index:  # Last chunk
-                    yield chunk, stop_index
-                    break
-
-                # Find maximum non event number splitting index
-                event_numbers = chunk["event_number"]
-                last_event = event_numbers[-1]
-
-                # Search for next event number
-                chunk_stop_i = np.searchsorted(event_numbers,
-                                               last_event,
-                                               side="left")
-
-                yield chunk[:chunk_stop_i], current_start_index + chunk_stop_i
-
-                current_start_index += chunk_stop_i
+        self.pool.close()
+        self.pool.join()
+        self.pool = None
 
 
 if __name__ == '__main__':
