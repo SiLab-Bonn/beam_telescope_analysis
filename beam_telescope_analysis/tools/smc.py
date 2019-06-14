@@ -45,6 +45,9 @@ class SMC(object):
                 Filename of the input file with the table.
             output_filename : string
                 Filename of the output file with the resulting table/histogram.
+                If the output file is the same as the input file, the filesize
+                of the modified file is larger than it needs to be. This is due to the fact
+                that HDF5 does not free space when removing nodes.
             func : function
                 Worker function that is applied on the data from the input table.
             func_kwargs : dict
@@ -161,29 +164,40 @@ class SMC(object):
 
     def _reader(self):
         if self.input_filename == self.output_filename:
-            self.out_file_opened.wait()
+            # wait for output file to be ready
+            while not self.out_file_opened.wait(0.01) and not self.force_stop.wait(0.01):
+                pass
             in_file = self.out_file
         else:
             try:
                 in_file = tb.open_file(self.input_filename, mode='r')
             except Exception:
                 self.force_stop.set()
-        node = in_file.get_node(in_file.root, self.node_name)
-        gen_data = analysis_utils.data_aligned_at_events(node, chunk_size=self.chunk_size)
+                raise
         try:
-            while not self.force_stop.wait(0.01):
+            node = in_file.get_node(in_file.root, self.node_name)
+        except Exception:
+            self.force_stop.set()
+            raise
+        gen_data = analysis_utils.data_aligned_at_events(node, chunk_size=self.chunk_size)
+        while not self.force_stop.wait(0.01):
+            try:
                 try:
                     data = next(gen_data)[0]
                 except StopIteration:
                     break
-                self.data_deque.append(data)
-                while len(self.data_deque) >= 1 and not self.force_stop.wait(0.01):
-                    pass
-            if self.input_filename != self.output_filename:
+            except Exception:
+                self.force_stop.set()
+                raise
+            self.data_deque.append(data)
+            while len(self.data_deque) >= 1 and not self.force_stop.wait(0.01):
+                pass
+        if self.input_filename != self.output_filename:
+            try:
                 in_file.close()
-        except Exception:
-            self.force_stop.set()
-            raise
+            except Exception:
+                self.force_stop.set()
+                raise
         self.data_deque.append(None)
 
     def _async_worker(self):
@@ -209,87 +223,99 @@ class SMC(object):
         init = True
         res = None
         try:
-            with tb.open_file(self.output_filename, mode=self.mode) as self.out_file:
-                self.out_file_opened.set()
-                # Create result table later
-                out_tables = []
-                # Create result histogram later
-                hists = []
-                while not self.force_stop.wait(0.01):
-                    if res is None:
-                        try:
-                            res = self.res_deque.popleft()
-                        except IndexError:
-                            continue
-                        if res is None:
-                            break
-                    try:
-                        res_data = res.get(timeout=0.01)
-                    except TimeoutError:
-                        continue
-                    res = None
-                    if not isinstance(res_data, (list, tuple)):
-                        res_data = (res_data,)
-                    # Loop over all tables and histograms
-                    for item in res_data:
-                        if not isinstance(item, np.ndarray):
-                            raise RuntimeError('Return value of "func" must be numpy.ndarray')
-                    if not isinstance(self.node_desc, (list, tuple)):
-                        self.node_desc = (self.node_desc,)
-                    if len(res_data) != len(self.node_desc):
-                        raise RuntimeError('Return value of "func" does not match "node_desc"')
-                    # Create table or histogram on first iteration over data
-                    if init:
-                        for i, curr_node_desc in enumerate(self.node_desc):
-                            if res_data[i].dtype.names:  # Recarray, thus table needed
-                                # Create result table with specified data format
-                                # If not provided, get description from returned data
-                                if 'description' not in curr_node_desc:
-                                    # update dict
-                                    curr_node_desc['description'] = res_data[i].dtype
-                                # create temporary node in case input and output node are the same
-                                curr_node_desc["name"] = curr_node_desc["name"] + "_tmp"
-                                table = self.out_file.create_table(
-                                    where=self.out_file.root,
-                                    **curr_node_desc)
-                                out_tables.append(table)
-                                hists.append(None)
-                            else:  # Create histogram if data is not a Recarray
-                                # Copy needed for reshape
-                                out_tables.append(None)
-                                hists.append(np.zeros_like(res_data[i]))
-                        init = False
-
-                    for i, curr_node_desc in enumerate(self.node_desc):
-                        if out_tables[i] is not None:
-                            out_tables[i].append(res_data[i])  # Data is appended to the table
-                            out_tables[i].flush()
-                        else:
-                            # Check if array needs to be resized
-                            new_shape = np.maximum(hists[i].shape, res_data[i].shape)
-                            hists[i].resize(new_shape)
-                            # Copym resize and add array to result
-                            hist_copy = res_data[i].copy()
-                            hist_copy.resize(new_shape)
-                            hists[i] += hist_copy
-
+            self.out_file = tb.open_file(self.output_filename, mode=self.mode)
+        except Exception:
+            self.force_stop.set()
+            raise
+        self.out_file_opened.set()
+        # Create result table later
+        out_tables = []
+        # Create result histogram later
+        hists = []
+        while not self.force_stop.wait(0.01):
+            if res is None:
+                try:
+                    res = self.res_deque.popleft()
+                except IndexError:
+                    continue
+                if res is None:
+                    break
+            try:
+                res_data = res.get(timeout=0.01)
+            except TimeoutError:
+                continue
+            res = None
+            if not isinstance(res_data, (list, tuple)):
+                res_data = (res_data,)
+            # Loop over all tables and histograms
+            for item in res_data:
+                if not isinstance(item, np.ndarray):
+                    raise RuntimeError('Return value of "func" must be numpy.ndarray')
+            if not isinstance(self.node_desc, (list, tuple)):
+                self.node_desc = (self.node_desc,)
+            if len(res_data) != len(self.node_desc):
+                raise RuntimeError('Return value of "func" does not match "node_desc"')
+            # Create table or histogram on first iteration over data
+            if init:
                 for i, curr_node_desc in enumerate(self.node_desc):
-                    if res_data[i].dtype.names:  # Recarray
-                        # rename temporary node
-                        self.out_file.rename_node(self.out_file.root, newname=curr_node_desc["name"][:-4], name=curr_node_desc["name"], overwrite=True)
-                    else:
-                        # Store histogram to file
-                        hist_dtype = hists[i].dtype
-                        try:
-                            self.out_file.remove_node(self.out_file.root, curr_node_desc["name"])
-                        except tb.NoSuchNodeError:
-                            pass
-                        out_hist = self.out_file.create_carray(
+                    if res_data[i].dtype.names:  # Recarray, thus table needed
+                        # Create result table with specified data format
+                        # If not provided, get description from returned data
+                        if 'description' not in curr_node_desc:
+                            # update dict
+                            curr_node_desc['description'] = res_data[i].dtype
+                        # create temporary node in case input and output node are the same
+                        curr_node_desc["name"] = curr_node_desc["name"] + "_tmp"
+                        table = self.out_file.create_table(
                             where=self.out_file.root,
-                            atom=tb.Atom.from_dtype(hist_dtype),
-                            shape=hists[i].shape,
                             **curr_node_desc)
-                        out_hist[:] = hists[i]
+                        out_tables.append(table)
+                        hists.append(None)
+                    else:  # Create histogram if data is not a Recarray
+                        # Copy needed for reshape
+                        out_tables.append(None)
+                        hists.append(np.zeros_like(res_data[i]))
+                init = False
+
+            for i, curr_node_desc in enumerate(self.node_desc):
+                if out_tables[i] is not None:
+                    out_tables[i].append(res_data[i])  # Data is appended to the table
+                    out_tables[i].flush()
+                else:
+                    # Check if array needs to be resized
+                    new_shape = np.maximum(hists[i].shape, res_data[i].shape)
+                    hists[i].resize(new_shape)
+                    # Copym resize and add array to result
+                    hist_copy = res_data[i].copy()
+                    hist_copy.resize(new_shape)
+                    hists[i] += hist_copy
+
+        if not self.force_stop.is_set():
+            for i, curr_node_desc in enumerate(self.node_desc):
+                if res_data[i].dtype.names:  # Recarray
+                    # rename temporary node
+                    try:
+                        self.out_file.remove_node(self.out_file.root, name=curr_node_desc["name"][:-4])
+                    except tb.NoSuchNodeError:
+                        pass
+                    else:
+                        self.out_file.flush()
+                    self.out_file.rename_node(self.out_file.root, newname=curr_node_desc["name"][:-4], name=curr_node_desc["name"], overwrite=False)
+                else:
+                    # Store histogram to file
+                    hist_dtype = hists[i].dtype
+                    try:
+                        self.out_file.remove_node(self.out_file.root, curr_node_desc["name"])
+                    except tb.NoSuchNodeError:
+                        pass
+                    out_hist = self.out_file.create_carray(
+                        where=self.out_file.root,
+                        atom=tb.Atom.from_dtype(hist_dtype),
+                        shape=hists[i].shape,
+                        **curr_node_desc)
+                    out_hist[:] = hists[i]
+        try:
+            self.out_file.close()
         except Exception:
             self.force_stop.set()
             raise
