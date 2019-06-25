@@ -1053,7 +1053,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         else:
             dut_stats[dut_index].append(n_good_tracks_with_hits / n_good_tracks)
 
-        if select_align_duts is not None and dut_index in select_align_duts:
+        # correction for residuals if residual mean (peak) is far away from 0
+        if select_align_duts is not None and dut_index in select_align_duts and n_good_tracks_with_hits > 10:  # check for size of array, usually the last chunk affected
             center_x = np.median(x_residuals[select_finite_distance])
             std_x = np.std(x_residuals[select_finite_distance])
             x_kde = gaussian_kde(x_residuals[select_finite_distance], bw_method=dut.pixel_size[0] / 12**0.5 / std_x)
