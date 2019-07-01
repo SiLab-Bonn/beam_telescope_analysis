@@ -1560,7 +1560,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         ax.grid()
-        ax.set_title('Efficiency per bin for %s: %1.2f (+%1.2f/%1.2f)%%' % (actual_dut.name, efficiency[0], efficiency[1], efficiency[2]))
+        ax.set_title('Efficiency per bin for %s:\n%1.2f (+%1.2f/%1.2f)%%' % (actual_dut.name, efficiency[0] * 100.0, efficiency[1] * 100.0, efficiency[2] * 100.0))
         ax.set_xlabel('Efficiency [%]')
         ax.set_ylabel('#')
         ax.set_yscale('log')
