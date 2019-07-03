@@ -407,9 +407,13 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                             quality_flags_mod = quality_flags & tracks['hit_flag']
                             select &= ((tracks['quality_flag'] & quality_mask_mod) == quality_flags_mod)
                         if isolated_tracks_mask != 0:
-                            select &= ((tracks['isolated_tracks_flag'] & isolated_tracks_mask) == isolated_tracks_flags)
+                            isolated_tracks_mask_mod = isolated_tracks_mask & tracks['hit_flag']
+                            isolated_tracks_flags_mod = isolated_tracks_flags & tracks['hit_flag']
+                            select &= ((tracks['isolated_tracks_flag'] & isolated_tracks_mask_mod) == isolated_tracks_flags_mod)
                         if isolated_hits_mask != 0:
-                            select &= ((tracks['isolated_hits_flag'] & isolated_hits_mask) == isolated_hits_flags)
+                            isolated_hits_mask_mod = isolated_hits_mask & tracks['hit_flag']
+                            isolated_hits_flags_mod = isolated_hits_flags & tracks['hit_flag']
+                            select &= ((tracks['isolated_hits_flag'] & isolated_hits_mask_mod) == isolated_hits_flags_mod)
                         tracks = tracks[select]
                     if query[index]:
                         tracks = table_where(
