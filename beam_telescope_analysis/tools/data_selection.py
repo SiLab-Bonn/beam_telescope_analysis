@@ -186,6 +186,31 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
         Filename of the telescope configuration file.
     input_tracks_file : string
         Filename of the input tracks file.
+    select_duts : list
+        Selecting DUTs that will be processed.
+    output_tracks_file : string
+        Filename of the output tracks file.
+    condition : string or list
+        List of query strings for each slected DUT.
+        A query is a string that is processed and is used to select data from the table, e.g.,
+        "track_chi2 <= 5", where "track_chi2" is a column in the table.
+        The data in the output table contains only data with "track_chi2" smaller or equal to 5.
+    max_events : uint
+        Maximum number of radomly selected events.
+    select_hit_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the hit flag set.
+    select_no_hit_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have no hit flag set.
+    select_quality_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the quality flag set.
+    select_no_quality_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have no quality flag set.
+    select_track_isolation_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the isolated tracks flag set.
+    select_hit_isolation_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the isolated hits flag set.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
     '''
     telescope = Telescope(telescope_configuration)
     logging.info('=== Selecting tracks of %d DUTs ===' % len(select_duts))
