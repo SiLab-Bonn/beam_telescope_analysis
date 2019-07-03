@@ -950,7 +950,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         for index, shapes in enumerate(cluster_shapes):
             if shapes is None:
                 cluster_shapes[index] = default_cluster_shapes
-        select_condition = [((('(track_chi2 < %f)' % track_chi2[index]) if track_chi2[index] else '') + (' & ' if (track_chi2[index] and cluster_shapes[index]) else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes[index]]).format(dut_index) + ')') if cluster_shapes[index] else '')) for index, dut_index in enumerate(actual_align_duts)]
+        query_string = [((('(track_chi2 < %f)' % track_chi2[index]) if track_chi2[index] else '') + (' & ' if (track_chi2[index] and cluster_shapes[index]) else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes[index]]).format(dut_index) + ')') if cluster_shapes[index] else '')) for index, dut_index in enumerate(actual_align_duts)]
         data_selection.select_tracks(
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_tracks_file,
@@ -960,8 +960,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             select_quality_duts=actual_quality_duts,
             select_track_isolation_duts=actual_quality_duts,
             select_hit_isolation_duts=actual_quality_duts,
-            # Select good tracks und limit cluster size to 4
-            condition=select_condition,
+            query=query_string,
             max_events=None,
             chunk_size=chunk_size)
 
@@ -1053,8 +1052,10 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
     #         output_tracks_file=final_selected_tracks_file,
     #         select_duts=align_duts,
     #         duts_hit_selection=duts_selection,
-    #         duts_quality_selection=duts_selection,
-    #         condition=None,
+    #         duts_quality_selection=duts_selection,,
+    #         select_track_isolation_duts=duts_selection,
+    #         select_hit_isolation_duts=duts_selection,
+    #         query=None,
     #         chunk_size=chunk_size)
 
     #     if set(align_duts) & set(select_fit_duts):

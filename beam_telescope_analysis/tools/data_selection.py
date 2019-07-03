@@ -177,8 +177,8 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                 pbar.close()
 
 
-def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, condition=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_no_quality_duts=None, select_track_isolation_duts=None, select_hit_isolation_duts=None, chunk_size=1000000):
-    ''' Selecting tracks that are matching the conditions.
+def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, query=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_no_quality_duts=None, select_track_isolation_duts=None, select_hit_isolation_duts=None, chunk_size=1000000):
+    ''' Selecting tracks that are matching the conditions and query strings.
 
     Parameters
     ----------
@@ -190,7 +190,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
         Selecting DUTs that will be processed.
     output_tracks_file : string
         Filename of the output tracks file.
-    condition : string or list
+    query : string or list
         List of query strings for each slected DUT.
         A query is a string that is processed and is used to select data from the table, e.g.,
         "track_chi2 <= 5", where "track_chi2" is a column in the table.
@@ -336,18 +336,18 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     if len(select_hit_isolation_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_hit_isolation_duts has the wrong length")
 
-    # Create condition
-    if condition is None:  # If None, use empty strings for all DUTs
-        condition = ['' for _ in select_duts]
+    # Create query
+    if query is None:  # If None, use empty strings for all DUTs
+        query = ['' for _ in select_duts]
     # Check if iterable
-    if isinstance(condition, str):
-        condition = [condition] * len(select_duts)
+    if isinstance(query, str):
+        query = [query] * len(select_duts)
     # Check if only strings in iterable
-    if not all(map(lambda val: isinstance(val, str), condition)):
-        raise ValueError("not all items in condition are strings")
+    if not all(map(lambda val: isinstance(val, str), query)):
+        raise ValueError("not all items in query are strings")
     # Finally check length of all arrays
-    if len(condition) != len(select_duts):  # empty iterable
-        raise ValueError("condition has the wrong length")
+    if len(query) != len(select_duts):  # empty iterable
+        raise ValueError("query has the wrong length")
 
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         with tb.open_file(output_tracks_file, mode="w") as out_file_h5:
@@ -411,8 +411,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                         if isolated_hits_mask != 0:
                             select &= ((tracks['isolated_hits_flag'] & isolated_hits_mask) == isolated_hits_flags)
                         tracks = tracks[select]
-                    if condition[index]:
-                        tracks = _select_rows_with_condition(tracks, condition[index])
+                    if query[index]:
+                        tracks = table_where(
+                            arr=tracks,
+                            query_str=query[index])
 
                     unique_events = np.unique(tracks["event_number"])
                     n_events_chunk = unique_events.shape[0]
@@ -460,8 +462,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 # print "total_n_events_stored", total_n_events_stored
 
 
-def _select_rows_with_condition(rec_array, condition):
-    for variable in set(re.findall(r'(\d*[a-zA-Z_]+\d*)', condition)):
-        exec(variable + ' = rec_array[\'' + variable + '\']')  # expose variables; not a copy, this is just a reference
+def table_where(arr, query_str):
+    for variable in set(re.findall(r'(\d*[a-zA-Z_]+\d*)', query_str)):
+        exec(variable + ' = arr[\'' + variable + '\']')  # expose variables; not a copy, this is just a reference
 
-    return rec_array[ne.evaluate(condition, casting="safe")]
+    return arr[ne.evaluate(query_str, casting="safe")]

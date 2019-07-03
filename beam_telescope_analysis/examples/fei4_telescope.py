@@ -143,7 +143,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3], [0, 2, 3], [0, 1, 3], [0, 1, 2]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 10)')
+        query='(track_chi2 < 10)')
 
     # Calculate the unconstrained residuals from final tracks to check the alignment
     result_analysis.calculate_residuals(

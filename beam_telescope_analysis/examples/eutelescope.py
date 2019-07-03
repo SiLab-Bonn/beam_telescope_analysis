@@ -173,7 +173,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 500)')
+        query='(track_chi2 < 500)')
 
     # Step 4:
     # Calculate the unconstrained residuals from pre-aligned tracks to check the pre-alignment
@@ -242,7 +242,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 15.0)')
+        query='(track_chi2 < 15.0)')
 
     # Calculate the unconstrained residuals from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
@@ -287,7 +287,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 5.0)')
+        query='(track_chi2 < 5.0)')
 
     # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
@@ -328,7 +328,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 5.0)')
+        query='(track_chi2 < 5.0)')
 
     # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
