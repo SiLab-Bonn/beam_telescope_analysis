@@ -1037,6 +1037,18 @@ def calculate_cluster_array(cluster_shape):
     return cluster_array
 
 
+def number_of_set_bits(val):
+    '''Calculate the number of set bits
+
+    See:
+    - https://stackoverflow.com/questions/9829578/fast-way-of-counting-non-zero-bits-in-positive-integer
+    - https://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer#109025
+    '''
+    val = val - ((val >> 1) & 0x55555555)
+    val = (val & 0x33333333) + ((val >> 2) & 0x33333333)
+    return (((val + (val >> 4) & 0xF0F0F0F) * 0x1010101) & 0xffffffff) >> 24
+
+
 def voronoi_finite_polygons_2d(points, dut_extent=None):
     """
     Reconstruct infinite voronoi regions in a 2D diagram to finite
