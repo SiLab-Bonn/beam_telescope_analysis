@@ -852,10 +852,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_full, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_full[0], edges_full[-1]])
-                ax.set_xlabel('Track Chi2')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track Chi2 for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
                 fig = Figure()
@@ -866,10 +866,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_narrow, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
-                ax.set_xlabel('Track Chi2')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track Chi2 for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
 
