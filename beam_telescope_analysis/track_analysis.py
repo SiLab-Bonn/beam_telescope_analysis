@@ -747,7 +747,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # during this step of the loop.
                 actual_fit_duts = []
                 for curr_fit_dut_index, curr_fit_dut in enumerate(select_duts):
-                    if ((curr_fit_dut == actual_fit_dut) or (exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index])):
+                    if ((curr_fit_dut == actual_fit_dut) or (exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False)) and set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index]):
                         actual_fit_duts.append(curr_fit_dut)
                 logging.info('= Fit tracks for %s =', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
                 # remove existing nodes
