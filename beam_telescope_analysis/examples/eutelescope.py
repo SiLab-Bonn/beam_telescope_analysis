@@ -158,7 +158,7 @@ def run_analysis(hit_files):
         select_fit_duts=[0, 1, 2, 3, 4, 5],
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -198,7 +198,7 @@ def run_analysis(hit_files):
         max_events=(100000),
         track_chi2=15.0,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=True,
         plot=True)
 
@@ -219,7 +219,7 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -273,7 +273,7 @@ def run_analysis(hit_files):
                          [3, 4]],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -311,7 +311,7 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         method='kalman',
         beam_energy=5000.0,
         particle_mass=0.511,

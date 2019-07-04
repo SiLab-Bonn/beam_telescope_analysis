@@ -791,7 +791,7 @@ def plot_fit_tracks_statistics(telescope, fit_duts, chunk_indices, chunk_stats, 
         if dut_stats and len(dut_stats[-1]) > actual_dut_index and dut_stats[-1][actual_dut_index]:
             for item in dut_stats:
                 curr_stats.append(item[actual_dut_index])
-        stat_labels = ["... of which the share of DUT with hit", "... of which the share of tracks with quality flag set", "... of which the share of tracks with quality flag unset due to nearby tracks", "... of which the share of tracks with quality flag unset due to nearby hits", "Share of tracks fulfilling hit requirements and quality flag set"]
+        stat_labels = ["... of which the share of DUT with hit", "   ... of which the share of tracks with quality flag set", "   ... of which the share of tracks with isolated tracks flag set", "   ... of which the share of tracks with isolated hits flag set", "Share of tracks fulfilling hit requirements and\nhave quality/isolated track/isolated hit flag set"]
         for index, stat in enumerate(zip(*curr_stats)):
             for i in range(3)[::-1]:
                 if np.all(np.less_equal(stat, 10**-i)):

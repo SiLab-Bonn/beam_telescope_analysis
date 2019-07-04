@@ -369,16 +369,16 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     quality_mask |= (1 << dut)
                 for dut in select_no_quality_duts[index]:
                     quality_mask |= (1 << dut)
-                isolated_tracks_flags = 0
-                isolated_tracks_mask = 0
+                isolated_track_flags = 0
+                isolated_track_mask = 0
                 for dut in select_track_isolation_duts[index]:
-                    isolated_tracks_flags |= (1 << dut)
-                    isolated_tracks_mask |= (1 << dut)
-                isolated_hits_flags = 0
-                isolated_hits_mask = 0
+                    isolated_track_flags |= (1 << dut)
+                    isolated_track_mask |= (1 << dut)
+                isolated_hit_flags = 0
+                isolated_hit_mask = 0
                 for dut in select_hit_isolation_duts[index]:
-                    isolated_hits_flags |= (1 << dut)
-                    isolated_hits_mask |= (1 << dut)
+                    isolated_hit_flags |= (1 << dut)
+                    isolated_hit_mask |= (1 << dut)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,
@@ -397,7 +397,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
 
                 for tracks, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = tracks.shape[0]
-                    if hit_mask != 0 or quality_mask != 0 or isolated_tracks_mask != 0 or isolated_hits_mask != 0:
+                    if hit_mask != 0 or quality_mask != 0 or isolated_track_mask != 0 or isolated_hit_mask != 0:
                         select = np.ones(n_tracks_chunk, dtype=np.bool)
                         if hit_mask != 0:
                             select &= ((tracks['hit_flag'] & hit_mask) == hit_flags)
@@ -406,14 +406,14 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                             quality_mask_mod = quality_mask & tracks['hit_flag']
                             quality_flags_mod = quality_flags & tracks['hit_flag']
                             select &= ((tracks['quality_flag'] & quality_mask_mod) == quality_flags_mod)
-                        if isolated_tracks_mask != 0:
-                            isolated_tracks_mask_mod = isolated_tracks_mask & tracks['hit_flag']
-                            isolated_tracks_flags_mod = isolated_tracks_flags & tracks['hit_flag']
-                            select &= ((tracks['isolated_tracks_flag'] & isolated_tracks_mask_mod) == isolated_tracks_flags_mod)
-                        if isolated_hits_mask != 0:
-                            isolated_hits_mask_mod = isolated_hits_mask & tracks['hit_flag']
-                            isolated_hits_flags_mod = isolated_hits_flags & tracks['hit_flag']
-                            select &= ((tracks['isolated_hits_flag'] & isolated_hits_mask_mod) == isolated_hits_flags_mod)
+                        if isolated_track_mask != 0:
+                            isolated_track_mask_mod = isolated_track_mask & tracks['hit_flag']
+                            isolated_track_flags_mod = isolated_track_flags & tracks['hit_flag']
+                            select &= ((tracks['isolated_track_flag'] & isolated_track_mask_mod) == isolated_track_flags_mod)
+                        if isolated_hit_mask != 0:
+                            isolated_hit_mask_mod = isolated_hit_mask & tracks['hit_flag']
+                            isolated_hit_flags_mod = isolated_hit_flags & tracks['hit_flag']
+                            select &= ((tracks['isolated_hit_flag'] & isolated_hit_mask_mod) == isolated_hit_flags_mod)
                         tracks = tracks[select]
                     if query[index]:
                         tracks = table_where(
