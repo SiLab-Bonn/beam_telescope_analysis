@@ -177,7 +177,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                 pbar.close()
 
 
-def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, query=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_track_isolation_duts=None, select_hit_isolation_duts=None, chunk_size=1000000):
+def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, query=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_isolated_track_duts=None, select_isolated_hit_duts=None, chunk_size=1000000):
     ''' Selecting tracks that are matching the conditions and query strings.
 
     Parameters
@@ -204,10 +204,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     select_quality_duts : list
         List of DUTs for each slected DUT. The DUTs are required to have the quality flag set.
         The quality flag is only evaluated for DUTs where the hit flag is set.
-    select_track_isolation_duts : list
+    select_isolated_track_duts : list
         List of DUTs for each slected DUT. The DUTs are required to have the isolated track flag set.
         The isolated track flag is only evaluated for DUTs where the hit flag is set.
-    select_hit_isolation_duts : list
+    select_isolated_hit_duts : list
         List of DUTs for each slected DUT. The DUTs are required to have the isolated hit flag set.
         The isolated hit flag is only evaluated for DUTs where the hit flag is set.
     chunk_size : uint
@@ -286,41 +286,41 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     if len(select_quality_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_quality_duts has the wrong length")
 
-    # Create select_track_isolation_duts
-    if select_track_isolation_duts is None:  # If None, use no selection
-        select_track_isolation_duts = [[] for _ in select_duts]
+    # Create select_isolated_track_duts
+    if select_isolated_track_duts is None:  # If None, use no selection
+        select_isolated_track_duts = [[] for _ in select_duts]
     # Check iterable and length
-    if not isinstance(select_track_isolation_duts, Iterable):
-        raise ValueError("select_track_isolation_duts is no iterable")
-    elif not select_track_isolation_duts:  # empty iterable
-        raise ValueError("select_track_isolation_duts has no items")
+    if not isinstance(select_isolated_track_duts, Iterable):
+        raise ValueError("select_isolated_track_duts is no iterable")
+    elif not select_isolated_track_duts:  # empty iterable
+        raise ValueError("select_isolated_track_duts has no items")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_track_isolation_duts)):
-        select_track_isolation_duts = [select_track_isolation_duts[:] for _ in select_duts]
+    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_track_duts)):
+        select_isolated_track_duts = [select_isolated_track_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_track_isolation_duts)):
-        raise ValueError("not all items in select_track_isolation_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_track_duts)):
+        raise ValueError("not all items in select_isolated_track_duts are iterable")
     # Finally check length of all arrays
-    if len(select_track_isolation_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_track_isolation_duts has the wrong length")
+    if len(select_isolated_track_duts) != len(select_duts):  # empty iterable
+        raise ValueError("select_isolated_track_duts has the wrong length")
 
-    # Create select_hit_isolation_duts
-    if select_hit_isolation_duts is None:  # If None, use no selection
-        select_hit_isolation_duts = [[] for _ in select_duts]
+    # Create select_isolated_hit_duts
+    if select_isolated_hit_duts is None:  # If None, use no selection
+        select_isolated_hit_duts = [[] for _ in select_duts]
     # Check iterable and length
-    if not isinstance(select_hit_isolation_duts, Iterable):
-        raise ValueError("select_hit_isolation_duts is no iterable")
-    elif not select_hit_isolation_duts:  # empty iterable
-        raise ValueError("select_hit_isolation_duts has no items")
+    if not isinstance(select_isolated_hit_duts, Iterable):
+        raise ValueError("select_isolated_hit_duts is no iterable")
+    elif not select_isolated_hit_duts:  # empty iterable
+        raise ValueError("select_isolated_hit_duts has no items")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_hit_isolation_duts)):
-        select_hit_isolation_duts = [select_hit_isolation_duts[:] for _ in select_duts]
+    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_hit_duts)):
+        select_isolated_hit_duts = [select_isolated_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_hit_isolation_duts)):
-        raise ValueError("not all items in select_hit_isolation_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_hit_duts)):
+        raise ValueError("not all items in select_isolated_hit_duts are iterable")
     # Finally check length of all arrays
-    if len(select_hit_isolation_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_hit_isolation_duts has the wrong length")
+    if len(select_isolated_hit_duts) != len(select_duts):  # empty iterable
+        raise ValueError("select_isolated_hit_duts has the wrong length")
 
     # Create query
     if query is None:  # If None, use empty strings for all DUTs
@@ -351,10 +351,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 for dut in select_quality_duts[index]:
                     quality_mask |= (1 << dut)
                 isolated_track_mask = 0
-                for dut in select_track_isolation_duts[index]:
+                for dut in select_isolated_track_duts[index]:
                     isolated_track_mask |= (1 << dut)
                 isolated_hit_mask = 0
-                for dut in select_hit_isolation_duts[index]:
+                for dut in select_isolated_hit_duts[index]:
                     isolated_hit_mask |= (1 << dut)
 
                 tracks_table_out = out_file_h5.create_table(

@@ -965,8 +965,8 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             select_duts=actual_align_duts,
             select_hit_duts=actual_hit_duts,
             select_quality_duts=actual_quality_duts,
-            select_track_isolation_duts=actual_quality_duts,
-            select_hit_isolation_duts=actual_quality_duts,
+            select_isolated_track_duts=actual_quality_duts,
+            select_isolated_hit_duts=actual_quality_duts,
             query=query_string,
             max_events=None,
             chunk_size=chunk_size)
@@ -1060,8 +1060,8 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
     #         select_duts=align_duts,
     #         duts_hit_selection=duts_selection,
     #         duts_quality_selection=duts_selection,,
-    #         select_track_isolation_duts=duts_selection,
-    #         select_hit_isolation_duts=duts_selection,
+    #         select_isolated_track_duts=duts_selection,
+    #         select_isolated_hit_duts=duts_selection,
     #         query=None,
     #         chunk_size=chunk_size)
 
