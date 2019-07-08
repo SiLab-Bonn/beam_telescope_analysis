@@ -777,9 +777,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # select hit DUTs based on input parameters
                 # hit DUTs are always enforced
                 hit_duts = select_hit_duts[fit_dut_index]
-                dut_hit_selection = 0  # DUTs required to have hits
+                dut_hit_mask = 0  # DUTs required to have hits
                 for dut_index in hit_duts:
-                    dut_hit_selection |= ((1 << dut_index))
+                    dut_hit_mask |= ((1 << dut_index))
                 logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
 
                 # select fit DUTs based on input parameters
@@ -791,9 +791,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     actual_min_track_hits = min_track_hits[fit_dut_index]
                 if actual_min_track_hits < 2:
                     raise ValueError('The number of required hits is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
-                dut_fit_selection = 0  # DUTs to be used for the fit
+                dut_fit_mask = 0  # DUTs to be used for the fit
                 for dut_index in fit_duts:
-                    dut_fit_selection |= ((1 << dut_index))
+                    dut_fit_mask |= ((1 << dut_index))
                 logging.info('Require at least %d hits in %d DUTs for track selection: %s', actual_min_track_hits, len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
 
                 # selecting DUTs for residual correction
@@ -810,38 +810,41 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     chunk_indices.append(index_chunk)
                     # if max_tracks is not None and total_n_tracks >= max_tracks:
                     #     break
-                    # Select tracks based on the DUTs that are required to have a hit (dut_selection) with a certain quality (track_quality)
                     n_tracks_chunk = track_candidates_chunk.shape[0]
-                    good_track_selection = ((track_candidates_chunk['hit_flag'] & dut_hit_selection) == dut_hit_selection)
-                    good_track_selection &= (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_selection) >= actual_min_track_hits)
+                    # selecting data with 2 or more hits in the fit DUTs for fitting
+                    select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= 2)
+                    # Select tracks that will be stored
+                    select_tracks_for_storage = select_fit_tracks
+                    # ... select tracks with DUTs that are required to have a hit
+                    select_tracks_for_storage &= ((track_candidates_chunk['hit_flag'] & dut_hit_mask) == dut_hit_mask)
+                    # ... and fulfilling the minimum track hits requirement
+                    select_tracks_for_storage &= (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= actual_min_track_hits)
+                    n_good_tracks = np.count_nonzero(select_tracks_for_storage)
+                    chunk_stats.append(n_good_tracks / n_tracks_chunk)
                     # remove tracks that have only a single DUT with a hit
-                    # for index, bit in enumerate(np.binary_repr(dut_fit_selection)[::-1]):  # iterate from LSB to MSB
+                    # for index, bit in enumerate(np.binary_repr(dut_fit_mask)[::-1]):  # iterate from LSB to MSB
                     #     if bit == "0":
                     #         continue
-                    #     dut_fit_selection_dut_removed = dut_fit_selection & ~(1 << index)
-                    #     good_track_selection &= (track_candidates_chunk['hit_flag'] & dut_fit_selection_dut_removed) > 0
-                    n_good_tracks = np.count_nonzero(good_track_selection)
-                    chunk_stats.append(n_good_tracks / n_tracks_chunk)
+                    #     dut_fit_mask_dut_removed = dut_fit_mask & ~(1 << index)
+                    #     select_fit_tracks &= (track_candidates_chunk['hit_flag'] & dut_fit_mask_dut_removed) > 0
 
                     # if max_tracks is not None:
-                    #     cut_index = np.where(np.cumsum(good_track_selection) + total_n_tracks > max_tracks)[0]
+                    #     cut_index = np.where(np.cumsum(select_fit_tracks) + total_n_tracks > max_tracks)[0]
                     #     print "cut index", cut_index
                     #     if len(cut_index) > 0:
                     #         event_indices = np.where(track_candidates_chunk["event_number"][:-1] != track_candidates_chunk["event_number"][1:])[0] + 1
                     #         event_cut_index = event_indices[event_indices >= cut_index[0]][0]
                     #         # print track_candidates_chunk[event_cut_index-2:event_cut_index+2]["event_number"]
                     #         # print track_candidates_chunk[event_cut_index-2:event_cut_index]["event_number"]
-                    #         good_track_selection = good_track_selection[:event_cut_index]
+                    #         select_fit_tracks = select_fit_tracks[:event_cut_index]
                     #         track_candidates_chunk = track_candidates_chunk[:event_cut_index]
                     #         # print "event_cut_index", event_cut_index, total_n_tracks, max_tracks
 
-                    unique_events = np.unique(track_candidates_chunk["event_number"][good_track_selection])
+                    unique_events = np.unique(track_candidates_chunk["event_number"][select_tracks_for_storage])
                     n_events_chunk = unique_events.shape[0]
                     if n_events_chunk == 0:
                         continue
 
-                    # print "n_events_chunk", n_events_chunk
-                    # print "n_tracks_chunk", n_tracks_chunk
                     if max_events:
                         if total_n_tracks == index_chunk:  # last chunk, adding all remaining events
                             select_n_events = max_events - total_n_events_stored
@@ -865,43 +868,41 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         store_n_events = selected_events.shape[0]
                         total_n_events_stored += store_n_events
                         # print "store_n_events", store_n_events
-                        good_track_selection &= np.in1d(track_candidates_chunk["event_number"], selected_events)
+                        select_tracks_for_storage &= np.in1d(track_candidates_chunk["event_number"], selected_events)
                         # TODO: total_n_tracks_stored not used...
-                        store_n_tracks = np.count_nonzero(good_track_selection)
+                        store_n_tracks = np.count_nonzero(select_tracks_for_storage)
                         total_n_tracks_stored += store_n_tracks
                         # track_candidates_chunk = track_candidates_chunk[select_tracks]
 
                     # Prepare track hits array to be fitted
-                    n_good_tracks = np.count_nonzero(good_track_selection)  # Index of tmp track hits array
+                    n_fit_tracks = np.count_nonzero(select_fit_tracks)  # Index of tmp track hits array
                     if method == "fit":
-                        track_hits = np.full((n_good_tracks, len(fit_duts), 3), fill_value=np.nan, dtype=np.float64)
+                        track_hits = np.full((n_fit_tracks, len(fit_duts), 3), fill_value=np.nan, dtype=np.float64)
                     elif method == "kalman":
-                        track_hits = np.full((n_good_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float64)
+                        track_hits = np.full((n_fit_tracks, n_duts, 6), fill_value=np.nan, dtype=np.float64)
 
-                    # print "hit flags", np.unique(track_candidates_chunk['hit_flag'][good_track_selection])  # , np.min(track_candidates_chunk['hit_flag'][good_track_selection])
-                    # print "quality flags", np.unique(track_candidates_chunk['quality_flag'][good_track_selection])  # , np.min(track_candidates_chunk['quality_flag'][good_track_selection])
                     fit_array_index = 0
                     for dut_index, dut in enumerate(telescope):  # Fill index loop of new array
                         # Check if DUT is used for fit
                         if method == "fit" and dut_index in fit_duts:
                             # apply alignment for fitting the tracks
                             track_hits[:, fit_array_index, 0], track_hits[:, fit_array_index, 1], track_hits[:, fit_array_index, 2] = dut.local_to_global_position(
-                                x=track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection],
-                                y=track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection],
-                                z=track_candidates_chunk['z_dut_%s' % dut_index][good_track_selection])
+                                x=track_candidates_chunk['x_dut_%s' % dut_index][select_fit_tracks],
+                                y=track_candidates_chunk['y_dut_%s' % dut_index][select_fit_tracks],
+                                z=track_candidates_chunk['z_dut_%s' % dut_index][select_fit_tracks])
                             # increase index for tracks hits array
                             fit_array_index += 1
                         elif method == "kalman":
                             # TODO: taking telescope alignment into account for initial state
                             # apply alignment for fitting the tracks
                             track_hits[:, dut_index, 0], track_hits[:, dut_index, 1], track_hits[:, dut_index, 2] = dut.local_to_global_position(
-                                x=track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection],
-                                y=track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection],
-                                z=track_candidates_chunk['z_dut_%s' % dut_index][good_track_selection])
+                                x=track_candidates_chunk['x_dut_%s' % dut_index][select_fit_tracks],
+                                y=track_candidates_chunk['y_dut_%s' % dut_index][select_fit_tracks],
+                                z=track_candidates_chunk['z_dut_%s' % dut_index][select_fit_tracks])
                             track_hits[:, dut_index, 3], track_hits[:, dut_index, 4], track_hits[:, dut_index, 5] = np.abs(dut.local_to_global_position(
-                                x=track_candidates_chunk['x_err_dut_%s' % dut_index][good_track_selection],
-                                y=track_candidates_chunk['y_err_dut_%s' % dut_index][good_track_selection],
-                                z=track_candidates_chunk['z_err_dut_%s' % dut_index][good_track_selection],
+                                x=track_candidates_chunk['x_err_dut_%s' % dut_index][select_fit_tracks],
+                                y=track_candidates_chunk['y_err_dut_%s' % dut_index][select_fit_tracks],
+                                z=track_candidates_chunk['z_err_dut_%s' % dut_index][select_fit_tracks],
                                 # no translation for the errors
                                 translation_x=0.0,
                                 translation_y=0.0,
@@ -934,7 +935,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     dut_stats.append(store_track_data(
                         out_file_h5=out_file_h5,
                         track_candidates_chunk=track_candidates_chunk,
-                        good_track_selection=good_track_selection,
+                        select_fit_tracks=select_fit_tracks,
+                        select_tracks_for_storage=select_tracks_for_storage,
                         telescope=telescope,
                         offsets=offsets,
                         slopes=slopes,
@@ -980,22 +982,23 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, telescope, offsets, slopes, track_chi2s, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, select_tracks_for_storage, telescope, offsets, slopes, track_chi2s, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
     dut_stats = []
     fit_duts_offsets = []
     fit_duts_slopes = []
-    n_good_tracks = np.count_nonzero(good_track_selection)
+    n_fit_tracks = np.count_nonzero(select_fit_tracks)
+    n_good_tracks = np.count_nonzero(select_tracks_for_storage)
     # xy_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
-    x_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
-    x_err_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
-    y_residuals_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
-    y_err_squared = np.empty((n_good_tracks, len(telescope)), dtype=np.float64)
+    x_residuals_squared = np.empty((n_fit_tracks, len(telescope)), dtype=np.float64)
+    x_err_squared = np.empty((n_fit_tracks, len(telescope)), dtype=np.float64)
+    y_residuals_squared = np.empty((n_fit_tracks, len(telescope)), dtype=np.float64)
+    y_err_squared = np.empty((n_fit_tracks, len(telescope)), dtype=np.float64)
     # reset quality and isolation flag
-    quality_flag = np.zeros(n_good_tracks, dtype=track_candidates_chunk["hit_flag"].dtype)
+    quality_flag = np.zeros(n_fit_tracks, dtype=track_candidates_chunk["hit_flag"].dtype)
     isolated_hit_flag = np.zeros_like(quality_flag)
     isolated_track_flag = np.zeros_like(quality_flag)
     if full_track_info:
-        track_estimates_chunk_full = np.full(shape=(n_good_tracks, len(telescope), 6), fill_value=np.nan, dtype=np.float64)
+        track_estimates_chunk_full = np.full(shape=(n_fit_tracks, len(telescope), 6), fill_value=np.nan, dtype=np.float64)
     else:
         track_estimates_chunk_full = None
     for dut_index, dut in enumerate(telescope):
@@ -1007,8 +1010,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             limit_x_local = None
             limit_y_local = None
 
-        hit_x_local = track_candidates_chunk['x_dut_%s' % dut_index][good_track_selection]
-        hit_y_local = track_candidates_chunk['y_dut_%s' % dut_index][good_track_selection]
+        hit_x_local = track_candidates_chunk['x_dut_%s' % dut_index][select_fit_tracks]
+        hit_y_local = track_candidates_chunk['y_dut_%s' % dut_index][select_fit_tracks]
 
         if method == "fit":
             # Set the offset to the track intersection with the tilted plane
@@ -1071,7 +1074,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         select_finite_distance = np.isfinite(x_residuals)
         select_finite_distance &= np.isfinite(y_residuals)
 
-        n_good_tracks_with_hits = np.count_nonzero(select_finite_distance)
+        select_fitted_tracks_for_storage = select_tracks_for_storage[select_fit_tracks]
+        n_good_tracks_with_hits = np.count_nonzero(select_fitted_tracks_for_storage & select_finite_distance)
         if n_good_tracks == 0:
             dut_stats[dut_index].append(0)
         else:
@@ -1079,16 +1083,16 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         # correction for residuals if residual mean (peak) is far away from 0
         if select_align_duts is not None and dut_index in select_align_duts and n_good_tracks_with_hits > 10:  # check for size of array, usually the last chunk affected
-            center_x = np.median(x_residuals[select_finite_distance])
-            std_x = np.std(x_residuals[select_finite_distance])
-            x_kde = gaussian_kde(x_residuals[select_finite_distance], bw_method=dut.pixel_size[0] / 12**0.5 / std_x)
+            center_x = np.median(x_residuals[select_fitted_tracks_for_storage & select_finite_distance])
+            std_x = np.std(x_residuals[select_fitted_tracks_for_storage & select_finite_distance])
+            x_kde = gaussian_kde(x_residuals[select_fitted_tracks_for_storage & select_finite_distance], bw_method=dut.pixel_size[0] / 12**0.5 / std_x)
             x_grid = np.linspace(center_x - 0.5 * std_x, center_x + 0.5 * std_x, np.ceil(std_x))
             x_index_max = np.argmax(x_kde.evaluate(x_grid))
             mean_x_residual = x_grid[x_index_max]
             x_residuals -= mean_x_residual
-            center_y = np.median(y_residuals[select_finite_distance])
-            std_y = np.std(y_residuals[select_finite_distance])
-            y_kde = gaussian_kde(y_residuals[select_finite_distance], bw_method=dut.pixel_size[1] / 12**0.5 / std_y)
+            center_y = np.median(y_residuals[select_fitted_tracks_for_storage & select_finite_distance])
+            std_y = np.std(y_residuals[select_fitted_tracks_for_storage & select_finite_distance])
+            y_kde = gaussian_kde(y_residuals[select_fitted_tracks_for_storage & select_finite_distance], bw_method=dut.pixel_size[1] / 12**0.5 / std_y)
             y_grid = np.linspace(center_y - 0.5 * std_y, center_y + 0.5 * std_y, np.ceil(std_y))
             y_index_max = np.argmax(y_kde.evaluate(y_grid))
             mean_y_residual = y_grid[y_index_max]
@@ -1096,9 +1100,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         # xy_residuals_squared[:, dut_index] = np.square(hit_x_local - intersection_x_local) + np.square(hit_y_local - intersection_y_local)
         x_residuals_squared[:, dut_index] = np.square(x_residuals)
-        x_err_squared[:, dut_index] = np.square(track_candidates_chunk['x_err_dut_%d' % dut_index][good_track_selection])
+        x_err_squared[:, dut_index] = np.square(track_candidates_chunk['x_err_dut_%d' % dut_index][select_fit_tracks])
         y_residuals_squared[:, dut_index] = np.square(y_residuals)
-        y_err_squared[:, dut_index] = np.square(track_candidates_chunk['y_err_dut_%d' % dut_index][good_track_selection])
+        y_err_squared[:, dut_index] = np.square(track_candidates_chunk['y_err_dut_%d' % dut_index][select_fit_tracks])
 
         # generate quality array
         dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=np.bool)
@@ -1134,11 +1138,11 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             dut_quality_flag_sel[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= quality_distance_y)
         quality_flag[dut_quality_flag_sel] |= np.uint32((1 << dut_index))
 
-        n_quality_tracks = np.count_nonzero(dut_quality_flag_sel)
+        n_good_tracks_with_hits_with_quality = np.count_nonzero(select_fitted_tracks_for_storage & select_finite_distance & dut_quality_flag_sel)
         if n_good_tracks_with_hits == 0:
             dut_stats[dut_index].append(0)
         else:
-            dut_stats[dut_index].append(n_quality_tracks / n_good_tracks_with_hits)
+            dut_stats[dut_index].append(n_good_tracks_with_hits_with_quality / n_good_tracks_with_hits)
 
         # distance to find close-by hits and tracks
         if isolation_distances[dut_index] is None:
@@ -1155,26 +1159,25 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
         # All selected tracks will result in a quality_flag = 0 for the actual DUT
         dut_small_track_distance_flag_sel = np.zeros_like(dut_quality_flag_sel)
         _find_small_distance(
-            event_number_array=track_candidates_chunk['event_number'][good_track_selection],
+            event_number_array=track_candidates_chunk['event_number'][select_fit_tracks],
             position_array_x=intersection_x_local,
             position_array_y=intersection_y_local,
             max_distance_x=isolation_distance_x,
             max_distance_y=isolation_distance_y,
             small_distance_flag_array=dut_small_track_distance_flag_sel,
             use_ellipse=True)
-        # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by tracks", np.count_nonzero(dut_small_track_distance_flag_sel & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # Set flag for too close tracks (isolation flag is set to zero)
         isolated_track_flag[~dut_small_track_distance_flag_sel] |= np.uint32((1 << dut_index))
 
-        n_isolated_tracks = np.count_nonzero(~dut_small_track_distance_flag_sel)
+        n_good_tracks_with_hits_with_isolated_track = np.count_nonzero(select_fitted_tracks_for_storage & select_finite_distance & ~dut_small_track_distance_flag_sel)
         if n_good_tracks_with_hits == 0:
             dut_stats[dut_index].append(0)
         else:
-            dut_stats[dut_index].append(n_isolated_tracks / n_good_tracks_with_hits)
+            dut_stats[dut_index].append(n_good_tracks_with_hits_with_isolated_track / n_good_tracks_with_hits)
 
         # Select hits that are too close in a DUT
         # All selected hits will result in a quality_flag = 0 for the actual DUT
-        dut_small_hit_distance_flag_sel = np.zeros_like(good_track_selection)
+        dut_small_hit_distance_flag_sel = np.zeros_like(select_fit_tracks)
         _find_small_distance(
             event_number_array=track_candidates_chunk['event_number'],
             position_array_x=track_candidates_chunk['x_dut_%s' % dut_index],
@@ -1183,17 +1186,16 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             max_distance_y=isolation_distance_y,
             small_distance_flag_array=dut_small_hit_distance_flag_sel,
             use_ellipse=use_ellipse)
-        # logging.info("Unset track quality flag for %d of %d tracks for DUT%d due to close-by hits", np.count_nonzero(dut_small_hit_distance_flag_sel[good_track_selection] & dut_quality_flag_sel), np.count_nonzero(dut_quality_flag_sel), dut_index)
         # Set flag for too close hits (isolation flag is set to zero)
-        isolated_hit_flag[~dut_small_hit_distance_flag_sel[good_track_selection]] |= np.uint32((1 << dut_index))
+        isolated_hit_flag[~dut_small_hit_distance_flag_sel[select_fit_tracks]] |= np.uint32((1 << dut_index))
 
-        n_isolated_hits = np.count_nonzero(~dut_small_hit_distance_flag_sel[good_track_selection])
+        n_good_tracks_with_hits_with_isolated_hit = np.count_nonzero(select_fitted_tracks_for_storage & select_finite_distance & ~dut_small_hit_distance_flag_sel[select_fit_tracks])
         if n_good_tracks_with_hits == 0:
             dut_stats[dut_index].append(0)
         else:
-            dut_stats[dut_index].append(n_isolated_hits / n_good_tracks_with_hits)
+            dut_stats[dut_index].append(n_good_tracks_with_hits_with_isolated_hit / n_good_tracks_with_hits)
 
-        n_isolated_and_quality_tracks = np.count_nonzero(dut_quality_flag_sel & ~dut_small_track_distance_flag_sel & ~dut_small_hit_distance_flag_sel[good_track_selection])
+        n_isolated_and_quality_tracks = np.count_nonzero(dut_quality_flag_sel & ~dut_small_track_distance_flag_sel & ~dut_small_hit_distance_flag_sel[select_fit_tracks])
         dut_stats[dut_index].append(n_isolated_and_quality_tracks / track_candidates_chunk.shape[0])
 
         if dut_index in fit_duts:
@@ -1241,7 +1243,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
             quality_flag=quality_flag,
             isolated_track_flag=isolated_track_flag,
             isolated_hit_flag=isolated_hit_flag,
-            good_track_selection=good_track_selection,
+            select_fit_tracks=select_fit_tracks,
+            select_tracks_for_storage=select_tracks_for_storage,
             track_candidates_chunk=track_candidates_chunk,
             keep_data=keep_data,
             track_estimates_chunk_full=track_estimates_chunk_full)
@@ -1288,7 +1291,8 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
             index += 1
 
 
-def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_flag, isolated_track_flag, isolated_hit_flag, good_track_selection, track_candidates_chunk, keep_data, track_estimates_chunk_full):
+def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_flag, isolated_track_flag, isolated_hit_flag, select_fit_tracks, select_tracks_for_storage, track_candidates_chunk, keep_data, track_estimates_chunk_full):
+    select_fitted_tracks_for_storage = select_tracks_for_storage[select_fit_tracks]
     # Tracks description, additional columns
     tracks_descr = []
     for dimension in ['x', 'y', 'z']:
@@ -1307,7 +1311,7 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
 
     # Select only fitted tracks (keep_data is False) or keep all track candidates (keep_data is True)
     if not keep_data:
-        track_candidates_chunk = track_candidates_chunk[good_track_selection]
+        track_candidates_chunk = track_candidates_chunk[select_tracks_for_storage]
 
     tracks_array = np.empty((track_candidates_chunk.shape[0],), dtype=track_candidates_chunk.dtype.descr + tracks_descr)
 
@@ -1329,48 +1333,48 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
 
     if keep_data:
         for index, dimension in enumerate(['x', 'y', 'z']):
-            tracks_array['offset_%s' % dimension][good_track_selection] = dut_offsets[:, index]
-            tracks_array['slope_%s' % dimension][good_track_selection] = dut_slopes[:, index]
-            tracks_array['offset_%s' % dimension][~good_track_selection] = np.nan
-            tracks_array['slope_%s' % dimension][~good_track_selection] = np.nan
+            tracks_array['offset_%s' % dimension][select_fit_tracks] = dut_offsets[:, index]
+            tracks_array['slope_%s' % dimension][select_fit_tracks] = dut_slopes[:, index]
+            tracks_array['offset_%s' % dimension][~select_fit_tracks] = np.nan
+            tracks_array['slope_%s' % dimension][~select_fit_tracks] = np.nan
         if track_estimates_chunk_full is not None:
             for index_dut in range(n_duts):
-                tracks_array['offset_x_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 0]
-                tracks_array['offset_y_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 1]
-                tracks_array['offset_z_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 2]
-                tracks_array['slope_x_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 3]
-                tracks_array['slope_y_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 4]
-                tracks_array['slope_z_dut_%d' % index_dut][good_track_selection] = track_estimates_chunk_full[:, index_dut, 5]
-                tracks_array['offset_x_dut_%d' % index_dut][~good_track_selection] = np.nan
-                tracks_array['offset_y_dut_%d' % index_dut][~good_track_selection] = np.nan
-                tracks_array['offset_z_dut_%d' % index_dut][~good_track_selection] = np.nan
-                tracks_array['slope_x_dut_%d' % index_dut][~good_track_selection] = np.nan
-                tracks_array['slope_y_dut_%d' % index_dut][~good_track_selection] = np.nan
-                tracks_array['slope_z_dut_%d' % index_dut][~good_track_selection] = np.nan
-        tracks_array['track_chi2'][good_track_selection] = track_chi2s
-        tracks_array['track_chi2'][~good_track_selection] = np.nan
-        tracks_array['quality_flag'][good_track_selection] = quality_flag
-        tracks_array['quality_flag'][~good_track_selection] = 0
-        tracks_array['isolated_track_flag'][good_track_selection] = isolated_track_flag
-        tracks_array['isolated_track_flag'][~good_track_selection] = 0
-        tracks_array['isolated_hit_flag'][good_track_selection] = isolated_hit_flag
-        tracks_array['isolated_hit_flag'][~good_track_selection] = 0
+                tracks_array['offset_x_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 0]
+                tracks_array['offset_y_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 1]
+                tracks_array['offset_z_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 2]
+                tracks_array['slope_x_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 3]
+                tracks_array['slope_y_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 4]
+                tracks_array['slope_z_dut_%d' % index_dut][select_fit_tracks] = track_estimates_chunk_full[:, index_dut, 5]
+                tracks_array['offset_x_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+                tracks_array['offset_y_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+                tracks_array['offset_z_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+                tracks_array['slope_x_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+                tracks_array['slope_y_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+                tracks_array['slope_z_dut_%d' % index_dut][~select_fit_tracks] = np.nan
+        tracks_array['track_chi2'][select_fit_tracks] = track_chi2s
+        tracks_array['track_chi2'][~select_fit_tracks] = np.nan
+        tracks_array['quality_flag'][select_fit_tracks] = quality_flag
+        tracks_array['quality_flag'][~select_fit_tracks] = 0
+        tracks_array['isolated_track_flag'][select_fit_tracks] = isolated_track_flag
+        tracks_array['isolated_track_flag'][~select_fit_tracks] = 0
+        tracks_array['isolated_hit_flag'][select_fit_tracks] = isolated_hit_flag
+        tracks_array['isolated_hit_flag'][~select_fit_tracks] = 0
     else:
         for index, dimension in enumerate(['x', 'y', 'z']):
-            tracks_array['offset_%s' % dimension] = dut_offsets[:, index]
-            tracks_array['slope_%s' % dimension] = dut_slopes[:, index]
+            tracks_array['offset_%s' % dimension] = dut_offsets[select_fitted_tracks_for_storage, index]
+            tracks_array['slope_%s' % dimension] = dut_slopes[select_fitted_tracks_for_storage, index]
         if track_estimates_chunk_full is not None:
             for index_dut in range(n_duts):
-                tracks_array['offset_x_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 0]
-                tracks_array['offset_y_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 1]
-                tracks_array['offset_z_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 2]
-                tracks_array['slope_x_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 3]
-                tracks_array['slope_y_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 4]
-                tracks_array['slope_z_dut_%d' % index_dut] = track_estimates_chunk_full[:, index_dut, 5]
-        tracks_array['track_chi2'] = track_chi2s
-        tracks_array['quality_flag'] = quality_flag
-        tracks_array['isolated_track_flag'] = isolated_track_flag
-        tracks_array['isolated_hit_flag'] = isolated_hit_flag
+                tracks_array['offset_x_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 0]
+                tracks_array['offset_y_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 1]
+                tracks_array['offset_z_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 2]
+                tracks_array['slope_x_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 3]
+                tracks_array['slope_y_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 4]
+                tracks_array['slope_z_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 5]
+        tracks_array['track_chi2'] = track_chi2s[select_fitted_tracks_for_storage]
+        tracks_array['quality_flag'] = quality_flag[select_fitted_tracks_for_storage]
+        tracks_array['isolated_track_flag'] = isolated_track_flag[select_fitted_tracks_for_storage]
+        tracks_array['isolated_hit_flag'] = isolated_hit_flag[select_fitted_tracks_for_storage]
 
     return tracks_array
 
