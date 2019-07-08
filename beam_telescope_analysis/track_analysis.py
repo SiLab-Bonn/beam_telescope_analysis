@@ -1377,9 +1377,7 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
 
 def _fit_tracks_loop(track_hits):
     '''
-    Loop over the selected tracks. In this function all matrices for the Kalman Filter are calculated track by track
-    and the Kalman Filter is started. With dut_fit_selection only the duts which are selected are included in the Kalman Filter.
-    Not included DUTs are masked.
+    Loop over the selected tracks.
 
     Parameters
     ----------
@@ -1392,8 +1390,6 @@ def _fit_tracks_loop(track_hits):
         Array, which contains the track offsets.
     slope : array
         Array, which contains the track slopes.
-    chi2 : array
-        Array, which contains the track Chi^2.
     '''
     slope = np.full((track_hits.shape[0], 3), dtype=np.float64, fill_value=np.nan)
     offset = np.full((track_hits.shape[0], 3), dtype=np.float64, fill_value=np.nan)
@@ -1409,7 +1405,8 @@ def _fit_tracks_loop(track_hits):
 
 
 def line_fit_3d(positions):
-    ''' Do 3D line fit and calculate chi2 for each fit.
+    '''
+    3D line fit (SVD).
     '''
     # remove NaNs from data
     positions = positions[~np.isnan(positions).any(axis=1)]
@@ -1433,8 +1430,7 @@ def line_fit_3d(positions):
 def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy, particle_mass, scattering_planes):
     '''
     Loop over the selected tracks. In this function all matrices for the Kalman Filter are calculated track by track
-    and the Kalman Filter is started. With dut_fit_selection only the duts which are selected are included in the Kalman Filter.
-    Not included DUTs are masked.
+    and the Kalman Filter is started.
 
     Parameters
     ----------
