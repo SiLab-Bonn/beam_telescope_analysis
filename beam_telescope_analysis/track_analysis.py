@@ -816,7 +816,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # selecting data with 2 or more hits in the fit DUTs for fitting
                     select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= 2)
                     # Select tracks that will be stored
-                    select_tracks_for_storage = select_fit_tracks
+                    select_tracks_for_storage = select_fit_tracks.copy()
                     # ... select tracks with DUTs that are required to have a hit
                     select_tracks_for_storage &= ((track_candidates_chunk['hit_flag'] & dut_hit_mask) == dut_hit_mask)
                     # ... and fulfilling the minimum track hits requirement
