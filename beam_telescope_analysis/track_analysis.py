@@ -813,8 +813,15 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # if max_tracks is not None and total_n_tracks >= max_tracks:
                     #     break
                     n_tracks_chunk = track_candidates_chunk.shape[0]
-                    # selecting data with 2 or more hits in the fit DUTs for fitting
-                    select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= 2)
+                    # selecting data with 2 or more hits in the fit DUTs for fitting;
+                    # this rquirement will have an impact on isolated_track_flag;
+                    # the more tracks are fitted, the calculation of isolated_track_flag becomes better.
+                    # NOTE: this value has a significant impact on CPU processing time
+                    if method == "kalman":
+                        # increase minimum track hits requirement for Kalman fit to reduce CPU processing time
+                        select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= min(3, actual_min_track_hits))
+                    else:
+                        select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= 2)
                     # Select tracks that will be stored
                     select_tracks_for_storage = select_fit_tracks.copy()
                     # ... select tracks with DUTs that are required to have a hit
