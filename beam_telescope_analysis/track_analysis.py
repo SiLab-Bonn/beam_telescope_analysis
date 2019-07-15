@@ -794,6 +794,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 dut_fit_mask = 0  # DUTs to be used for the fit
                 for dut_index in fit_duts:
                     dut_fit_mask |= ((1 << dut_index))
+                if actual_min_track_hits > len(fit_duts):
+                    raise RuntimeError("min_track_hits for DUT%d is larger than the number of fit DUTs" % (actual_fit_dut,))
                 logging.info('Require at least %d hits in %d DUTs for track selection: %s', actual_min_track_hits, len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
 
                 # selecting DUTs for residual correction
