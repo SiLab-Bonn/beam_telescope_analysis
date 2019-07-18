@@ -8,6 +8,7 @@ from beam_telescope_analysis.tools import geometry_utils
 
 
 class Dut(object):
+    # list of member variables that are allowed to be changed/set (e.g., during initialization)
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, material_budget=None):
@@ -103,6 +104,13 @@ class Dut(object):
     @material_budget.setter
     def material_budget(self, material_budget):
         self._material_budget = float(material_budget)
+
+    @classmethod
+    def from_dut(cls, dut, **kwargs):
+        init_variables = list(set(cls.dut_attributes) & set(dut.dut_attributes))
+        init_dict = {key: getattr(dut, key) for key in init_variables}
+        init_dict.update(kwargs)
+        return cls(**init_dict)
 
     def x_extent(self):
         raise NotImplementedError
