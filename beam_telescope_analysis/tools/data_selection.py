@@ -46,6 +46,8 @@ def combine_files(input_files, output_file=None, names=None, event_number_offset
     applied_event_number_offsets : dict
         The dictinary contains the the lists of the event numbers offsets of each table.
     '''
+    logging.info('=== Combining %d files ===' % len(input_files))
+
     if not output_file:
         prefix = os.path.commonprefix(input_files)
         output_file = os.path.splitext(prefix)[0] + '_combined.h5'
