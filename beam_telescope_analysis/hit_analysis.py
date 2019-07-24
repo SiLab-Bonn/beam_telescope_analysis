@@ -466,7 +466,7 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
         if len(select_duts) != len(iterations):
             raise ValueError('Parameter "iterations" has wrong length.')
     else:
-        iterations = [iterations] * len(iterations)
+        iterations = [iterations] * len(select_duts)
     if isinstance(thresholds, (list, tuple)):
         if len(select_duts) != len(thresholds):
             raise ValueError('Parameter "thresholds" has wrong length.')
