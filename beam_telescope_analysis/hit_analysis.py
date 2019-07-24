@@ -408,8 +408,9 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
     return output_check_file
 
 
-def mask(telescope_configuration, input_hit_files, output_mask_files=None, select_duts=None, pixel_mask_names="NoisyPixelMask", thresholds=10.0, filter_sizes=3, plot=True, chunk_size=1000000):
-    '''"Masking noisy pixels. Wrapper for generate_pixel_mask(). For detailed description of the parameters see generate_pixel_mask().
+def mask(telescope_configuration, input_hit_files, output_mask_files=None, select_duts=None, pixel_mask_names="NoisyPixelMask", iterations=None, thresholds=10.0, filter_sizes=3, plot=True, chunk_size=1000000):
+    '''"Masking noisy pixels.
+    Wrapper for mask_pixels(). For detailed description of the parameters see mask_pixels().
 
     Parameters
     ----------
@@ -425,6 +426,8 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
         Pixel mask type for each DUT. Possible mask types:
           - DisabledPixelMask
           - NoisyPixelMask
+    iterations : list
+        The iterations for pixel masking.
     thresholds : list
         The thresholds for pixel masking.
     filter_sizes : list
@@ -459,6 +462,11 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
             raise ValueError('Parameter "pixel_mask_names" has wrong length.')
     else:
         pixel_mask_names = [pixel_mask_names] * len(select_duts)
+    if isinstance(iterations, (list, tuple)):
+        if len(select_duts) != len(iterations):
+            raise ValueError('Parameter "iterations" has wrong length.')
+    else:
+        iterations = [iterations] * len(iterations)
     if isinstance(thresholds, (list, tuple)):
         if len(select_duts) != len(thresholds):
             raise ValueError('Parameter "thresholds" has wrong length.')
@@ -477,6 +485,7 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
             input_hit_file=input_hit_files[i],
             pixel_mask_name=pixel_mask_names[i],
             output_mask_file=None if output_mask_files is None else output_mask_files[i],
+            iterations=iterations[i],
             threshold=thresholds[i],
             filter_size=filter_sizes[i],
             plot=plot,
@@ -484,8 +493,10 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
     return output_files
 
 
-def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_mask_file=None, threshold=10.0, filter_size=3, plot=True, chunk_size=1000000):
+def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_mask_file=None, iterations=None, threshold=10.0, filter_size=3, plot=True, chunk_size=1000000):
     '''Generating pixel mask from the hit table.
+    The pixel masking is an iterative process to identify and suppress any noisy pixel (cluster).
+    The iterative process stops when no more noisy pixels are found or the maximum number of iterations is reached.
 
     Parameters
     ----------
@@ -499,14 +510,16 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
           - NoisyPixelMask: Clusters solely containing noisy pixels are not built.
     output_mask_file : string
         Filename of the output mask file.
+    iterations : int
+        Maximum number of itaration steps.
+        If None or 0, the number of steps is not limited.
     threshold : float
-        The threshold for pixel masking. The threshold is given in units of
-        sigma of the pixel noise (background subtracted). The lower the value
-        the more pixels are masked.
+        The threshold for pixel masking controls the sensitivity for detecting noisy pixels.
+        The threshold is multiplied with the standard deviation of the pixel hit count (background subtracted).
+        The lower the threshold, the more pixels are masked.
     filter_size : scalar or tuple
         Adjust the median filter size by giving the number of columns and rows.
-        The higher the value the more the background is smoothed and more
-        pixels are masked.
+        The higher the value, the more the background is smoothed and the more pixels are masked.
     plot : bool
         If True, create additional output plots.
     chunk_size : int
@@ -517,7 +530,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     output_mask_file : string
         Filename of the output mask file.
     '''
-    logging.info('== Masking pixels of %s ==', dut.name)
+    logging.info('== Masking pixels of %s (%s) ==', dut.name, input_hit_file)
 
     if pixel_mask_name not in ["DisabledPixelMask", "NoisyPixelMask"]:
         raise ValueError("'%s' is not a valid pixel mask name." % pixel_mask_name)
@@ -546,16 +559,29 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     # Create mask from occupancy histogram
     with tb.open_file(output_mask_file, mode='r+') as out_file_h5:
         occupancy = out_file_h5.root.HistOcc[:]
-        # Run median filter across data, assuming 0 filling past the edges to get expected occupancy
-        blurred = median_filter(occupancy.astype(np.int32), size=filter_size, mode='constant', cval=0.0)
-        # Spot noisy pixels maxima by substracting expected occupancy
-        difference = np.ma.masked_array(occupancy - blurred)
-        std = np.ma.std(difference)
-        abs_occ_threshold = threshold * std
-        occupancy = np.ma.masked_where(difference > abs_occ_threshold, occupancy)
-        logging.info('Masked %d pixels at threshold %.1f in %s', np.ma.count_masked(occupancy), threshold, input_hit_file)
-        # Generate tuple col / row array of hot pixels, do not use getmask()
-        pixel_mask = np.ma.getmaskarray(occupancy)
+        pixel_mask = np.zeros_like(occupancy, dtype=np.bool)
+        iterations = 100
+        i = 0
+        while(True):
+            i += 1
+            # Run median filter across data, assuming 0 filling past the edges to get expected occupancy
+            blurred = median_filter(occupancy.astype(np.int32), size=filter_size, mode='constant', cval=0.0)
+            # Spot noisy pixels by substracting expected occupancy from measured occupancy
+            difference = occupancy - blurred
+            # try to normalize to statistics, prevent masking pixels with low hit counts and uneven hit distribution
+            # also prevent from masking pixels with 0 hit count
+            std = np.std(difference[occupancy != 0] / np.sqrt(occupancy[occupancy != 0]))
+            # reverse normalization and calculate threshold per pixel
+            abs_occ_threshold = threshold * std * np.sqrt(occupancy[occupancy != 0])
+            tmp_pixel_mask = np.zeros_like(pixel_mask)
+            tmp_pixel_mask[occupancy != 0] = difference[occupancy != 0] > abs_occ_threshold
+            n_new_masked_pixels = np.count_nonzero(tmp_pixel_mask & (tmp_pixel_mask ^ pixel_mask))
+            logging.info('Iteration %d: Masked %d pixels', i, n_new_masked_pixels)
+            pixel_mask |= tmp_pixel_mask
+            occupancy[pixel_mask] = blurred[pixel_mask]
+            if n_new_masked_pixels == 0 or (iterations and i >= iterations):
+                break
+        logging.info('Masked %d pixels in total at threshold %.1f', np.count_nonzero(pixel_mask), threshold)
 
         # Create masked pixels array
         masked_pixel_table = out_file_h5.create_carray(
