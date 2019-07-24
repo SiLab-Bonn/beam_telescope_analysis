@@ -9,6 +9,7 @@ import math
 
 import tables as tb
 import numpy as np
+import scipy
 from matplotlib.backends.backend_pdf import PdfPages
 
 import progressbar
@@ -273,13 +274,24 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     raise RuntimeError('Cannot find %s correlation between %s and %s' % ("X" if x_direction else "Y", telescope[select_reference_dut].name, telescope[dut_index].name))
                 # offset in the center of the pixel matrix
                 offset_center = offset + slope * (0.5 * dut_hist_size - 0.5 * bin_size)
+                # calculate offset for local frame
                 offset_plot = offset - slope * dut_pos[0]
-                _, _, _, x_list, y_list = find_ransac(
+                # find loactions where the max. correlation is close to expected value
+                x_list = find_inliers(
                     x=dut_pos[max_select != 0],
                     y=(max_select[max_select != 0] * bin_size - ref_hist_size / 2.0 + bin_size / 2.0),
-                    iterations=1000,
-                    threshold=pixel_size * 2,
-                    ratio=0.9)
+                    m=slope,
+                    c=offset_plot,
+                    threshold=pixel_size * np.sqrt(12) * 2)
+                # 1-dimensional clustering of calculated locations
+                kernel = scipy.stats.gaussian_kde(x_list)
+                densities = kernel(dut_pos)
+                max_density = np.max(densities)
+                # calculate indices where value is close to max. density
+                indices = np.where(densities > max_density * 0.5)
+                # get locations from indices
+                x_list = dut_pos[indices]
+                # calculate range where correlation exists
                 dut_pos_limit = [np.min(x_list), np.max(x_list)]
 
                 plot_utils.plot_hough(
@@ -340,6 +352,62 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
     return output_telescope_configuration
 
 
+def find_inliers(x, y, m, c, threshold=1.0):
+    ''' Find inliers.
+
+    Parameters
+    ----------
+    x : list
+        X coordinates.
+    y : list
+        Y coordinates.
+    threshold : float
+        Maximum distance of the data points for inlier selection.
+
+    Returns
+    -------
+    x_list : array
+        X coordianates of inliers.
+    '''
+    # calculate distance to reference hit
+    dist = np.abs(m * x + c - y)
+    sel = dist < threshold
+    return x[sel]
+
+
+def find_line_model(points):
+    """ find a line model for the given points
+    :param points selected points for model fitting
+    :return line model
+    """
+
+    # [WARNING] vertical and horizontal lines should be treated differently
+    #           here we just add some noise to avoid division by zero
+
+    # find a line model for these points
+    m = (points[1, 1] - points[0, 1]) / (points[1, 0] - points[0, 0] + sys.float_info.epsilon)  # slope (gradient) of the line
+    c = points[1, 1] - m * points[1, 0]  # y-intercept of the line
+
+    return m, c
+
+
+def find_intercept_point(m, c, x0, y0):
+    """ find an intercept point of the line model with
+        a normal from point (x0,y0) to it
+    :param m slope of the line model
+    :param c y-intercept of the line model
+    :param x0 point's x coordinate
+    :param y0 point's y coordinate
+    :return intercept point
+    """
+
+    # intersection point with the model
+    x = (x0 + m * y0 - m * c) / (1 + m**2)
+    y = (m * x0 + (m**2) * y0 - (m**2) * c) / (1 + m**2) + c
+
+    return x, y
+
+
 def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     ''' RANSAC implementation
 
@@ -358,7 +426,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
         Maximum number of iterations.
     threshold : float
         Maximum distance of the data points for inlier selection.
-    ration : float
+    ratio : float
         Break condition for inliers.
 
     Returns
@@ -372,40 +440,8 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     model_x_list : array
         X coordianates of inliers.
     model_y_list :  array
-        X coordianates of inliers.
+        Y coordianates of inliers.
     '''
-
-    def find_line_model(points):
-        """ find a line model for the given points
-        :param points selected points for model fitting
-        :return line model
-        """
-
-        # [WARNING] vertical and horizontal lines should be treated differently
-        #           here we just add some noise to avoid division by zero
-
-        # find a line model for these points
-        m = (points[1, 1] - points[0, 1]) / (points[1, 0] - points[0, 0] + sys.float_info.epsilon)  # slope (gradient) of the line
-        c = points[1, 1] - m * points[1, 0]  # y-intercept of the line
-
-        return m, c
-
-    def find_intercept_point(m, c, x0, y0):
-        """ find an intercept point of the line model with
-            a normal from point (x0,y0) to it
-        :param m slope of the line model
-        :param c y-intercept of the line model
-        :param x0 point's x coordinate
-        :param y0 point's y coordinate
-        :return intercept point
-        """
-
-        # intersection point with the model
-        x = (x0 + m * y0 - m * c) / (1 + m**2)
-        y = (m * x0 + (m**2) * y0 - (m**2) * c) / (1 + m**2) + c
-
-        return x, y
-
     data = np.column_stack((x, y))
     n_samples = x.shape[0]
 
@@ -417,32 +453,23 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     for it in range(iterations):
         all_indices = np.arange(n_samples)
         np.random.shuffle(all_indices)
-
         indices_1 = all_indices[:2]  # pick up two random points
         indices_2 = all_indices[2:]
-
         maybe_points = data[indices_1, :]
         test_points = data[indices_2, :]
-
         # find a line model for these points
         m, c = find_line_model(maybe_points)
-
         x_list = []
         y_list = []
         num = 0
-
         # find orthogonal lines to the model for all testing points
         for ind in range(test_points.shape[0]):
-
             x0 = test_points[ind, 0]
             y0 = test_points[ind, 1]
-
             # find an intercept point of the model with a normal from point (x0,y0)
             x1, y1 = find_intercept_point(m, c, x0, y0)
-
             # distance from point to the model
             dist = math.sqrt((x1 - x0)**2 + (y1 - y0)**2)
-
             # check whether it's an inlier or not
             if dist < threshold:
                 x_list.append(x0)
