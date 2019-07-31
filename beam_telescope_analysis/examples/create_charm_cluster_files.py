@@ -18,17 +18,31 @@ from beam_telescope_analysis.tools.merge_data import open_files, merge_hits, sav
 logger = logging.getLogger()
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.INFO, datefmt='%I:%M:%S')
 
-runs = {2781 : ("364", "258", "192"),
-        2788 : ("371", "265", "199"),
-        2789 : ("372", "266", "200"),
-        2790 : ("373", "267", "201"),
-        2791 : ("374", "268", "202"),
-        2792 : ("375", "269", "203"),
+runs = {
+        # 2781 : ("364", "258", "192"),
+        # 2783 : ("366", "260", "194"),
+        # 2785 : ("368", "262", "196"),
+        # 2788 : ("371", "265", "199"),
+        # 2789 : ("372", "266", "200"),
+        # 2790 : ("373", "267", "201"),
+        # 2791 : ("374", "268", "202"),
+        # 2792 : ("375", "269", "203"),
         2793 : ("376", "270", "204"),
-        2794 : ("377", "271", "205"),
+        # 2794 : ("377", "271", "205"),
         # 2795 : ("378", "272", "206"),
-        2796 : ("379", "273", "207"),
-        2797 : ("380", "274", "208"),
+        # 2796 : ("379", "273", "207"),
+        # 2797 : ("380", "274", "208"),
+        # 2798: ("381", "275", "209")
+        # 2799 : ("382", "276", "210"),
+        # 2863 : ("439","333","267"),
+        # 2746: ("336","230","164"),
+        # 2750 : ("340","234","168"),
+        # 2763 : ("348","242","176"),
+        # 2776 : ("360","254","188"),
+        # 2777 : ("361","255","189"),
+        # 2837 : ("413","307","241"),
+        # 2853 : ("429","323","257"),
+        # 2854 : ("430","324","258"),
         }
 
 raw_data_dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
@@ -68,20 +82,33 @@ for key in runs.keys():
     new_tables = merge_hits(hit_tables_in=hit_tables_in)
     hit_files = save_new_tables(hit_files, new_tables)
 
-
-    hit_files= ['/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
-                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
-                ]
+    # hit_files= ['/media/niko/big_data/run_%s/pyBARrun_%s_plane_0_DC_module_0_local.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_0_DC_module_1_local.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_1_DC_module_0_local.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_1_DC_module_1_local.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_2_DC_module_0_local.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_2_DC_module_1_local.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_3_DC_module_0_local.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_3_DC_module_1_local.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_4_DC_module_0_local.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_4_DC_module_1_local.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_5_DC_module_0_local.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/big_data/run_%s/pyBARrun_%s_plane_5_DC_module_1_local.h5' % (run_number, pybar_runs[2]),
+    #             ]
+    # #
+    # hit_files= ['/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+    #             '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+    #             ]
 
     z_positions = [0., 6400., 26800., 33000., 52200., 58400., 79300., 85900., 105800., 112200.,  132200., 138600. ]# (in um)
 
@@ -174,26 +201,26 @@ for key in runs.keys():
     #     telescope_configuration='run%d_telescope.yaml' % run_number,
     #     input_hit_files=hit_files)
 
-    # thresholds = [12,] * 12
-    # pixel_mask_names = ["NoisyPixelMask"] * len(thresholds)
-    # mask_files = hit_analysis.mask(
-    #     telescope_configuration=os.path.join(output_folder,'run%d_telescope.yaml' % run_number),
-    #     input_hit_files=hit_files,
-    #     pixel_mask_names=pixel_mask_names,
-    #     thresholds=thresholds)
+    thresholds = [10,] * 12
+    pixel_mask_names = ["NoisyPixelMask"] * len(thresholds)
+    mask_files = hit_analysis.mask(
+        telescope_configuration=os.path.join(output_folder,'run%d_telescope.yaml' % run_number),
+        input_hit_files=hit_files,
+        pixel_mask_names=pixel_mask_names,
+        thresholds=thresholds)
 
     # mask_files = [None]*12 #[(os.path.splitext(hit_file)[0] + '_mask.h5') for hit_file in hit_files]
     #
     min_hit_charges = [0,] * 12
     max_hit_charges = [13,] * 12
-    column_cluster_distances = [0,]*12
+    column_cluster_distances = [1,]*12
     row_cluster_distances = [1,] * 12
     frame_cluster_distances = [2,] * 12
     cluster_files = hit_analysis.cluster(
         telescope_configuration=os.path.join(output_folder,'run%d_telescope.yaml' % run_number),
         select_duts=None,
         input_hit_files=hit_files,
-        input_mask_files= [None]*12, #[None if val else mask_files[i] for i, val in enumerate(use_positions)],
+        input_mask_files= mask_files, #[None]*12, #[None if val else mask_files[i] for i, val in enumerate(use_positions)],
         use_positions=[False,]*12,
         min_hit_charges=min_hit_charges,
         max_hit_charges=max_hit_charges,
