@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(leve
 testbeam_analysis_dtype = np.dtype([
     ('event_number', np.int64),
     ('trigger_time_stamp', np.int64),
-    ('frame', np.uint32),
+    ('frame', np.uint8),
     ('column', np.uint16),
     ('row', np.uint16),
     ('charge', np.uint16)])
