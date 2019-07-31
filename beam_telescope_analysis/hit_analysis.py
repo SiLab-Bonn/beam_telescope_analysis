@@ -889,7 +889,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             if hits[i]["frame"] < min_frame:
                 min_frame = hits[i]["frame"]
 
-        if max_col - min_col < 8 and max_row - min_row < 8: # cluster shape is coded with a z-function (wikipedia)
+        if max_col - min_col < 8 and max_row - min_row < 8: # cluster shape is coded with a z-order curve (https://en.wikipedia.org/wiki/Z-order_curve)
             # make 8x8 array
             col_base = 7 + min_col - center_col
             row_base = 7 + min_row - center_row
