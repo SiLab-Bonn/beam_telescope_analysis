@@ -409,29 +409,20 @@ class FEI4DCModule(RectangularPixelDut):
        if isinstance(column, (list, tuple)) or isinstance(row, (list, tuple)):
            column = np.array(column, dtype=np.float64)
            row = np.array(row, dtype=np.float64)
-       # from index to local coordinates
        x, y, z = super(FEI4DCModule, self).index_to_local_position(column=column, row=row)
-       # check for hit index or cluster index is out of range
-       hit_selection = np.logical_and(
-           np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
-           np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
-       if not np.all(hit_selection):
-           raise ValueError("Column/row out of limits.")
-       x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
-       y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
-       z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
-       inner_pixels1 = np.where(column == 80.)
-       inner_pixels2 = np.where(column == 81.)
-       x[inner_pixels1] -= 100.0
-       x[inner_pixels2] += 100.0
-       outer_pixels1 = np.where(column == 1.)
-       outer_pixels2 = np.where(column == 160.)
-       x[outer_pixels1] -= 125.0
-       x[outer_pixels2] += 125.0
-       matrix1 = np.where((1. < column) & (column < 80.))
-       matrix2 = np.where((81. < column) & (column < 160.))
-       x[matrix1] -= 200.0
-       x[matrix2] += 200.0
+       # take elongated pixels at module center and edeges into account outer pixels are 500 um, center pixels 450 um wide
+       hit_selection_1 = np.where(column<80)
+       x[hit_selection_1] -=200.
+       hit_selection_2 = np.where(column>81)
+       x[hit_selection_2] +=200.
+       hit_selection_3 = np.where(column==1)
+       x[hit_selection_3] -=125.
+       hit_selection_4 = np.where(column==160)
+       x[hit_selection_4] +=125.
+       hit_selection_5 = np.where(column==80)
+       x[hit_selection_5] -=100.
+       hit_selection_6 = np.where(column==81)
+       x[hit_selection_6] +=100.
        return x, y, z
 
 
