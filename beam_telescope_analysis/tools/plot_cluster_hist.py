@@ -362,15 +362,17 @@ def plot_1d_hist(output_pdf, hist, title, axis, fitfunction,  bins, fit_p0=None,
         p = fit_p0
     else:
         p = [np.max(fit_hist), np.mean(fit_hist), np.std(fit_hist)]
-    fit , pcovs = curve_fit(fitfunction, fit_bins[:-1], fit_hist,p0=p)
-    perr = np.sqrt(np.diag(pcovs))
-    fit_dummy = np.linspace(fit_bins[0],fit_bins[-1],1000)
+    if fitfunction is not None:
+        fit , pcovs = curve_fit(fitfunction, fit_bins[:-1], fit_hist,p0=p)
+        perr = np.sqrt(np.diag(pcovs))
+        fit_dummy = np.linspace(fit_bins[0],fit_bins[-1],1000)
 
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     ax.grid()
-    ax.plot(fit_dummy, fitfunction(fit_dummy, *fit), color = "crimson", label = "fit")
+    if fitfunction is not None:
+        ax.plot(fit_dummy, fitfunction(fit_dummy, *fit), color = "crimson", label = "fit")
     ax.bar(bins[:-1], hist, width = np.diff(bins),align = "edge", label="data")
     ax.set_title(title + " - %s entries" %int(hist.sum()))
     ax.set_xlabel("%s position $\mu$m" % axis)
@@ -407,24 +409,27 @@ def plot_2d_hist(output_pdf, hist, xbins, ybins, title, xlim, ylim, cmap_bad = "
 def plot_material_dependence(file_name):
     x_mus = [5621,5443,4960,5338,5084]
     x_sigmas = [1252,2239,2458,2532,2745]
+    x_errs = [10,30,30,50,50]
     y_mus = [71,379,2057,454,1016]
     y_sigmas = [4287,5636,6125,6098,6320]
-    material = [0,1,2,3,4]
+    y_errs = [40,50,40,50,40]
+    material = [0,1,2,3,9]
     with PdfPages(file_name) as output_pdf:
 
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.plot(material, x_mus, color = "crimson", label = "mean x")
-        ax.plot(material, y_mus, color = "blue", label = "mean y")
-        ax.plot(material, x_sigmas, color = "green", label = "x width")
-        ax.plot(material, y_sigmas, color = "black", label = "y width")
-        ax.set_title("Material dependenc of beam positions")
+        # ax.plot(material, x_mus, color = "crimson", label = "mean x")
+        # ax.plot(material, y_mus, color = "blue", label = "mean y")
+        ax.errorbar(material, x_sigmas, yerr = x_errs, color = "crimson", label = "x width", capsize = 2)
+        ax.errorbar(material, y_sigmas, yerr = y_errs, color = "blue", label = "y width", capsize = 2)
+        ax.set_title("Material dependence of beam width")
         # box = AnchoredText('A = %.f $\pm$ %.f\n$\mu$ = %.2f $\pm$ %.2f mm\n$\sigma$ = %.2f $\pm$ %.2f mm\na = %.3f $\pm$ %.3f\nb = %.2e $\pm$ %.1e\nc = %.f $\pm$ %.f' %(fit[0], perr[0], fit[1]/1000, perr[1]/1000, fit[2]/1000, perr[2]/1000, fit[3], perr[3], fit[4], perr[4], fit[5], perr[5],), loc=2, prop={'size': 7.5})
         # ax.add_artist(box)
+        ax.set_xlim(0,10)
         ax.grid()
-        ax.legend(loc = "upper right", prop={'size': 7.5})
-        ax.set_xlabel("material thickness in units of 56 mm of lead")
+        ax.legend(loc = "best", prop={'size': 7.5})
+        ax.set_xlabel("material thickness in units of 28 mm")
         ax.set_ylabel("$\mu$m")
         output_pdf.savefig(fig)
 
@@ -433,7 +438,6 @@ def plot_gauss_poly2(output_pdf, hist, title, axis, bins, fit_p0=None, cut_bins=
 
     if cut_bins is None:
         cut_bins = [0,-1]
-
 
     fitfunction = gauss_poly2
     fit_hist = hist[cut_bins[0]:cut_bins[1]]
@@ -517,7 +521,6 @@ def plot_cauchy_poly2(output_pdf, hist, title, axis, bins, fit_p0=None, cut_bins
     output_pdf.savefig(fig)
 
 
-
 def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
     run_number = int(merged_file_in[merged_file_in.find("run_")+4:merged_file_in.find("run_")+8])
     logging.info("opening file for run %s" % run_number)
@@ -569,8 +572,7 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
             x = x[~np.isnan(x)]
             y = y[~np.isnan(y)]
 
-            #weighting larger pixels acoording to their size (250/450 = 0.56    250/500 = 0.5)
-            # TODO: why is the correction off by 0.005 in the center and to low on the edges?
+            #weighting larger pixels acoording to their size (250/450 = 0.56 , 250/500 = 0.5)
             weights_all_spills = np.ones_like(y)
             weights_all_spills[np.logical_and(y>-451, y<451)] = 0.56
             weights_all_spills[y<-19950] = 0.5
@@ -615,7 +617,7 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
                 plot_cluster = clusters[clusters["spill"]==spill]
                 if plot_cluster.shape[0]<1000:
                     continue
-                if plot_cluster.shape[0]<50000:
+                if plot_cluster.shape[0]<30000:
                     no_target = True
                 used_spills.append(spill)
                 logging.info("analyzing spill %s" %spill)
@@ -778,7 +780,7 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
                 output_pdf.savefig(fig2)
 
                 histx, binsx = np.histogram(x_corrected, bins =336)
-                histy, binsy = np.histogram(y_corrected, bins=histbinsy, weights = weights)
+                histy, binsy = np.histogram(y_corrected, bins=161, weights = weights)
                 if spill == 7:
                     cut_bins = [[100,-20],None]
                 else:
@@ -850,54 +852,24 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
                 clusters["y_dut_0"][clusters["spill"]==spill] -= ycorrs[i]
                 clusters["y_dut_1"][clusters["spill"]==spill] -= ycorrs[i]
 
-            xx0 = clusters["x_dut_0"]
-            yy0 = clusters["y_dut_0"]
-            xx1 = clusters["x_dut_1"]
-            yy1 = clusters["y_dut_1"]
+            x0 = clusters["x_dut_0"]
+            y0 = clusters["y_dut_0"]
+            x1 = clusters["x_dut_1"]
+            y1 = clusters["y_dut_1"]
 
-            xx = np.concatenate((xx0,xx1))
-            yy = np.concatenate((yy0,yy1))
-            xx = xx[~np.isnan(xx)]
-            yy = yy[~np.isnan(yy)]
+            x = np.concatenate((x0,x1))
+            y = np.concatenate((y0,y1))
+            x = x[~np.isnan(x)]
+            y = y[~np.isnan(y)]
 
-            # weights = np.ones_like(yy)
-            # weights[np.logical_and(yy>-451, yy<451)] = 0.56
-            # weights[yy<-19950] = 0.5
-            # weights[yy>19950] = 0.5
+            weights = np.ones_like(y)
+            weights[np.logical_and(y>-451, y<451)] = 0.56
+            weights[y<-19950] = 0.5
+            weights[y>19950] = 0.5
 
-            histy, binsy = np.histogram(yy, bins = histbinsy, weights = weights_all_spills)
-            histx, binsx = np.histogram(xx, bins = 336)
-            #TODO: careful weighting corrections different, because of beam position change?
-            # weights = np.ones(shape=(histy.shape[0],))
-            # weights[0] = 0.5
-            # weights[-1] = 0.5
-            # weights[79] = 0.56
-            # weights[80] = 0.56
-            # if run_number == 2781:
-            #     if no_target==True:
-            #         weights[80]= 0.49
-            #         weights[81]= 0.9
-            #     else:
-            #         weights[79] = 0.53
-            #         weights[80]= 0.58
-            #         weights[81] = 1.35
-            # if run_number == 2785:
-            #     if no_target==True:
-            #         weights[80]= 0.49
-            #         weights[81]= 0.9
-            #     else:
-            #         weights[79] = 0.53
-            #         weights[80]=0.56
-            #         weights[81]= 1.1
-            # if run_number == 2793:
-            #     if no_target == True:
-            #         weights[81] = 1
-            #     else:
-            #         weights[0] = 0.5
-            #         weights[-1] = 0.5
-            # if run_number >= 2798:
-            #     if no_target == True:
-            #         weights[81] = 1
+            histy, binsy = np.histogram(y, bins = 161, weights = weights)
+            histx, binsx = np.histogram(x, bins = 336)
+
             if no_target:
                 plot_1d_hist(output_pdf, hist = histx, title="Clusters in x corrected - run %s" % (run_number), axis= "x", fitfunction = gauss, fit_p0=None, bins = binsx, cut_bins=None)
                 plot_1d_hist(output_pdf, hist = histy, title="Clusters in y corrected - run %s" % (run_number), axis= "y", fitfunction = gauss, fit_p0=None, bins = binsy, cut_bins=None)
@@ -906,7 +878,7 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
                 cut_bins = [50,-20]
                 fit_histx = histx[cut_bins[0]:cut_bins[1]]
                 p = [2000,5000,1e8,5000,10,0,5000]
-                plot_cauchy_poly2(output_pdf=output_pdf, hist = histx, title = "corrected clusters in x run %s" %(run_number), axis= "x", fit_p0=p, bins = binsx, cut_bins = cut_bins)
+                plot_cauchy_poly2(output_pdf=output_pdf, hist = histx, title = "Corrected clusters in x run %s" %(run_number), axis= "x", fit_p0=p, bins = binsx, cut_bins = cut_bins)
 
                 fitfunction = gauss_poly3
                 p = [np.max(fit_histx), np.mean(fit_histx), np.std(fit_histx),0,1000,10,-10000 ]
@@ -915,23 +887,58 @@ def plot_pos_vs_time_per_spill(merged_file_in,no_target=False):
                     fit_histx = histx[cut_bins[0]:cut_bins[1]]
                     p = [np.max(fit_histx), np.mean(fit_histx), np.std(fit_histx),0,1000,10,-15000 ]
 
-                plot_gauss_poly3(output_pdf=output_pdf, hist = histx, title = "corrected clusters in x run %s" %(run_number), axis= "x", fit_p0=p, bins = binsx, cut_bins = cut_bins)
+                plot_gauss_poly3(output_pdf=output_pdf, hist = histx, title = "Corrected clusters in x run %s" %(run_number), axis= "x", fit_p0=p, bins = binsx, cut_bins = cut_bins)
 
                 ''' fit y cluster histogram '''
                 cut_bins = [1,-1]
                 fit_histy = histy[cut_bins[0]:cut_bins[1]][cut_bins[0]:cut_bins[1]]
                 p = [np.max(fit_histy), np.mean(fit_histy), np.std(fit_histy),0,1000,-15000 ]
-                if run_number == 2785:
-                    if no_target==True:
-                        pass
-                    else:
-                        cut_bins = [10,-10]
-                        p = [np.max(fit_histy), np.mean(fit_histy), np.std(fit_histy),-10,1000,-12000]
+                if run_number == 2785 or run_number == 2781:
+                    cut_bins = [5,-5]
+                    p = [np.max(fit_histy), np.mean(fit_histy), np.std(fit_histy), 100, 1000, -10 ]
 
-                plot_gauss_poly2(output_pdf=output_pdf, hist = histy, title = "clusters in y run %s" %(run_number), axis= "y", bins = binsy, fit_p0=p, cut_bins = cut_bins)
+                plot_gauss_poly2(output_pdf=output_pdf, hist = histy, title = "Corrected clusters in y run %s" %(run_number), axis= "y", bins = binsy, fit_p0=p, cut_bins = cut_bins)
 
 
-def transform_to_emulsion_frame(clusters,duts=(0,1),emulsion_speed=2.6, y_offset=10000):
+def plot_tot_histograms(run_number, pybar_runs,out_file_path):
+    hit_files= ['/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_0_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_1_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[0]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_2_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_3_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[1]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_4_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_0_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+                '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_%s/pyBARrun_%s_plane_5_DC_module_1_local_corr_evts.h5' % (run_number, pybar_runs[2]),
+                ]
+    with PdfPages(out_file_path) as output_pdf:
+        fig = Figure(figsize=(30,15))
+        _ = FigureCanvas(fig)
+        for i, hit_file in enumerate(hit_files):
+            with tb.open_file(hit_file) as in_file_h5:
+                hits = in_file_h5.root.Hits[:]
+                charge = hits["charge"]
+                nhits = charge.shape[0]
+
+            ax = fig.add_subplot(3,4,i+1)
+            ax.set_title("ToT for hits in run %s plane %s - %s hits" %(run_number, i, nhits))
+            ax.set_xlabel("ToT [25ns]")
+            ax.hist(charge, bins = np.arange(0,16,1))
+            ax.grid()
+
+            # ax.subplots_adjust(hspace = 0.33)
+            # ax.subplots_adjust(wspace = 0.20)
+        # plt.tight_layout()
+        # plt.show()
+        # plt.savefig(fig)
+        output_pdf.savefig(fig)
+
+
+
+def transform_to_emulsion_frame(clusters,duts=(0,1),emulsion_speed=2.6, y_offset=10000, start_spill=0):
     '''
     input
     ------------------
@@ -957,8 +964,8 @@ def transform_to_emulsion_frame(clusters,duts=(0,1),emulsion_speed=2.6, y_offset
         clustersx0[np.where(spill_mask)] += x_offset
         clustersx1[np.where(spill_mask)] += x_offset
 
-    clustersy0 = clusters["y_dut_0"] + (clusters["spill"]-9)*y_offset
-    clustersy1 = clusters["y_dut_1"] + (clusters["spill"]-9)*y_offset
+    clustersy0 = clusters["y_dut_0"] + (clusters["spill"]-start_spill)*y_offset
+    clustersy1 = clusters["y_dut_1"] + (clusters["spill"]-start_spill)*y_offset
 
     x = np.concatenate((clustersx0,clustersx1))
     y = np.concatenate((clustersy0,clustersy1))
@@ -987,10 +994,12 @@ def plot_spill(output_pdf,x,y,bins=[360,160],spill=None):
         ax.set_title("Spill %s DUT 0/1 in emulsion rest frame" %spill)
     else:
         ax.set_title("DUT 0/1 in emulsion rest frame - %s entries" %y[~np.isnan(y)].shape[0])
-    ax.set_ylim(0,130000)
+    ax.set_ylim(0,120000)
     ax.set_aspect(1/1.2)
     ax.set_ylabel("y position [$\mu$m]")
     ax.set_xlabel("x position [$\mu$m]")
+    fig.tight_layout()
+
     output_pdf.savefig(fig)
 
 
@@ -1085,7 +1094,7 @@ def voigt(x,*p):
     return np.real(wofz((x + 1j*gamma)/sigma/np.sqrt(2))) / sigma /np.sqrt(2*np.pi)
 
 
-def plot_spill_histograms(merged_file_in, spills=None, duts=(0,1)):
+def plot_spill_histograms(merged_file_in, spills=None, duts=(0,1), start_spill=0):
     ''' transform clusters in rest frame of emulsion, movement speed was 2.6cm/s
     input
     ---------------
@@ -1109,32 +1118,34 @@ def plot_spill_histograms(merged_file_in, spills=None, duts=(0,1)):
         ''' now plot all spills'''
         print "plotting all spills"
         clusters = clustertable
-        x,y = transform_to_emulsion_frame(clusters,duts)
+        x,y = transform_to_emulsion_frame(clusters,duts,y_offset=20000, start_spill=start_spill)
         plot_spill(output_pdf,x,y,bins=[ybins,520])
-        plot_1d_hist(output_pdf,y[x<x.max()/2], bins = 520, title="left half", fit=False)
-        plot_1d_hist(output_pdf,y[x>x.max()/2], bins = 520, title="right half", fit=False)
+        # plot_1d_hist(output_pdf,y[x<x.max()/2], bins = 520, title="left half", fitfunction=None)
+        # plot_1d_hist(output_pdf,y[x>x.max()/2], bins = 520, title="right half", fitfunction=None)
         output_pdf.close()
 
 
 
 if __name__ == '__main__':
-
-    # plot_cluster_hist(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged.h5",
-    #                     hit_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_2793/pyBARrun_376_plane_0_DC_module_1_local_corr_evts_clustered.h5",
-    #                     cluster_size_threshold = 10)
-    # plot_spill_histograms("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged_spills.h5", spills = [8,18])
+    # 2793 : ("376", "270", "204")
+    # plot_tot_histograms(2815,( '394', '288', '222'), "/home/niko/Desktop/tot_hist_run2815.pdf" )
+    # raise
+    plot_cluster_hist(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged.h5",
+                        hit_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/run_2793/pyBARrun_376_plane_0_DC_module_1_local_corr_evts_clustered.h5",
+                        cluster_size_threshold = 10)
+    plot_spill_histograms(merged_file_in = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills.h5", start_spill=8) # , spills = [8,18]
     # plot_cluster_2dhist_global(cluster_file = "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged.h5",
     #                         hit_file = None)
     # plot_timestamps("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills_global.h5")
     # plot_pos_vs_time("/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged.h5")
-
+    raise
     run_list = [
                 "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2781/Merged_spills_global.h5",
-                "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2785/Merged_spills_global.h5",
-                "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills_global.h5",
-                "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2798/Merged_spills_global.h5",
+                # "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2785/Merged_spills_global.h5",
+                # "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2793/Merged_spills_global.h5",
+                # "/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements/output_folder_run_2798/Merged_spills_global.h5",
                 ]
     for run_file in run_list:
-        # plot_pos_vs_time_per_spill(merged_file_in= run_file,no_target=False)
+        plot_pos_vs_time_per_spill(merged_file_in= run_file,no_target=False)
         plot_pos_vs_time_per_spill(merged_file_in= run_file,no_target=True)
     # plot_material_dependence("/home/niko/cernbox/talks/SHiP/clb_meeting_Mar19/material_dependence.pdf")
