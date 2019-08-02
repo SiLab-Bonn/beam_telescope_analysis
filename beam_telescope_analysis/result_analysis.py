@@ -1012,17 +1012,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 efficiency_regions_count_tracks_with_hit_pixel_hist[region_index] += np.bincount(closest_indices_with_hit, minlength=pixel_center_data.shape[0])[:pixel_center_data.shape[0]]
 
                             # for in-pixel statistics
+                            count_in_pixel_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                             # 2D in-pixel hits
                             # count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_hit], y=in_pixel_hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)
                             # 2D in-pixel tracks
                             count_in_pixel_tracks_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                             # 2D in-pixel tracks with valid hit
-                            count_in_pixel_tracks_with_hit_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
+                            count_in_pixel_tracks_with_hit_2d_hists[region_index] += count_in_pixel_tracks_with_hit_2d_hist_tmp
                             # 2D in-pixel charge
                             stat_in_pixel_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=charge[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
                             stat_in_pixel_charge_2d_hist_tmp = np.nan_to_num(stat_in_pixel_charge_2d_hist_tmp)
-                            count_in_pixel_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)
-                            stat_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hists[region_index] = np.ma.average(a=np.stack([stat_in_pixel_charge_2d_hists[region_index], stat_in_pixel_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hist_tmp]), returned=True)
+                            stat_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hists[region_index] = np.ma.average(a=np.stack([stat_in_pixel_charge_2d_hists[region_index], stat_in_pixel_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_charge_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
