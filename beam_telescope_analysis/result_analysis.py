@@ -562,7 +562,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, extend_areas=None, plot_ranges=None, efficiency_regions=None, n_bins_in_pixel=None, n_pixel_projection=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), in_pixel=False, plot=True, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, efficiency_regions=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -576,22 +576,24 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     input_cluster_files : list of strings
         Filenames of the input cluster files with ClusterHits table for each selected DUT.
     resolutions : 2-tuple or list of 2-tuples
-        Resolution of the histogram in x and y direction (in um) for each selected DUT.
+        Resolutionin x and y direction (in um) of the histograms for each selected DUT.
         If None, the resolution will be set to the pixel size.
+    in_pixel_resolutions : 2-tuple or list of 2-tuples
+        Resolution in x and y direction (in um) of the in-pixel histograms for each selected DUT.
+        If None, the resolution will be set to 1/10 of the pixel size or copied from resolutions (whatever is smaller).
     extend_areas : 2-tuple or list of 2-tuples
         Extending the area of the histograms in x and y direction (in um) for each selected DUT.
         If None, only the active are will be plotted.
+    extend_in_pixel_areas : 2-tuple or list of 2-tuples
+        Extending the area of the in-pixel histograms in x and y direction (in um) for each selected DUT.
+        If None, only the primitive cell will be plotted.
     plot_ranges : 2-tuple of 2-tuples or list of 2-tuple of 2-tuples
         Plot range in x and y direction (in um) for each selected DUT.
         If None, use default values (i.e., positive direction of the x axis to the right and of y axis to the top, including extended area).
     efficiency_regions : tuple of tuples of 2-tuples or list of lists of tuples of 2-tuples
         Fiducial region in x and y direction (in um) for each selected DUT.
         The efficiency will be calculated plotted for each region individually.
-    n_bins_in_pixel : iterable
-        Number of bins used for in-pixel efficiency calculation. Give one tuple (n_bins_x, n_bins_y) for every plane or list of tuples for different planes.
-        Only needed if in_pixel is True.
-    n_pixel_projection : int
-        Number of pixels on which efficiency is projected. Only needed if in_pixel is True.
+        For each efficiency region, in-pixel plots are generated.
     output_efficiency_file : string
         Filename of the output efficiency file. If None, the filename will be derived from the input hits file.
     minimum_track_density : uint
@@ -600,8 +602,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         X and y distance (in um) for each selected DUT to calculate the efficiency.
         Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance.
         If None, use infinite distance.
-    in_pixel : bool
-        If True, calculate and plot in-pixel efficiency. Default is False.
     plot : bool
         If True, create additional output plots.
     chunk_size : int
@@ -629,6 +629,25 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         if resolution is not None and len(resolution) != 2:  # check the length of the items
             raise ValueError("item in resolutions has length != 2")
 
+    # Create in-pixel resolutions array
+    if isinstance(in_pixel_resolutions, tuple) or in_pixel_resolutions is None:
+        in_pixel_resolutions = [in_pixel_resolutions] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(in_pixel_resolutions, Iterable):
+        raise ValueError("in_pixel_resolutions is no iterable")
+    elif not in_pixel_resolutions:  # empty iterable
+        raise ValueError("in_pixel_resolutions has no items")
+    # Finally check length of all arrays
+    if len(in_pixel_resolutions) != len(select_duts):  # empty iterable
+        raise ValueError("in_pixel_resolutions has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, in_pixel_resolutions)):
+        raise ValueError("not all items in in_pixel_resolutions are iterable")
+    # Finally check length of all arrays
+    for resolution in in_pixel_resolutions:
+        if resolution is not None and len(resolution) != 2:  # check the length of the items
+            raise ValueError("item in in_pixel_resolutions has length != 2")
+
     # Create extend_areas array
     if isinstance(extend_areas, tuple) or extend_areas is None:
         extend_areas = [extend_areas] * len(select_duts)
@@ -647,6 +666,25 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     for extend_area in extend_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
             raise ValueError("item in extend_areas has length != 2")
+
+    # Create extend_in_pixel_areas array
+    if isinstance(extend_in_pixel_areas, tuple) or extend_in_pixel_areas is None:
+        extend_in_pixel_areas = [extend_in_pixel_areas] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(extend_in_pixel_areas, Iterable):
+        raise ValueError("extend_in_pixel_areas is no iterable")
+    elif not extend_in_pixel_areas:  # empty iterable
+        raise ValueError("extend_in_pixel_areas has no items")
+    # Finally check length of all arrays
+    if len(extend_in_pixel_areas) != len(select_duts):  # empty iterable
+        raise ValueError("extend_in_pixel_areas has the wrong length")
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_in_pixel_areas)):
+        raise ValueError("not all items in extend_in_pixel_areas are iterable")
+    # Finally check length of all arrays
+    for extend_area in extend_in_pixel_areas:
+        if extend_area is not None and len(extend_area) != 2:  # check the length of the items
+            raise ValueError("item in extend_in_pixel_areas has length != 2")
 
     # Create plot_ranges array
     if isinstance(plot_ranges, tuple) or plot_ranges is None:
@@ -778,6 +816,16 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
                 efficiency_regions_dut = efficiency_regions[index]
                 if efficiency_regions_dut is not None:
+                    extend_in_pixel_area = extend_in_pixel_areas[index]
+                    # Calculate in-pixel histogram properties (bins size and number of bins)
+                    in_pixel_resolution = in_pixel_resolutions[index]
+                    if in_pixel_resolution is None:
+                        in_pixel_resolution = map(min, zip(resolution, [pitch / 10.0 for pitch in actual_dut.pixel_size]))
+                    if in_pixel_resolution[0] is None:
+                        in_pixel_resolution[0] = min(resolution[0], actual_dut.pixel_size[0] / 10.0)
+                    if in_pixel_resolution[1] is None:
+                        in_pixel_resolution[1] = min(resolution[1], actual_dut.pixel_size[1] / 10.0)
+                    # generate hists for each region
                     efficiency_regions_efficiency = []
                     efficiency_regions_stat = []
                     efficiency_regions_count_1d_charge_hist = []
@@ -791,6 +839,34 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency_regions_count_tracks_pixel_hist.append(None)
                         efficiency_regions_count_tracks_with_hit_pixel_hist.append(None)
                         efficiency_regions_stat_pixel_efficiency_hist.append(None)
+
+                    # for in-pixel statistics
+                    # generate primitive cell of the size of a single pixel
+                    dut_in_pixel_hist_x_size = math.ceil(actual_dut.column_size / in_pixel_resolution[0]) * in_pixel_resolution[0]
+                    dut_in_pixel_hist_y_size = math.ceil(actual_dut.row_size / in_pixel_resolution[1]) * in_pixel_resolution[1]
+                    hist_in_pixel_x_n_bins = int(dut_in_pixel_hist_x_size / in_pixel_resolution[0])
+                    hist_in_pixel_y_n_bins = int(dut_in_pixel_hist_y_size / in_pixel_resolution[1])
+                    hist_in_pixel_x_edges = np.linspace(0.0, dut_in_pixel_hist_x_size, hist_in_pixel_x_n_bins + 1, endpoint=True)
+                    hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
+                    hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
+                    in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
+                    in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
+                    # generate in-pixel hists for each region
+                    # count_in_pixel_hits_2d_hists = []
+                    count_in_pixel_tracks_2d_hists = []
+                    count_in_pixel_tracks_with_hit_2d_hists = []
+                    stat_in_pixel_charge_2d_hists = []
+                    count_in_pixel_charge_2d_hists = []
+                    for region in efficiency_regions_dut:
+                        # 2D in-pixel hits
+                        # count_in_pixel_hits_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel tracks
+                        count_in_pixel_tracks_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel tracks with valid hit
+                        count_in_pixel_tracks_with_hit_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel charge
+                        stat_in_pixel_charge_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        count_in_pixel_charge_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                 else:
                     efficiency_regions_efficiency = None
                     efficiency_regions_stat = None
@@ -798,19 +874,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_tracks_pixel_hist = None
                     efficiency_regions_count_tracks_with_hit_pixel_hist = None
                     efficiency_regions_stat_pixel_efficiency_hist = None
-                if in_pixel is True:
-                    n_bins_in_pixel = [n_bins_in_pixel, ] if not isinstance(n_bins_in_pixel, Iterable) else n_bins_in_pixel
-                    if len(n_bins_in_pixel) == 1:
-                        actual_bin_size_in_pixel_x = n_bins_in_pixel[0][0]
-                        actual_bin_size_in_pixel_y = n_bins_in_pixel[0][1]
-                    else:
-                        actual_bin_size_in_pixel_x = n_bins_in_pixel[index][0]
-                        actual_bin_size_in_pixel_y = n_bins_in_pixel[index][1]
-
-                if in_pixel is True:
-                    total_hit_hist_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y), dtype=np.uint32)
-                    total_track_density_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
-                    total_track_density_with_DUT_hit_projected = np.zeros(shape=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y))
 
                 pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
                 local_x, local_y, _ = actual_dut.index_to_local_position(
@@ -878,6 +941,39 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         select_valid_hit[select_finite_distance] &= (np.abs(x_residuals[select_finite_distance]) <= cut_distance[0])
                         select_valid_hit[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= cut_distance[1])
                     if efficiency_regions_dut is not None:
+                        # for in-pixel statistics
+                        # if neccessary increase size of primitive cell (larger than single pixel)
+                        in_pixel_intersection_x_local, in_pixel_intersection_y_local = actual_dut.map_to_primitive_cell(intersection_x_local, intersection_y_local)
+                        resize_in_pixel_hist = False
+                        if np.any(in_pixel_intersection_x_local > dut_in_pixel_hist_x_size):
+                            resize_in_pixel_hist = True
+                            dut_in_pixel_hist_x_size = math.ceil(np.ceil(np.max(in_pixel_intersection_x_local) / actual_dut.column_size) * actual_dut.column_size / in_pixel_resolution[0]) * in_pixel_resolution[0]
+                            hist_in_pixel_x_n_bins = int(dut_in_pixel_hist_x_size / in_pixel_resolution[0])
+                            hist_in_pixel_x_edges = np.linspace(0.0, dut_in_pixel_hist_x_size, hist_in_pixel_x_n_bins + 1, endpoint=True)
+                        if np.any(in_pixel_intersection_y_local > dut_in_pixel_hist_y_size):
+                            resize_in_pixel_hist = True
+                            dut_in_pixel_hist_y_size = math.ceil(np.ceil(np.max(in_pixel_intersection_y_local) / actual_dut.row_size) * actual_dut.row_size / in_pixel_resolution[1]) * in_pixel_resolution[1]
+                            hist_in_pixel_y_n_bins = int(dut_in_pixel_hist_y_size / in_pixel_resolution[1])
+                            hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
+                        if resize_in_pixel_hist:
+                            hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
+                            in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
+                            in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
+                            for region_index, region in enumerate(efficiency_regions_dut):
+                                # extend in-pixel arrays
+                                # 2D in-pixel hits
+                                # count_in_pixel_hits_2d_hist_tmp = count_in_pixel_hits_2d_hists[region_index]
+                                # count_in_pixel_hits_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                # count_in_pixel_hits_2d_hists[region_index][:count_in_pixel_hits_2d_hist_tmp.shape[0], :count_in_pixel_hits_2d_hist_tmp.shape[1]] += count_in_pixel_hits_2d_hist_tmp
+                                # 2D in-pixel tracks
+                                count_in_pixel_tracks_2d_hist_tmp = count_in_pixel_tracks_2d_hists[region_index]
+                                count_in_pixel_tracks_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                count_in_pixel_tracks_2d_hists[region_index][:count_in_pixel_tracks_2d_hist_tmp.shape[0], :count_in_pixel_tracks_2d_hist_tmp.shape[1]] += count_in_pixel_tracks_2d_hist_tmp
+                                # 2D in-pixel tracks with valid hit
+                                count_in_pixel_tracks_with_hit_2d_hist_tmp = count_in_pixel_tracks_with_hit_2d_hists[region_index]
+                                count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                count_in_pixel_tracks_with_hit_2d_hists[region_index][:count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[0], :count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[1]] += count_in_pixel_tracks_with_hit_2d_hist_tmp
+
                         for region_index, region in enumerate(efficiency_regions_dut):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
                             select_valid_tracks_efficiency_region &= intersection_x_local > min(region[0])
@@ -907,6 +1003,19 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 efficiency_regions_count_tracks_with_hit_pixel_hist[region_index] = np.bincount(closest_indices_with_hit, minlength=pixel_center_data.shape[0])[:pixel_center_data.shape[0]]
                             else:
                                 efficiency_regions_count_tracks_with_hit_pixel_hist[region_index] += np.bincount(closest_indices_with_hit, minlength=pixel_center_data.shape[0])[:pixel_center_data.shape[0]]
+
+                            # for in-pixel statistics
+                            # 2D in-pixel hits
+                            # count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_hit], y=in_pixel_hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)
+                            # 2D in-pixel tracks
+                            count_in_pixel_tracks_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
+                            # 2D in-pixel tracks with valid hit
+                            count_in_pixel_tracks_with_hit_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
+                            # 2D in-pixel charge
+                            stat_in_pixel_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=charge[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_charge_2d_hist_tmp = np.nan_to_num(stat_in_pixel_charge_2d_hist_tmp)
+                            count_in_pixel_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hists[region_index] = np.ma.average(a=np.stack([stat_in_pixel_charge_2d_hists[region_index], stat_in_pixel_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hist_tmp]), returned=True)
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -993,30 +1102,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             count_1d_frame_hist_tmp.resize(count_1d_frame_hist.size)
                         count_1d_frame_hist += count_1d_frame_hist_tmp
 
-                    # # project intersections and hits onto n x n pixel area
-                    if in_pixel is True:
-                        n = n_pixel_projection  # select pixel areas (n x n)
-                        hit_x_local_projection = np.mod(hit_x_local, np.array([n * actual_dut.column_size] * len(hit_x_local)))
-                        hit_y_local_projection = np.mod(hit_y_local, np.array([n * actual_dut.row_size] * len(hit_y_local)))
-                        intersection_x_local_projection = np.mod(intersection_x_local, np.array([n * actual_dut.column_size] * len(intersections_local[:, 0])))
-                        intersection_y_local_projection = np.mod(intersection_y_local, np.array([n * actual_dut.row_size] * len(intersections_local[:, 1])))
-                        intersection_valid_hit_projection_x = np.mod(intersection_valid_hit[:, 0], np.array([n * actual_dut.column_size] * len(intersection_valid_hit[:, 0])))
-                        intersection_valid_hit_projection_y = np.mod(intersection_valid_hit[:, 1], np.array([n * actual_dut.row_size] * len(intersection_valid_hit[:, 1])))
-
-                        intersections_local_projection = np.column_stack((intersection_x_local_projection, intersection_y_local_projection))
-                        hits_local_projection = np.column_stack((hit_x_local_projection, hit_y_local_projection))
-                        intersections_valid_hit_projection = np.column_stack((intersection_valid_hit_projection_x, intersection_valid_hit_projection_y))
-
-                        total_hit_hist_projected += (np.histogram2d(hits_local_projection[:, 0], hits_local_projection[:, 1],
-                                                                    bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                                                                    range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]).astype(np.uint32)
-                        total_track_density_projected += np.histogram2d(intersections_local_projection[:, 0], intersections_local_projection[:, 1],
-                                                                        bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                                                                        range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
-                        total_track_density_with_DUT_hit_projected += np.histogram2d(intersections_valid_hit_projection[:, 0], intersections_valid_hit_projection[:, 1],
-                                                                                     bins=(actual_bin_size_in_pixel_x, actual_bin_size_in_pixel_y),
-                                                                                     range=[[0, n * actual_dut.column_size], [0, n * actual_dut.row_size]])[0]
-
                     if in_cluster_file_h5:
                         binnumber = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges, expand_binnumbers=True).binnumber
                         tracks_with_hits_to_bin_center_index = np.ravel_multi_index(binnumber - 1, (hist_2d_x_n_bins, hist_2d_y_n_bins))
@@ -1061,10 +1146,45 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_efficiency_hist = np.ma.array(stat_2d_efficiency_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
                 if efficiency_regions_dut is not None:
+                    efficiency_regions_stat_in_pixel_efficiency_2d_hist = []
+
                     for region_index, region in enumerate(efficiency_regions_dut):
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.full_like(efficiency_regions_count_tracks_pixel_hist[region_index], fill_value=np.nan, dtype=np.float64)
                         efficiency_regions_stat_pixel_efficiency_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0] = efficiency_regions_count_tracks_with_hit_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) / efficiency_regions_count_tracks_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) * 100.0
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.ma.array(efficiency_regions_stat_pixel_efficiency_hist[region_index], mask=efficiency_regions_count_tracks_pixel_hist[region_index] < minimum_track_density)
+
+                        # Calculate in-pixel efficiency
+                        region_n_pixels = np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
+                        stat_in_pixel_efficiency_2d_hist_tmp = np.full_like(count_in_pixel_tracks_2d_hists[region_index], fill_value=np.nan, dtype=np.float64)
+                        stat_in_pixel_efficiency_2d_hist_tmp[count_in_pixel_tracks_2d_hists[region_index] != 0] = count_in_pixel_tracks_with_hit_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) / count_in_pixel_tracks_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) * 100.0
+                        stat_in_pixel_efficiency_2d_hist_tmp = np.ma.array(stat_in_pixel_efficiency_2d_hist_tmp, mask=count_in_pixel_tracks_2d_hists[region_index] < minimum_track_density * region_n_pixels**0.5)
+                        efficiency_regions_stat_in_pixel_efficiency_2d_hist.append(stat_in_pixel_efficiency_2d_hist_tmp)
+
+                    # extending plot area for in-pixel plots
+                    if extend_in_pixel_area is not None and extend_in_pixel_area[0] is not None:
+                        dut_hits_in_pixel_x_extend_n_bins = int(math.ceil(extend_in_pixel_area[0] / in_pixel_resolution[0]))
+                        dut_hist_in_pixel_x_extent_area = dut_hits_in_pixel_x_extend_n_bins * in_pixel_resolution[0]
+                        in_pixel_hist_extent[0] -= dut_hist_in_pixel_x_extent_area
+                        in_pixel_hist_extent[1] += dut_hist_in_pixel_x_extent_area
+                        in_pixel_plot_range[0][0] -= extend_in_pixel_area[0]
+                        in_pixel_plot_range[0][1] += extend_in_pixel_area[0]
+                        for region_index, region in enumerate(efficiency_regions_dut):
+                            efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                    if extend_in_pixel_area is not None and extend_in_pixel_area[1] is not None:
+                        dut_hits_in_pixel_y_extend_n_bins = int(math.ceil(extend_in_pixel_area[1] / in_pixel_resolution[1]))
+                        dut_hist_in_pixel_y_extent_area = dut_hits_in_pixel_y_extend_n_bins * in_pixel_resolution[1]
+                        in_pixel_hist_extent[2] -= dut_hist_in_pixel_y_extent_area
+                        in_pixel_hist_extent[3] += dut_hist_in_pixel_y_extent_area
+                        in_pixel_plot_range[1][0] -= extend_in_pixel_area[1]
+                        in_pixel_plot_range[1][1] += extend_in_pixel_area[1]
+                        for region_index, region in enumerate(efficiency_regions_dut):
+                            efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                else:
+                    efficiency_regions_stat_in_pixel_efficiency_2d_hist = None
+                    in_pixel_hist_extent = None
+                    in_pixel_plot_range = None
 
                 stat_pixel_efficiency_hist = np.full_like(count_tracks_pixel_hist, fill_value=np.nan, dtype=np.float64)
                 stat_pixel_efficiency_hist[count_tracks_pixel_hist != 0] = count_tracks_with_hit_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float64) / count_tracks_pixel_hist[count_tracks_pixel_hist != 0].astype(np.float64) * 100.0
@@ -1084,76 +1204,40 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
                         logging.info('Mean charge for region %d = %.2f' % (region_index + 1, analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))))
 
-                # Calculate in-pixel-efficiency
-                if in_pixel is True:
-                    in_pixel_efficiency = np.zeros_like(total_track_density_with_DUT_hit_projected)
-                    in_pixel_efficiency[total_track_density_projected != 0] = total_track_density_with_DUT_hit_projected[total_track_density_projected != 0].astype(np.float64) / total_track_density_projected[total_track_density_projected != 0].astype(np.float64) * 100.0
-                    in_pixel_efficiency = np.ma.array(in_pixel_efficiency, mask=total_track_density_projected < minimum_track_density)
-                else:
-                    in_pixel_efficiency = None
                 if not np.any(stat_2d_efficiency_hist):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut_index)
 
-                if in_pixel is True:
-                    plot_utils.efficiency_plots(
-                        telescope=telescope,
-                        hist_2d_edges=hist_2d_edges,
-                        count_hits_2d_hist=count_hits_2d_hist,
-                        count_tracks_2d_hist=count_tracks_2d_hist,
-                        count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
-                        stat_2d_x_residuals_hist=stat_2d_x_residuals_hist,
-                        stat_2d_y_residuals_hist=stat_2d_y_residuals_hist,
-                        stat_2d_residuals_hist=stat_2d_residuals_hist,
-                        count_1d_charge_hist=count_1d_charge_hist,
-                        stat_2d_charge_hist=stat_2d_charge_hist,
-                        count_1d_frame_hist=count_1d_frame_hist,
-                        stat_2d_frame_hist=stat_2d_frame_hist,
-                        stat_2d_efficiency_hist=stat_2d_efficiency_hist,
-                        stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
-                        count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
-                        efficiency=[eff, eff_err_pl, eff_err_min],
-                        actual_dut_index=actual_dut_index,
-                        dut_extent=dut_extent,
-                        hist_extent=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
-                        plot_range=plot_range,
-                        efficiency_regions=efficiency_regions_dut,
-                        efficiency_regions_efficiency=efficiency_regions_efficiency,
-                        efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
-                        efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
-                        in_pixel_efficiency=in_pixel_efficiency,
-                        plot_range_in_pixel=[dut_hist_x_extent[0], dut_hist_x_extent[1], dut_hist_y_extent[0], dut_hist_y_extent[1]],
-                        mask_zero=False,
-                        output_pdf=output_pdf)
-                else:
-                    plot_utils.efficiency_plots(
-                        telescope=telescope,
-                        hist_2d_edges=hist_2d_edges,
-                        count_hits_2d_hist=count_hits_2d_hist,
-                        count_tracks_2d_hist=count_tracks_2d_hist,
-                        count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
-                        stat_2d_x_residuals_hist=stat_2d_x_residuals_hist,
-                        stat_2d_y_residuals_hist=stat_2d_y_residuals_hist,
-                        stat_2d_residuals_hist=stat_2d_residuals_hist,
-                        count_1d_charge_hist=count_1d_charge_hist,
-                        stat_2d_charge_hist=stat_2d_charge_hist,
-                        count_1d_frame_hist=count_1d_frame_hist,
-                        stat_2d_frame_hist=stat_2d_frame_hist,
-                        stat_2d_efficiency_hist=stat_2d_efficiency_hist,
-                        stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
-                        count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
-                        efficiency=[eff, eff_err_pl, eff_err_min],
-                        actual_dut_index=actual_dut_index,
-                        dut_extent=dut_extent,
-                        hist_extent=hist_extent,
-                        plot_range=plot_range,
-                        efficiency_regions=efficiency_regions_dut,
-                        efficiency_regions_efficiency=efficiency_regions_efficiency,
-                        efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
-                        efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
-                        in_pixel_efficiency=None,
-                        plot_range_in_pixel=None,
-                        mask_zero=True,
-                        output_pdf=output_pdf)
+                plot_utils.efficiency_plots(
+                    telescope=telescope,
+                    hist_2d_edges=hist_2d_edges,
+                    count_hits_2d_hist=count_hits_2d_hist,
+                    count_tracks_2d_hist=count_tracks_2d_hist,
+                    count_tracks_with_hit_2d_hist=count_tracks_with_hit_2d_hist,
+                    stat_2d_x_residuals_hist=stat_2d_x_residuals_hist,
+                    stat_2d_y_residuals_hist=stat_2d_y_residuals_hist,
+                    stat_2d_residuals_hist=stat_2d_residuals_hist,
+                    count_1d_charge_hist=count_1d_charge_hist,
+                    stat_2d_charge_hist=stat_2d_charge_hist,
+                    count_1d_frame_hist=count_1d_frame_hist,
+                    stat_2d_frame_hist=stat_2d_frame_hist,
+                    stat_2d_efficiency_hist=stat_2d_efficiency_hist,
+                    stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
+                    count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
+                    efficiency=[eff, eff_err_pl, eff_err_min],
+                    actual_dut_index=actual_dut_index,
+                    dut_extent=dut_extent,
+                    hist_extent=hist_extent,
+                    plot_range=plot_range,
+                    efficiency_regions=efficiency_regions_dut,
+                    efficiency_regions_efficiency=efficiency_regions_efficiency,
+                    efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
+                    efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
+                    efficiency_regions_stat_in_pixel_efficiency_2d_hist=efficiency_regions_stat_in_pixel_efficiency_2d_hist,
+                    efficiency_regions_stat_in_pixel_charge_2d_hist=stat_in_pixel_charge_2d_hists,
+                    efficiency_regions_in_pixel_hist_extent=in_pixel_hist_extent,
+                    efficiency_regions_in_pixel_plot_range=in_pixel_plot_range,
+                    mask_zero=True,
+                    output_pdf=output_pdf)
 
                 dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT%d' % actual_dut_index)
 
@@ -1277,7 +1361,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     shape=stat_2d_efficiency_hist.mask.shape)
                 out_stat_2d_efficiency_hist_mask[:] = stat_2d_efficiency_hist.mask
 
-                if efficiency_regions[index]:
+                if efficiency_regions_dut:
                     efficiency_regions_count_1d_charge_hist = np.array(efficiency_regions_count_1d_charge_hist)
                     out_efficiency_regions_count_1d_charge_hist = out_file_h5.create_carray(
                         where=dut_group,
@@ -1296,6 +1380,24 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         shape=efficiency_regions_stat_pixel_efficiency_hist.shape)
                     out_efficiency_regions_stat_pixel_efficiency_hist[:] = efficiency_regions_stat_pixel_efficiency_hist
 
+                    efficiency_regions_stat_in_pixel_efficiency_2d_hist = np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist)
+                    out_efficiency_regions_stat_in_pixel_efficiency_2d_hist = out_file_h5.create_carray(
+                        where=dut_group,
+                        name='efficiency_regions_stat_in_pixel_efficiency_2d_hist',
+                        title='efficiency_regions_stat_in_pixel_efficiency_2d_hist for DUT%d' % actual_dut_index,
+                        atom=tb.Atom.from_dtype(efficiency_regions_stat_in_pixel_efficiency_2d_hist.dtype),
+                        shape=efficiency_regions_stat_in_pixel_efficiency_2d_hist.shape)
+                    out_efficiency_regions_stat_in_pixel_efficiency_2d_hist[:] = efficiency_regions_stat_in_pixel_efficiency_2d_hist
+
+                    efficiency_regions_stat_in_pixel_charge_2d_hist = np.array(stat_in_pixel_charge_2d_hists)
+                    out_efficiency_regions_stat_in_pixel_charge_2d_hist = out_file_h5.create_carray(
+                        where=dut_group,
+                        name='efficiency_regions_stat_in_pixel_charge_2d_hist',
+                        title='efficiency_regions_stat_in_pixel_charge_2d_hist for DUT%d' % actual_dut_index,
+                        atom=tb.Atom.from_dtype(efficiency_regions_stat_in_pixel_charge_2d_hist.dtype),
+                        shape=efficiency_regions_stat_in_pixel_charge_2d_hist.shape)
+                    out_efficiency_regions_stat_in_pixel_charge_2d_hist[:] = efficiency_regions_stat_in_pixel_charge_2d_hist
+
                 if in_cluster_file_h5:
                     out_count_pixel_hits_2d_hist = out_file_h5.create_carray(
                         where=dut_group,
@@ -1309,15 +1411,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             fletcher32=False))
                     out_count_pixel_hits_2d_hist[:] = count_pixel_hits_2d_hist
 
-                if in_pixel is True:
-                    out_in_pixel_efficiency = out_file_h5.create_carray(
-                        where=dut_group,
-                        name='in_pixel_efficiency',
-                        title='in_pixel_efficiency for DUT%d' % actual_dut_index,
-                        atom=tb.Atom.from_dtype(in_pixel_efficiency.dtype),
-                        shape=in_pixel_efficiency.shape)
-                    out_in_pixel_efficiency[:] = in_pixel_efficiency
-
                 # Store parameters used for efficiency calculation
                 dut_group._v_attrs.resolution = resolution
                 dut_group._v_attrs.extend_area = extend_area
@@ -1328,7 +1421,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 dut_group._v_attrs.hist_extent = hist_extent
                 dut_group._v_attrs.efficiency = (eff, eff_err_pl, eff_err_min)
                 dut_group._v_attrs.efficiency_regions = efficiency_regions_dut
-                dut_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency
+                if efficiency_regions_dut:
+                    dut_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency
+                    dut_group._v_attrs.efficiency_regions_in_pixel_hist_extent = in_pixel_hist_extent
+                    dut_group._v_attrs.efficiency_regions_in_pixel_plot_range = in_pixel_plot_range
 
                 if in_cluster_file_h5:
                     try:

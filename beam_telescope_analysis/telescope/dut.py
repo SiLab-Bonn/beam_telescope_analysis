@@ -164,6 +164,11 @@ class Dut(object):
         '''
         raise NotImplementedError
 
+    def map_to_primitive_cell(self, x, y, z=None):
+        ''' Map local positions to primitve cell.
+        '''
+        raise NotImplementedError
+
 
 class RectangularPixelDut(Dut):
     ''' DUT with rectangular pixels.
@@ -360,8 +365,33 @@ class RectangularPixelDut(Dut):
     def global_position_to_index(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
         return self.local_position_to_index(*self.global_to_local_position(x=x, y=y, z=z, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma))
 
+    def map_to_primitive_cell(self, x, y, z=None):
+        ''' Primitve cell is a pixel.
+        '''
+        # check for valid z coordinates
+        if z is not None and not np.allclose(np.nan_to_num(z), 0.0):
+            raise RuntimeError('The local z positions contain values z!=0.')
+        x_primitve_cell = np.mod(x + self.x_extent()[0], self.column_size)
+        y_primitve_cell = np.mod(y + self.y_extent()[0], self.row_size)
+        return x_primitve_cell, y_primitve_cell
 
-class FEI4(RectangularPixelDut):
+
+class RectangularPixelDutWithDoubleColumns(RectangularPixelDut):
+    ''' DUT with rectangular pixels and double column symmetry.
+    '''
+    def map_to_primitive_cell(self, x, y, z=None):
+        ''' Primitve cell is a pixel. Every second column must be mirrored (avoiding primitive cell becoming 2x1 pixels).
+        '''
+        # check for valid z coordinates
+        if z is not None and not np.allclose(np.nan_to_num(z), 0.0):
+            raise RuntimeError('The local z positions contain values z!=0.')
+        x_mod, x_primitve_cell = np.divmod(x + self.x_extent()[0], self.column_size)
+        y_mod, y_primitve_cell = np.divmod(y + self.y_extent()[0], self.row_size)
+        x_primitve_cell[np.mod(x_mod, 2) != 0] = np.abs(x_primitve_cell[np.mod(x_mod, 2) != 0] - self.column_size)
+        return x_primitve_cell, y_primitve_cell
+
+
+class FEI4(RectangularPixelDutWithDoubleColumns):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
@@ -375,7 +405,7 @@ class RD53A(RectangularPixelDut):
         super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
-class PSI46(RectangularPixelDut):
+class PSI46(RectangularPixelDutWithDoubleColumns):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
