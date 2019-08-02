@@ -8,7 +8,10 @@ from beam_telescope_analysis.tools import geometry_utils
 
 
 class Dut(object):
-    # list of member variables that are allowed to be changed/set (e.g., during initialization)
+    ''' DUT base class.
+    '''
+
+    # List of member variables that are allowed to be changed/set (e.g., during initialization).
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, material_budget=None):
@@ -41,6 +44,7 @@ class Dut(object):
     def __str__(self):
         return ("DUT %s: " % self.__class__.__name__) + ", ".join([(name + ": " + str(getattr(self, name))) for name in self.dut_attributes])
 
+    # Various properties of the DUT; check for correct input type and cast to proper type.
     @property
     def name(self):
         return self._name
@@ -105,42 +109,65 @@ class Dut(object):
     def material_budget(self, material_budget):
         self._material_budget = float(material_budget)
 
+    # DUT methods
     @classmethod
     def from_dut(cls, dut, **kwargs):
+        ''' Get new DUT from existing DUT. Copy all properties to new DUT.
+        '''
         init_variables = list(set(cls.dut_attributes) & set(dut.dut_attributes))
         init_dict = {key: getattr(dut, key) for key in init_variables}
         init_dict.update(kwargs)
         return cls(**init_dict)
 
-    def x_extent(self):
+    def x_extent(self, global_position=False):
+        ''' Size of the DUT in X dimension.
+        '''
         raise NotImplementedError
 
-    def y_extent(self):
+    def y_extent(self, global_position=False):
+        ''' Size of the DUT in Z dimension.
+        '''
         raise NotImplementedError
 
-    def z_extent(self):
+    def z_extent(self, global_position=False):
+        ''' Size of the DUT in Z dimension.
+        '''
         raise NotImplementedError
 
     def index_to_local_position(self, index):
+        ''' Transform index to local position.
+        '''
         raise NotImplementedError
 
-    def local_position_to_index(self, x, y, z):
+    def local_position_to_index(self, x, y, z=None):
+        ''' Transform local position to index.
+        '''
         raise NotImplementedError
 
-    def local_to_global_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+    def local_to_global_position(self, x, y, z=None, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        ''' Transform local position to global position.
+        '''
         raise NotImplementedError
 
     def global_to_local_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        ''' Transform global position to local position.
+        '''
         raise NotImplementedError
 
     def index_to_global_position(self, index, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        ''' Transform index to global position.
+        '''
         raise NotImplementedError
 
     def global_position_to_index(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        ''' Transform global position to index.
+        '''
         raise NotImplementedError
 
 
 class RectangularPixelDut(Dut):
+    ''' DUT with rectangular pixels.
+    '''
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget", "column_size", "row_size", "n_columns", "n_rows", "column_limit", "row_limit"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_size, row_size, n_columns, n_rows, column_limit=None, row_limit=None, material_budget=None):
@@ -257,14 +284,16 @@ class RectangularPixelDut(Dut):
         z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
         return x, y, z
 
-    def local_position_to_index(self, x, y, z):
-        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)) or isinstance(z, (list, tuple)):
+    def local_position_to_index(self, x, y, z=None):
+        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)):
             x = np.array(x, dtype=np.float64)
             y = np.array(y, dtype=np.float64)
-            z = np.array(z, dtype=np.float64)
-        # check for valid z coordinates
-        if not np.allclose(np.nan_to_num(z), 0.0):
-            raise RuntimeError('The local z positions contain values z!=0.')
+        if z is not None:
+            if isinstance(z, (list, tuple)):
+                z = np.array(z, dtype=np.float64)
+            # check for valid z coordinates
+            if not np.allclose(np.nan_to_num(z), 0.0):
+                raise RuntimeError('The local z positions contain values z!=0.')
         column = np.full_like(x, fill_value=np.nan, dtype=np.float64)
         row = np.full_like(x, fill_value=np.nan, dtype=np.float64)
         # check for hit index or cluster index is out of range
@@ -277,10 +306,13 @@ class RectangularPixelDut(Dut):
         row = (y / self.row_size) + 0.5 + (0.5 * self.n_rows)
         return column, row
 
-    def local_to_global_position(self, x, y, z, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
-        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)) or isinstance(z, (list, tuple)):
+    def local_to_global_position(self, x, y, z=None, translation_x=None, translation_y=None, translation_z=None, rotation_alpha=None, rotation_beta=None, rotation_gamma=None):
+        if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)):
             x = np.array(x, dtype=np.float64)
             y = np.array(y, dtype=np.float64)
+        if z is None:
+            z = np.zeros_like(x)
+        elif isinstance(z, (list, tuple)):
             z = np.array(z, dtype=np.float64)
         # check for valid z coordinates
         if translation_x is None and translation_y is None and translation_z is None and rotation_alpha is None and rotation_beta is None and rotation_gamma is None and not np.allclose(np.nan_to_num(z), 0.0):
