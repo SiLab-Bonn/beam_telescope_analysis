@@ -973,6 +973,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 count_in_pixel_tracks_with_hit_2d_hist_tmp = count_in_pixel_tracks_with_hit_2d_hists[region_index]
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index][:count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[0], :count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[1]] += count_in_pixel_tracks_with_hit_2d_hist_tmp
+                                # 2D in-pixel charge
+                                stat_in_pixel_charge_2d_hist_tmp = stat_in_pixel_charge_2d_hists[region_index]
+                                stat_in_pixel_charge_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_charge_2d_hists[region_index][:stat_in_pixel_charge_2d_hist_tmp.shape[0], :stat_in_pixel_charge_2d_hist_tmp.shape[1]] += stat_in_pixel_charge_2d_hist_tmp
+                                count_in_pixel_charge_2d_hist_tmp = count_in_pixel_charge_2d_hists[region_index]
+                                count_in_pixel_charge_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                count_in_pixel_charge_2d_hists[region_index][:count_in_pixel_charge_2d_hist_tmp.shape[0], :count_in_pixel_charge_2d_hist_tmp.shape[1]] += count_in_pixel_charge_2d_hist_tmp
 
                         for region_index, region in enumerate(efficiency_regions_dut):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
@@ -1183,6 +1190,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                 else:
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist = None
+                    stat_in_pixel_charge_2d_hists = None
                     in_pixel_hist_extent = None
                     in_pixel_plot_range = None
 
