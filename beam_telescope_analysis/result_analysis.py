@@ -918,63 +918,61 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
 
                     if initialize:
                         initialize = False
+                        count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D hits
                         count_hits_2d_hist, _, _, _ = stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
                         # 2D tracks
                         count_tracks_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)
                         # 2D tracks with valid hit
-                        count_tracks_with_hit_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_tracks_with_hit_2d_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 2D x residuals
                         stat_2d_x_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_x_residuals_hist = np.nan_to_num(stat_2d_x_residuals_hist)
-                        count_2d_x_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_2d_x_residuals_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 2D y residuals
                         stat_2d_y_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_y_residuals_hist = np.nan_to_num(stat_2d_y_residuals_hist)
-                        count_2d_y_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_2d_y_residuals_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 2D residuals
                         stat_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_residuals_hist = np.nan_to_num(stat_2d_residuals_hist)
-                        count_2d_residuals_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_2d_residuals_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 2D charge
                         stat_2d_charge_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=charge[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_charge_hist = np.nan_to_num(stat_2d_charge_hist)
-                        count_2d_charge_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_2d_charge_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 1D charge
                         count_1d_charge_hist = np.bincount(charge[select_valid_hit].astype(np.int))
                         # 2D frame
                         stat_2d_frame_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_frame_hist = np.nan_to_num(stat_2d_frame_hist)
-                        count_2d_frame_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
+                        count_2d_frame_hist = count_tracks_with_hit_2d_hist_tmp.copy()
                         # 1D frame
                         count_1d_frame_hist = np.bincount(frame[select_valid_hit].astype(np.int))
                     else:
+                        count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D hits
                         count_hits_2d_hist += stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D tracks
                         count_tracks_2d_hist += stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D tracks with valid hit
-                        count_tracks_with_hit_2d_hist += stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
+                        count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
                         # 2D x residuals
                         stat_2d_x_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=x_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_x_residuals_hist_tmp = np.nan_to_num(stat_2d_x_residuals_hist_tmp)
-                        count_2d_x_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
-                        stat_2d_x_residuals_hist, count_2d_x_residuals_hist = np.ma.average(a=np.stack([stat_2d_x_residuals_hist, stat_2d_x_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_x_residuals_hist, count_2d_x_residuals_hist_tmp]), returned=True)
+                        stat_2d_x_residuals_hist, count_2d_x_residuals_hist = np.ma.average(a=np.stack([stat_2d_x_residuals_hist, stat_2d_x_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_x_residuals_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # 2D y residuals
                         stat_2d_y_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=y_residuals[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_y_residuals_hist_tmp = np.nan_to_num(stat_2d_y_residuals_hist_tmp)
-                        count_2d_y_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
-                        stat_2d_y_residuals_hist, count_2d_y_residuals_hist = np.ma.average(a=np.stack([stat_2d_y_residuals_hist, stat_2d_y_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_y_residuals_hist, count_2d_y_residuals_hist_tmp]), returned=True)
+                        stat_2d_y_residuals_hist, count_2d_y_residuals_hist = np.ma.average(a=np.stack([stat_2d_y_residuals_hist, stat_2d_y_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_y_residuals_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # 2D residuals
                         stat_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=distance_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_residuals_hist_tmp = np.nan_to_num(stat_2d_residuals_hist_tmp)
-                        count_2d_residuals_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
-                        stat_2d_residuals_hist, count_2d_residuals_hist = np.ma.average(a=np.stack([stat_2d_residuals_hist, stat_2d_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_residuals_hist, count_2d_residuals_hist_tmp]), returned=True)
+                        stat_2d_residuals_hist, count_2d_residuals_hist = np.ma.average(a=np.stack([stat_2d_residuals_hist, stat_2d_residuals_hist_tmp]), axis=0, weights=np.stack([count_2d_residuals_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # 2D charge
                         stat_2d_charge_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=charge[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_charge_hist_tmp = np.nan_to_num(stat_2d_charge_hist_tmp)
-                        count_2d_charge_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
-                        stat_2d_charge_hist, count_2d_charge_hist = np.ma.average(a=np.stack([stat_2d_charge_hist, stat_2d_charge_hist_tmp]), axis=0, weights=np.stack([count_2d_charge_hist, count_2d_charge_hist_tmp]), returned=True)
+                        stat_2d_charge_hist, count_2d_charge_hist = np.ma.average(a=np.stack([stat_2d_charge_hist, stat_2d_charge_hist_tmp]), axis=0, weights=np.stack([count_2d_charge_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # 1D charge
                         count_1d_charge_hist_tmp = np.bincount(charge[select_valid_hit].astype(np.int))
                         if count_1d_charge_hist_tmp.size > count_1d_charge_hist.size:
