@@ -1153,18 +1153,21 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_efficiency_hist = np.ma.array(stat_2d_efficiency_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
                 if efficiency_regions_dut is not None:
+                    efficiency_regions_mask = []
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist = []
 
                     for region_index, region in enumerate(efficiency_regions_dut):
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.full_like(efficiency_regions_count_tracks_pixel_hist[region_index], fill_value=np.nan, dtype=np.float64)
                         efficiency_regions_stat_pixel_efficiency_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0] = efficiency_regions_count_tracks_with_hit_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) / efficiency_regions_count_tracks_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) * 100.0
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.ma.array(efficiency_regions_stat_pixel_efficiency_hist[region_index], mask=efficiency_regions_count_tracks_pixel_hist[region_index] < minimum_track_density)
+                        # print region_index, np.where(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
 
-                        # Calculate in-pixel efficiency
+                        # Calculate mask
                         region_n_pixels = np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
+                        efficiency_regions_mask.append(count_in_pixel_tracks_2d_hists[region_index] < minimum_track_density * region_n_pixels**0.5)
+                        # Calculate in-pixel efficiency
                         stat_in_pixel_efficiency_2d_hist_tmp = np.full_like(count_in_pixel_tracks_2d_hists[region_index], fill_value=np.nan, dtype=np.float64)
                         stat_in_pixel_efficiency_2d_hist_tmp[count_in_pixel_tracks_2d_hists[region_index] != 0] = count_in_pixel_tracks_with_hit_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) / count_in_pixel_tracks_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) * 100.0
-                        stat_in_pixel_efficiency_2d_hist_tmp = np.ma.array(stat_in_pixel_efficiency_2d_hist_tmp, mask=count_in_pixel_tracks_2d_hists[region_index] < minimum_track_density * region_n_pixels**0.5)
                         efficiency_regions_stat_in_pixel_efficiency_2d_hist.append(stat_in_pixel_efficiency_2d_hist_tmp)
 
                     # extending plot area for in-pixel plots
@@ -1176,6 +1179,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         in_pixel_plot_range[0][0] -= extend_in_pixel_area[0]
                         in_pixel_plot_range[0][1] += extend_in_pixel_area[0]
                         for region_index, region in enumerate(efficiency_regions_dut):
+                            efficiency_regions_mask[region_index] = np.pad(efficiency_regions_mask[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                     if extend_in_pixel_area is not None and extend_in_pixel_area[1] is not None:
@@ -1186,8 +1190,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         in_pixel_plot_range[1][0] -= extend_in_pixel_area[1]
                         in_pixel_plot_range[1][1] += extend_in_pixel_area[1]
                         for region_index, region in enumerate(efficiency_regions_dut):
+                            efficiency_regions_mask[region_index] = np.pad(efficiency_regions_mask[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                    # mask low stat
+                    for region_index, region in enumerate(efficiency_regions_dut):
+                        efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.ma.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_charge_2d_hists[region_index] = np.ma.array(stat_in_pixel_charge_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
+
                 else:
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist = None
                     stat_in_pixel_charge_2d_hists = None
