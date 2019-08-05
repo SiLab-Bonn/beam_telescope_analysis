@@ -262,6 +262,76 @@ def get_plane_files(pyBARrun, subpartition_dir, string='s_hi_p.h5'):
     return sorted(first_plane), sorted(second_plane)
 
 
+
+def merge_runs(hit_files, table_name, max_event_size = None, output_name = None, chunk_size = 100000):
+    '''
+    Takes merged cluster files from several runs and merges them to one large file for analysis.
+
+    Input:
+    ------------
+    hit_files            : list - files with Merged_spills.h5
+    max_event_size       : Int  - only events with nrows <= max_event_size will be written to output file
+    output_name          : str  - if given result file is saved there
+    chunk_size           : Int  - number of lines to read at once, to reduce memory usage for large files
+
+    Output:
+    ------------
+    merged_runs_clustered.h5 : file of clusters of different runs. First 4 digits of event number identify original run.
+
+    '''
+    if output_name:
+        out_file_name = output_name
+    else:
+        out_file_name = os.path.dirname(os.path.dirname(hit_files[0])) + "/Merged_runs.h5"
+
+    with tb.open_file(hit_files[0], "r") as in_file:
+        for table in in_file.walk_nodes('/', classname= 'Table'):
+            if table.name == table_name:
+                data_sample = table
+        merged_array_dtype = data_sample.read(0,2).dtype
+    with tb.open_file(out_file_name,"w") as merged_out_file:
+        hit_table_description = merged_array_dtype
+        hit_table_out = merged_out_file.create_table(
+            where=merged_out_file.root,
+            name='Hits',
+            description=hit_table_description, title='Clusters of Merged Runs',
+            filters=tb.Filters(complib='blosc', complevel=5, fletcher32=False))
+        for run, hit_file in enumerate(hit_files):
+            run_number = int(hit_file[hit_file.find("run_")+4:hit_file.find("run_")+8])
+            evt_offset = int(run_number * 10e8) # max number of events in a single run is 99 Million
+            logging.info("loading run %s" %run_number)
+            with tb.open_file(hit_file, "r") as in_file:
+                for table in in_file.walk_nodes('/', classname= 'Table'):
+                    if table.name == table_name:
+                        run_data = table
+                for data_chunk, _ in tqdm(analysis_utils.data_aligned_at_events(run_data, chunk_size=chunk_size)):
+                    if data_chunk["event_number"].max() > (99*10e6):
+                        logging.error("========== too many events in run, new event number would be ambiguous ==========")
+                        raise ValueError
+                    data_chunk["event_number"] += evt_offset
+                    if max_event_size:
+                        events, indices, inverse, counts = np.unique(data_chunk["event_number"], return_index=True, return_counts=True, return_inverse=True)
+                        cut_events = events[counts>max_event_size]
+                        new_events = indices[inverse[inverse<=max_event_size]]
+
+                        # build new index array with only indices of event occurence < max_event_size
+                        new_indices = []
+                        new_counts = counts[counts<=max_event_size].tolist()
+                        for i,index in enumerate(indices[counts<=max_event_size].tolist()):
+                            j=0
+                            while j < new_counts[i]:
+                                new_indices.append(index+j)
+                                j+=1
+
+                        data_chunk = data_chunk[new_indices]
+                    hit_table_out.append(data_chunk)
+                    hit_table_out.flush()
+
+
+    logging.info("merged runs and saved table at %s" % out_file_name)
+    return out_file_name
+
+
 def merge_plane(output_dir, plane_files, pyBARrun, plane_number):
     ''' merges hits of 4 FEs in one plane to one hit_table
     input:

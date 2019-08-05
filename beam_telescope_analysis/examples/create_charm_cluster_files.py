@@ -42,14 +42,15 @@ runs = {
         # 2799 : ("382", "276", "210"),
 
         # alignment runs
-        2815 : ("394", "288", "222"),
-        2817 : ("395", "289", "223"),
-        2818 : ("396", "290", "224"),
-        2825 : ("402", "296", "230"),
-        2829 : ("405", "299", "233"),
-        2830 : ("406", "300", "234"),
-        2836 : ("412", "306", "244"),
-        2837 : ("413", "307", "241"),
+        # 2815 : ("394", "288", "222"),
+        # 2817 : ("395", "289", "223"),
+        # 2818 : ("396", "290", "224"),
+        # 2825 : ("402", "296", "230"),
+        # 2829 : ("405", "299", "233"),
+        # 2830 : ("406", "300", "234"),
+        # 2836 : ("412", "306", "244"),
+        # 2837 : ("413", "307", "241"),
+        2843 : ("419", "313", "247"),
 
         # alignment runs whith passive material: 0 according to logbook
         2849 : ("425", "319", "253"),
@@ -68,13 +69,11 @@ runs = {
 raw_data_dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
                  '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0801',
                  '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0802'
-                ]
+                 ]
 
-output_dir = '/media/niko/data/SHiP/charm_exp_2018/data/tba_improvements'
+output_dir = "/media/niko/big_data/charm_testbeam_july18/analysis"
 
-# pybar_runs =  '376' , '270', '204' #'394', '288', '222'
 
-# run_number = 2793
 for key in runs.keys():
     run_number = key
     pybar_runs = runs[key]
