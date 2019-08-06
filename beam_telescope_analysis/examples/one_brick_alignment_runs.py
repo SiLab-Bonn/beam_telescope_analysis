@@ -4,7 +4,6 @@ import os
 import numpy as np
 
 from beam_telescope_analysis.converter import pybar_ship_converter
-# from beam_telescope_analysis.converter import pymosa_converter
 from beam_telescope_analysis import hit_analysis
 from beam_telescope_analysis import dut_alignment
 from beam_telescope_analysis import track_analysis
@@ -13,7 +12,6 @@ from beam_telescope_analysis.tools import data_selection
 from beam_telescope_analysis.tools import plot_utils
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools.merge_data import open_files, merge_hits, save_new_tables
-# from beam_telescope_analysis.telescope import dut
 
 logger = logging.getLogger()
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.INFO, datefmt='%I:%M:%S')
@@ -22,15 +20,14 @@ output_dir = "/media/niko/big_data/charm_testbeam_july18/analysis"
 # data_folder = os.path.dirname(os.path.realpath(__file__))
 
 runs = {
-        2849 : ("425", "319", "253"),
-        2850 : ("426", "320", "254"),
-        2851 : ("427", "321", "255"),
-        2852 : ("428", "322", "256"),
-        2853 : ("429", "323", "257"),
-        2854 : ("430", "324", "258"),
-        2855 : ("431", "325", "259"),
-        2856 : ("432", "326", "260"),
-        2857 : ("433", "327", "261"),
+        2817 : ("395", "289", "223"),
+        2818 : ("396", "290", "224"),
+        2825 : ("402", "296", "230"),
+        2829 : ("405", "299", "233"),
+        2830 : ("406", "300", "234"),
+        2836 : ("412", "306", "244"),
+        2837 : ("413", "307", "241"),
+        2843 : ("419", "313", "247"),
         }
 
 raw_data_dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
@@ -38,39 +35,38 @@ raw_data_dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
                  '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0802'
                  ]
 
-# for key in runs.keys():
-#     run_number = key
-#     pybar_runs = runs[key]
-#     logger.info("============================== converting run %s ==============================" % run_number)
-#     # logger.info("============================= using pybar files  ============================", pybar_runs )
-#
-#     data_files_folder = os.path.join(output_dir, 'run_%s'% run_number)
-#     output_folder = os.path.join(output_dir, 'output_folder_run_%s' % run_number)
-#     if not os.path.exists(output_folder):
-#         os.makedirs(output_folder)
-#     if not os.path.exists(data_files_folder):
-#         os.makedirs(data_files_folder)
-#
-#     hit_files = []
-#     for i, folder in enumerate(raw_data_dirs):
-#         first_plane, second_plane = pybar_ship_converter.get_plane_files(pyBARrun = pybar_runs[i], subpartition_dir = folder)
-#         for data_file in first_plane:
-#             pybar_ship_converter.process_dut(data_file, trigger_data_format=1, do_corrections=False, empty_events=True)
-#         for data_file in second_plane:
-#             pybar_ship_converter.process_dut(data_file, trigger_data_format=1, do_corrections=False, empty_events=True)
-#         pybar_ship_converter.merge_dc_module_local(output_dir = data_files_folder, plane_files = first_plane, pyBARrun = pybar_runs[i], plane_number = i*2, output_file_list = hit_files)
-#         pybar_ship_converter.merge_dc_module_local(output_dir = data_files_folder, plane_files = second_plane, pyBARrun = pybar_runs[i], plane_number = (i*2)+1 , output_file_list = hit_files)
-#
-#     hit_tables_in = open_files(hit_files)
-#     new_tables = merge_hits(hit_tables_in=hit_tables_in)
-#     hit_files = save_new_tables(hit_files, new_tables)
+for key in runs.keys():
+    run_number = key
+    pybar_runs = runs[key]
+    logger.info("============================== converting run %s ==============================" % run_number)
+
+    data_files_folder = os.path.join(output_dir, 'run_%s'% run_number)
+    output_folder = os.path.join(output_dir, 'output_folder_run_%s' % run_number)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    if not os.path.exists(data_files_folder):
+        os.makedirs(data_files_folder)
+
+    hit_files = []
+    for i, folder in enumerate(raw_data_dirs):
+        first_plane, second_plane = pybar_ship_converter.get_plane_files(pyBARrun = pybar_runs[i], subpartition_dir = folder)
+        for data_file in first_plane:
+            pybar_ship_converter.process_dut(data_file, trigger_data_format=1, do_corrections=False, empty_events=True)
+        for data_file in second_plane:
+            pybar_ship_converter.process_dut(data_file, trigger_data_format=1, do_corrections=False, empty_events=True)
+        pybar_ship_converter.merge_dc_module_local(output_dir = data_files_folder, plane_files = first_plane, pyBARrun = pybar_runs[i], plane_number = i*2, output_file_list = hit_files)
+        pybar_ship_converter.merge_dc_module_local(output_dir = data_files_folder, plane_files = second_plane, pyBARrun = pybar_runs[i], plane_number = (i*2)+1 , output_file_list = hit_files)
+
+    hit_tables_in = open_files(hit_files)
+    new_tables = merge_hits(hit_tables_in=hit_tables_in)
+    hit_files = save_new_tables(hit_files, new_tables)
 
 # choose Hit files to be merged
 merge_hit_files = {}
 for plane in range(0,6):
     for module in range(0,2):
         plane_hit_files = []
-        for key in runs.keys():
+        for key in sorted(runs.keys()):
             run_number = key
             pybar_runs = runs[key]
             plane_hit_files.append('/media/niko/big_data/charm_testbeam_july18/analysis/run_%s/pyBARrun_%s_plane_%s_DC_module_%s_local_corr_evts.h5'
@@ -86,7 +82,7 @@ hit_files = []
 logging.info("merging hit files of different runs")
 for key in merge_hit_files.keys():
     output_name = os.path.join(output_dir, output_folder + '/plane%s_module_%s_local_corr_evts_merged.h5' % (key[0], key[1]))
-    out_file_name = pybar_ship_converter.merge_runs(hit_files = merge_hit_files[key], table_name="Hits", max_event_size = 10, output_name = output_name )
+    out_file_name = pybar_ship_converter.merge_runs(hit_files = merge_hit_files[key], table_name="Hits", max_event_size = None, output_name = output_name )
     hit_files.append(out_file_name)
 hit_files.sort()
 
@@ -238,7 +234,6 @@ aligned_configuration = dut_alignment.align(
     plot=True)
 
 # aligned_configuration = os.path.join(output_folder,'run%d_telescope_aligned.yaml' % run_number)
-# aligned_configuration = '../run%d/run%d_telescope_aligned.yaml' % tuple([125] * 2)
 
 track_analysis.find_tracks(
     telescope_configuration=aligned_configuration,
