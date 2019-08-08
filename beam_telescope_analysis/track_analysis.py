@@ -972,13 +972,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
     for dut_index, dut in enumerate(telescope):
         dut_stats.append([])
         if use_limits:
-            # local_limit_positions = dut.index_to_local_position(
-            #     column=[dut.column_limit[0], dut.column_limit[1]],
-            #     row=[dut.row_limit[0], dut.row_limit[1]])
-            # limit_x_local = [local_limit_positions[0][0], local_limit_positions[0][1]]
-            # limit_y_local = [local_limit_positions[1][0], local_limit_positions[1][1]]
-            limit_x_local = dut.column_limit
-            limit_y_local = dut.row_limit
+            limit_x_local = dut.x_limit
+            limit_y_local = dut.y_limit
         else:
             limit_x_local = None
             limit_y_local = None

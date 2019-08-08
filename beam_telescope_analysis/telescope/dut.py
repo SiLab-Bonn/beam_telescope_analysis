@@ -12,9 +12,9 @@ class Dut(object):
     '''
 
     # List of member variables that are allowed to be changed/set (e.g., during initialization).
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
         self.name = name  # string
         self.translation_x = translation_x  # in um
         self.translation_y = translation_y  # in um
@@ -22,6 +22,8 @@ class Dut(object):
         self.rotation_alpha = rotation_alpha  # in rad
         self.rotation_beta = rotation_beta  # in rad
         self.rotation_gamma = rotation_gamma  # in rad
+        self.x_limit = x_limit  # 2-tuple, in um
+        self.y_limit = y_limit  # 2-tuple, in um
         self.material_budget = 0.0 if material_budget is None else material_budget  # the material budget is defined as the thickness devided by the radiation length
 
     def __setattr__(self, name, value):
@@ -102,6 +104,28 @@ class Dut(object):
         self._rotation_gamma = float(rotation_gamma)
 
     @property
+    def x_limit(self):
+        return self._x_limit
+
+    @x_limit.setter
+    def x_limit(self, limit):
+        if limit is None:
+            self._x_limit = None
+        else:
+            self._x_limit = (float(limit[0]), float(limit[1]))
+
+    @property
+    def y_limit(self):
+        return self._y_limit
+
+    @y_limit.setter
+    def y_limit(self, limit):
+        if limit is None:
+            self._y_limit = None
+        else:
+            self._y_limit = (float(limit[0]), float(limit[1]))
+
+    @property
     def material_budget(self):
         return self._material_budget
 
@@ -173,22 +197,14 @@ class Dut(object):
 class RectangularPixelDut(Dut):
     ''' DUT with rectangular pixels.
     '''
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "material_budget", "column_size", "row_size", "n_columns", "n_rows", "column_limit", "row_limit"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "column_size", "row_size", "n_columns", "n_rows"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_size, row_size, n_columns, n_rows, column_limit=None, row_limit=None, material_budget=None):
-        super(RectangularPixelDut, self).__init__(name=name, material_budget=material_budget, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_size, row_size, n_columns, n_rows, x_limit=None, y_limit=None, material_budget=None):
+        super(RectangularPixelDut, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
         self.column_size = column_size
         self.row_size = row_size
         self.n_columns = n_columns
         self.n_rows = n_rows
-        if column_limit is None:
-            self.column_limit = self.x_extent()
-        else:
-            self.column_limit = column_limit
-        if row_limit is None:
-            self.row_limit = self.y_extent()
-        else:
-            self.row_limit = row_limit
 
     @property
     def column_size(self):
@@ -229,22 +245,6 @@ class RectangularPixelDut(Dut):
     @property
     def n_pixel(self):
         return (self.n_columns, self.n_rows)
-
-    @property
-    def column_limit(self):
-        return self._column_limit
-
-    @column_limit.setter
-    def column_limit(self, limit):
-        self._column_limit = (float(limit[0]), float(limit[1]))
-
-    @property
-    def row_limit(self):
-        return self._row_limit
-
-    @row_limit.setter
-    def row_limit(self, limit):
-        self._row_limit = (float(limit[0]), float(limit[1]))
 
     def x_extent(self, global_position=False):
         if global_position:
@@ -392,39 +392,39 @@ class RectangularPixelDutWithDoubleColumns(RectangularPixelDut):
 
 
 class FEI4(RectangularPixelDutWithDoubleColumns):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
-        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
 
 
 class RD53A(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
-        super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+        super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
 class PSI46(RectangularPixelDutWithDoubleColumns):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
-        super(PSI46, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=150.0, row_size=100.0, n_columns=52, n_rows=80)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+        super(PSI46, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=150.0, row_size=100.0, n_columns=52, n_rows=80)
 
 
 class Mimosa26(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_limit=None, row_limit=None, material_budget=None):
-        super(Mimosa26, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget, column_size=18.4, row_size=18.4, n_columns=1152, n_rows=576)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+        super(Mimosa26, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=18.4, row_size=18.4, n_columns=1152, n_rows=576)
 
 
 class Diamond3DpCVD(FEI4):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget", "sensor_position"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "sensor_position"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, column_limit=None, row_limit=None, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None):
         self.sensor_position = sensor_position
-        super(Diamond3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget)
+        super(Diamond3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
 
     @property
     def sensor_position(self):
@@ -540,11 +540,11 @@ class Diamond3DpCVD(FEI4):
 
 
 class DiamondPseudo3DpCVD(FEI4):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "column_limit", "row_limit", "material_budget", "sensor_position"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "sensor_position"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, column_limit=None, row_limit=None, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None):
         self.sensor_position = sensor_position
-        super(DiamondPseudo3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, column_limit=column_limit, row_limit=row_limit, material_budget=material_budget)
+        super(DiamondPseudo3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
 
     @property
     def sensor_position(self):

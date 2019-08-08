@@ -321,22 +321,22 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     if slope < 0.0:
                         R = np.linalg.multi_dot([geometry_utils.rotation_matrix_x(alpha=np.pi), R])
                     translation_y = offset_center
-            # Calculate index of the limit before setting new alignment parameters
-            # Use indices
-            # indices = telescope[dut_index].global_position_to_index(
-            #     x=x_global_pixel[select],
-            #     y=y_global_pixel[select],
-            #     z=z_global_pixel[select])
-            # Use local coordinates
+            # Setting new parameters
+            # Only use new limits if they are narrower
+            # Convert from global to local coordinates
             local_coordinates = telescope[dut_index].global_to_local_position(
                 x=x_global_pixel[select],
                 y=y_global_pixel[select],
                 z=z_global_pixel[select])
-            # set new parameters
-            # telescope[dut_index].column_limit = (min(indices[0]), max(indices[0]))
-            # telescope[dut_index].row_limit = (min(indices[1]), max(indices[1]))
-            telescope[dut_index].column_limit = (min(local_coordinates[0]), max(local_coordinates[0]))
-            telescope[dut_index].row_limit = (min(local_coordinates[1]), max(local_coordinates[1]))
+            if telescope[dut_index].x_limit is None:
+                telescope[dut_index].x_limit = (min(local_coordinates[0]), max(local_coordinates[0]))
+            else:
+                telescope[dut_index].x_limit = (max(min(local_coordinates[0]), min(telescope[dut_index].x_limit)), min(max(local_coordinates[0]), max(telescope[dut_index].x_limit)))
+            if telescope[dut_index].y_limit is None:
+                telescope[dut_index].y_limit = (min(local_coordinates[1]), max(local_coordinates[1]))
+            else:
+                telescope[dut_index].y_limit = (max(min(local_coordinates[1]), min(telescope[dut_index].y_limit)), min(max(local_coordinates[1]), max(telescope[dut_index].y_limit)))
+            # Setting geometry
             telescope[dut_index].translation_x = translation_x
             telescope[dut_index].translation_y = translation_y
             rotation_alpha, rotation_beta, rotation_gamma = geometry_utils.euler_angles(R=R)
@@ -1118,8 +1118,8 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
             logging.info("Modify alignment parameters: %s", ', '.join([alignment_paramter for alignment_paramter in select_alignment_parameters[index]]))
 
             if use_limits:
-                limit_x_local = actual_dut.column_limit
-                limit_y_local = actual_dut.row_limit
+                limit_x_local = actual_dut.x_limit
+                limit_y_local = actual_dut.y_limit
             else:
                 limit_x_local = None
                 limit_y_local = None
