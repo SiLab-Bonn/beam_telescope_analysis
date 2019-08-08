@@ -385,9 +385,8 @@ class RectangularPixelDutWithDoubleColumns(RectangularPixelDut):
         # check for valid z coordinates
         if z is not None and not np.allclose(np.nan_to_num(z), 0.0):
             raise RuntimeError('The local z positions contain values z!=0.')
-        x_mod, x_primitve_cell = np.divmod(x + self.x_extent()[0], self.column_size)
+        x_mod, x_primitve_cell = np.divmod(x + self.x_extent()[0], self.column_size * 2.0)
         y_mod, y_primitve_cell = np.divmod(y + self.y_extent()[0], self.row_size)
-        x_primitve_cell[np.mod(x_mod, 2) != 0] = np.abs(x_primitve_cell[np.mod(x_mod, 2) != 0] - self.column_size)
         return x_primitve_cell, y_primitve_cell
 
 
