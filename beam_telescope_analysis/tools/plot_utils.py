@@ -407,34 +407,34 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                                 cluster_size_hist += np.bincount(cluster_n_hits, minlength=cluster_size_hist.size)
                             cluster_shapes_hist += np.histogram(a=cluster_shape, bins=edges)[0]
 
-                x = np.arange(cluster_size_hist.size)
+                max_bins = 10
+                x = np.arange(max_bins) + 1
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                ax.bar(x, cluster_size_hist, align='center')
+                ax.bar(x, cluster_size_hist[1:max_bins + 1], align='center')
                 ax.set_title('Cluster size distribution%s\n(%d hits, %d clusters)' % ((" for %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
                 ax.set_xlabel('Cluster size')
                 ax.set_ylabel('#')
+                ax.xaxis.set_ticks(x)
                 ax.grid()
+                ax.set_yscale('linear')
+                ax.set_ylim(ymin=0.0)
+                output_pdf.savefig(fig)
+                ax.autoscale()
                 ax.set_yscale('log')
-                ax.set_xlim(xmin=0.5)
                 ax.set_ylim(ymin=1e-1)
                 output_pdf.savefig(fig)
-                ax.set_yscale('linear')
-                ax.set_ylim(ymin=0.0, ymax=np.max(cluster_size_hist))
-                ax.set_xlim(0.5, min(10.0, cluster_size_hist.size - 1) + 0.5)
-                output_pdf.savefig(fig)
 
-                x = np.arange(17)
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                # print cluster_shapes_hist.argsort()[-50:][::-1]
                 analyze_cluster_shapes = [1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15, 95, 783, 4959]
                 cluster_shape_hist = cluster_shapes_hist[analyze_cluster_shapes]
                 remaining_clusters = total_n_clusters - np.sum(cluster_shape_hist)
-                cluster_shape_hist = np.r_[total_n_clusters, cluster_shape_hist, remaining_clusters]
-                analyze_cluster_shapes = np.r_[0, analyze_cluster_shapes, -1]
+                cluster_shape_hist = np.r_[cluster_shape_hist, remaining_clusters]
+                analyze_cluster_shapes = np.r_[analyze_cluster_shapes, -1]
+                x = np.arange(len(analyze_cluster_shapes))
                 ax.bar(x, cluster_shape_hist, align='center')
                 ax.xaxis.set_ticks(x)
                 fig.subplots_adjust(bottom=0.2)
@@ -444,11 +444,12 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
                 ax.grid()
+                ax.set_yscale('linear')
+                ax.set_ylim(ymin=0.0)
+                output_pdf.savefig(fig)
+                ax.autoscale()
                 ax.set_yscale('log')
                 ax.set_ylim(ymin=1e-1)
-                output_pdf.savefig(fig)
-                ax.set_yscale('linear')
-                ax.set_ylim(ymin=0.0, ymax=np.max(analyze_cluster_shapes))
                 output_pdf.savefig(fig)
 
 
