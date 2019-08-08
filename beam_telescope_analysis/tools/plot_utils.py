@@ -29,6 +29,26 @@ import beam_telescope_analysis.tools.geometry_utils
 
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")  # Plot backend error not important
 
+cluster_shape_strings = {
+    -1: 'others',
+    0: r'$\sum$',
+    1: u'\u2004\u2596',  # CS 1
+    3: u'\u2597\u2009\u2596',  # CS 3, 2 hit cluster, horizontal
+    5: u'\u2004\u2596\n\u2004\u2598',  # CS 5, 2 hit cluster, vertical
+    6: u'\u259e',  # CS 6, 2 hit cluster
+    7: u'\u259b',  # CS 7, 3 hit cluster
+    9: u'\u259a',  # CS 9, 2 hit cluster
+    11: u'\u259c',  # CS 11, 3 hit cluster
+    13: u'\u2599',  # CS 13, 3 hit cluster, L
+    14: u'\u259f',  # CS 14, 3 hit cluster
+    15: u'\u2597\u2009\u2596\n\u259d\u2009\u2598',  # CS 15, 4 hit cluster
+    19: u'\u2004\u2596\u2596\u2596',  # CS 19, 3 hit cluster, horizontal
+    95: u'\u2004\u2596\u2596\u2596\n\u2004\u2598\u2598\u2598',  # CS 95, 3x2 hit cluster, horizontal
+    261: u'\u2004\u2596\n\u2004\u2596\n\u2004\u2596',  # CS 261, 3 hit cluster, vertical
+    783: u'\u2597\u2009\u2596\n\u2597\u2009\u2596\n\u2597\u2009\u2596',  # CS 783, 2x3 hit cluster, vertical
+    4959: u'\u2004\u2596\u2596\u2596\n\u2004\u2596\u2596\u2596\n\u2004\u2596\u2596\u2596',  # CS 4959, 3x3 hit cluster, horizontal
+}
+
 
 def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, cmap='viridis', aspect='auto', show_colorbar=True, output_pdf=None):
     if not output_pdf:
@@ -420,12 +440,13 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 initialize = True  # initialize the histograms
                 try:
                     cluster_size_hist = in_file_h5.root.HistClusterSize[:]
-                    n_clusters = np.sum(cluster_size_hist)
+                    total_n_hits = np.sum(np.multiply(cluster_size_hist, range(cluster_size_hist.shape[0])))
+                    total_n_clusters = np.sum(cluster_size_hist)
                     cluster_shapes_hist = in_file_h5.root.HistClusterShape[:]
                 except tb.NoSuchNodeError:
                     raise ValueError()
-                    n_hits = 0
-                    n_clusters = 0
+                    total_n_hits = 0
+                    total_n_clusters = 0
                     for chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
 
                         if actual_dut_index is None:
@@ -436,9 +457,10 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                             cluster_shape = chunk['cluster_shape_dut_%d' % actual_dut_index]
 
                         max_cluster_size = np.max(cluster_n_hits)
-                        # n_hits += np.sum(cluster_n_hits)
-                        n_clusters += chunk.shape[0]
-                        edges = np.arange(2**16)
+                        total_n_hits += np.sum(cluster_n_hits)
+                        total_n_clusters += chunk.shape[0]
+                        # limit cluster shape histogram to cluster size 4x4
+                        edges = np.arange(2**(4 * 4))
                         if initialize:
                             initialize = False
 
@@ -457,8 +479,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.bar(x, cluster_size_hist, align='center')
-                # ax.set_title('Cluster sizes%s\n(%d hits in %d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_hits, n_clusters))
-                ax.set_title('Cluster sizes%s\n(%d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_clusters))
+                ax.set_title('Cluster size distribution%s\n(%d hits, %d clusters)' % ((" for %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
                 ax.set_xlabel('Cluster size')
                 ax.set_ylabel('#')
                 ax.grid()
@@ -471,28 +492,22 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 ax.set_xlim(0.5, min(10.0, cluster_size_hist.size - 1) + 0.5)
                 output_pdf.savefig(fig)
 
-                x = np.arange(12)
+                x = np.arange(17)
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                selected_clusters = cluster_shapes_hist[[1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15]]
-                ax.bar(x, selected_clusters, align='center')
+                # print cluster_shapes_hist.argsort()[-50:][::-1]
+                analyze_cluster_shapes = [1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15, 95, 783, 4959]
+                cluster_shape_hist = cluster_shapes_hist[analyze_cluster_shapes]
+                remaining_clusters = total_n_clusters - np.sum(cluster_shape_hist)
+                cluster_shape_hist = np.r_[total_n_clusters, cluster_shape_hist, remaining_clusters]
+                analyze_cluster_shapes = np.r_[0, analyze_cluster_shapes, -1]
+                ax.bar(x, cluster_shape_hist, align='center')
                 ax.xaxis.set_ticks(x)
                 fig.subplots_adjust(bottom=0.2)
-                ax.set_xticklabels([u"\u2004\u2596",
-                                    u"\u2597\u2009\u2596",  # 2 hit cluster, horizontal
-                                    u"\u2004\u2596\n\u2004\u2598",  # 2 hit cluster, vertical
-                                    u"\u259e",  # 2 hit cluster
-                                    u"\u259a",  # 2 hit cluster
-                                    u"\u2599",  # 3 hit cluster, L
-                                    u"\u259f",  # 3 hit cluster
-                                    u"\u259b",  # 3 hit cluster
-                                    u"\u259c",  # 3 hit cluster
-                                    u"\u2004\u2596\u2596\u2596",  # 3 hit cluster, horizontal
-                                    u"\u2004\u2596\n\u2004\u2596\n\u2004\u2596",  # 3 hit cluster, vertical
-                                    u"\u2597\u2009\u2596\n\u259d\u2009\u2598"])  # 4 hit cluster
-                # ax.set_title('Cluster shapes%s\n(%d hits in %d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_hits, n_clusters))
-                ax.set_title('Cluster shapes%s\n(%d clusters)' % ((" for %s" % dut_name) if dut_name else "", n_clusters))
+                ax.set_xticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes])
+                ax.tick_params(axis='x', labelsize=7)
+                ax.set_title('Cluster shape distribution for %s\n(%d hits, %d clusters)' % ((" for %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
                 ax.grid()
@@ -500,7 +515,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 ax.set_ylim(ymin=1e-1)
                 output_pdf.savefig(fig)
                 ax.set_yscale('linear')
-                ax.set_ylim(ymin=0.0, ymax=np.max(selected_clusters))
+                ax.set_ylim(ymin=0.0, ymax=np.max(analyze_cluster_shapes))
                 output_pdf.savefig(fig)
 
 
