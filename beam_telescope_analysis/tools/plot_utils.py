@@ -407,7 +407,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                                 cluster_size_hist += np.bincount(cluster_n_hits, minlength=cluster_size_hist.size)
                             cluster_shapes_hist += np.histogram(a=cluster_shape, bins=edges)[0]
 
-                max_bins = 10
+                max_bins = min(10, cluster_size_hist.shape[0] - 1)
                 x = np.arange(max_bins) + 1
                 fig = Figure()
                 _ = FigureCanvas(fig)
@@ -434,7 +434,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 remaining_clusters = total_n_clusters - np.sum(cluster_shape_hist)
                 cluster_shape_hist = np.r_[cluster_shape_hist, remaining_clusters]
                 analyze_cluster_shapes = np.r_[analyze_cluster_shapes, -1]
-                x = np.arange(len(analyze_cluster_shapes))
+                x = np.arange(analyze_cluster_shapes.shape[0])
                 ax.bar(x, cluster_shape_hist, align='center')
                 ax.xaxis.set_ticks(x)
                 fig.subplots_adjust(bottom=0.2)
