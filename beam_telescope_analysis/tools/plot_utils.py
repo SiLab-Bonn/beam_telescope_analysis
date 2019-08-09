@@ -95,7 +95,7 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
 
 
 def add_value_labels(ax, spacing=5):
-    """ Adding labels to the end of each bar in a bar chart.
+    ''' Adding labels to the end of each bar in a bar chart.
 
     Shamelessly stolen from: https://stackoverflow.com/questions/28931224/adding-value-labels-on-a-matplotlib-bar-chart
 
@@ -103,7 +103,7 @@ def add_value_labels(ax, spacing=5):
         The matplotlib object containing the axes of the plot to annotate.
     spacing : int
         The distance between the labels and the bars.
-    """
+    '''
 
     # For each bar: Place a label
     for rect in ax.patches:
@@ -413,7 +413,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 ax.bar(x, cluster_size_hist[1:max_bins + 1], align='center')
-                ax.set_title('Cluster size distribution%s\n(%d hits, %d clusters)' % ((" for %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
+                ax.set_title('Cluster size distribution%s\n(%d hits, %d clusters)' % (("\nfor %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
                 ax.set_xlabel('Cluster size')
                 ax.set_ylabel('#')
                 ax.xaxis.set_ticks(x)
@@ -440,7 +440,7 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                 fig.subplots_adjust(bottom=0.2)
                 ax.set_xticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes])
                 ax.tick_params(axis='x', labelsize=7)
-                ax.set_title('Cluster shape distribution for %s\n(%d hits, %d clusters)' % ((" for %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
+                ax.set_title('Cluster shape distribution%s\n(%d hits, %d clusters)' % (("\nfor %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
                 ax.set_xlabel('Cluster shape')
                 ax.set_ylabel('#')
                 ax.grid()
