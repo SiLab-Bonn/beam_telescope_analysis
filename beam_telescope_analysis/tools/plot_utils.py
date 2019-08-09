@@ -407,6 +407,19 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                                 cluster_size_hist += np.bincount(cluster_n_hits, minlength=cluster_size_hist.size)
                             cluster_shapes_hist += np.histogram(a=cluster_shape, bins=edges)[0]
 
+                x = np.arange(cluster_size_hist.shape[0] - 1) + 1
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x, cluster_size_hist[1:], align='center')
+                ax.set_title('Cluster size distribution%s\n(%d hits, %d clusters)' % (("\nfor %s" % dut_name) if dut_name else "", total_n_hits, total_n_clusters))
+                ax.set_xlabel('Cluster size')
+                ax.set_ylabel('#')
+                ax.grid()
+                ax.set_yscale('log')
+                ax.set_ylim(ymin=1e-1)
+                output_pdf.savefig(fig)
+
                 max_bins = min(10, cluster_size_hist.shape[0] - 1)
                 x = np.arange(max_bins) + 1
                 fig = Figure()
