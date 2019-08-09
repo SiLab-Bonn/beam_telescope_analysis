@@ -778,8 +778,11 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     resolution[0] = actual_dut.pixel_size[0]
                 if resolution[1] is None:
                     resolution[1] = actual_dut.pixel_size[1]
-
                 extend_area = extend_areas[index]
+
+                # select cluster shapes for analysis
+                analyze_cluster_shapes = [1, 3, 5, 13, 14, 7, 11, 15]
+
                 # DUT size
                 dut_x_extent = actual_dut.x_extent(global_position=False)
                 dut_x_size = dut_x_extent[1] - dut_x_extent[0]
@@ -824,6 +827,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_efficiency = []
                     efficiency_regions_stat = []
                     efficiency_regions_count_1d_charge_hist = []
+                    efficiency_regions_count_1d_frame_hist = []
+                    efficiency_regions_count_1d_cluster_size_hist = []
+                    efficiency_regions_count_1d_cluster_shape_hist = []
                     efficiency_regions_count_tracks_pixel_hist = []
                     efficiency_regions_count_tracks_with_hit_pixel_hist = []
                     efficiency_regions_stat_pixel_efficiency_hist = []
@@ -831,6 +837,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency_regions_efficiency.append(0.0)
                         efficiency_regions_stat.append(0)
                         efficiency_regions_count_1d_charge_hist.append(None)
+                        efficiency_regions_count_1d_frame_hist.append(None)
+                        efficiency_regions_count_1d_cluster_size_hist.append(None)
+                        efficiency_regions_count_1d_cluster_shape_hist.append(None)
                         efficiency_regions_count_tracks_pixel_hist.append(None)
                         efficiency_regions_count_tracks_with_hit_pixel_hist.append(None)
                         efficiency_regions_stat_pixel_efficiency_hist.append(None)
@@ -844,28 +853,43 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     hist_in_pixel_x_edges = np.linspace(0.0, dut_in_pixel_hist_x_size, hist_in_pixel_x_n_bins + 1, endpoint=True)
                     hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
                     hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
+                    hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(analyze_cluster_shapes) + 1)]
                     in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
                     in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
                     # generate in-pixel hists for each region
-                    # count_in_pixel_hits_2d_hists = []
+                    count_in_pixel_hits_2d_hists = []
                     count_in_pixel_tracks_2d_hists = []
                     count_in_pixel_tracks_with_hit_2d_hists = []
+                    stat_in_pixel_residuals_2d_hists = []
                     stat_in_pixel_charge_2d_hists = []
-                    count_in_pixel_charge_2d_hists = []
+                    stat_in_pixel_frame_2d_hists = []
+                    stat_in_pixel_cluster_size_2d_hists = []
+                    count_in_pixel_cluster_shape_2d_hists = []
+                    stat_in_pixel_cluster_shape_2d_hists = []
                     for region in efficiency_regions_dut:
                         # 2D in-pixel hits
-                        # count_in_pixel_hits_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        count_in_pixel_hits_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel tracks
                         count_in_pixel_tracks_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel tracks with valid hit
                         count_in_pixel_tracks_with_hit_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel residuals
+                        stat_in_pixel_residuals_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel charge
                         stat_in_pixel_charge_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
-                        count_in_pixel_charge_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel frame
+                        stat_in_pixel_frame_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel mean cluster size
+                        stat_in_pixel_cluster_size_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel cluster shape
+                        count_in_pixel_cluster_shape_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(analyze_cluster_shapes)), dtype=np.float64))
                 else:
                     efficiency_regions_efficiency = None
                     efficiency_regions_stat = None
                     efficiency_regions_count_1d_charge_hist = None
+                    efficiency_regions_count_1d_frame_hist = None
+                    efficiency_regions_count_1d_cluster_size_hist = None
+                    efficiency_regions_count_1d_cluster_shape_hist = None
                     efficiency_regions_count_tracks_pixel_hist = None
                     efficiency_regions_count_tracks_with_hit_pixel_hist = None
                     efficiency_regions_stat_pixel_efficiency_hist = None
@@ -914,12 +938,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     intersection_x_local, intersection_y_local = tracks_chunk['offset_x'], tracks_chunk['offset_y']
                     charge = tracks_chunk['charge_dut_%d' % actual_dut_index]
                     frame = tracks_chunk['frame_dut_%d' % actual_dut_index]
+                    cluster_size = tracks_chunk['n_hits_dut_%d' % actual_dut_index]
+                    cluster_shape = tracks_chunk['cluster_shape_dut_%d' % actual_dut_index]
 
                     # Calculate distance between track intersection and DUT hit location
                     x_residuals = hit_x_local - intersection_x_local
                     y_residuals = hit_y_local - intersection_y_local
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
-                    select_valid_hit = np.isfinite(hit_x_local)
                     select_finite_distance = np.isfinite(distance_local)
 
                     cut_distance = cut_distances[index]
@@ -930,14 +955,20 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     if cut_distance[1] is None:
                         cut_distance[1] = np.inf
                     # Select data where distance between the hit and track is smaller than the given value
+                    select_valid_hit = np.isfinite(hit_x_local)
                     if cut_distance[0] >= 2.5 * actual_dut.pixel_size[0] and cut_distance[1] >= 2.5 * actual_dut.pixel_size[1]:  # use ellipse
                         select_valid_hit[select_finite_distance] &= ((np.square(x_residuals[select_finite_distance]) / cut_distance[0]**2) + (np.square(y_residuals[select_finite_distance]) / cut_distance[1]**2)) <= 1
                     else:  # use square
                         select_valid_hit[select_finite_distance] &= (np.abs(x_residuals[select_finite_distance]) <= cut_distance[0])
                         select_valid_hit[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= cut_distance[1])
+                    # select cluser shapes with cluster size <=4
+                    select_small_cluster_sizes = np.zeros_like(select_valid_hit)
+                    for cluster_shape_value in analyze_cluster_shapes:
+                        select_small_cluster_sizes |= cluster_shape_value == cluster_shape_value
                     if efficiency_regions_dut is not None:
                         # for in-pixel statistics
-                        # if neccessary increase size of primitive cell (larger than single pixel)
+                        # if neccessary increase size of primitive cell (may be larger than single pixel)
+                        in_pixel_hit_x_local, in_pixel_hit_y_local = actual_dut.map_to_primitive_cell(hit_x_local, hit_y_local)
                         in_pixel_intersection_x_local, in_pixel_intersection_y_local = actual_dut.map_to_primitive_cell(intersection_x_local, intersection_y_local)
                         resize_in_pixel_hist = False
                         if np.any(in_pixel_intersection_x_local > dut_in_pixel_hist_x_size):
@@ -952,14 +983,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
                         if resize_in_pixel_hist:
                             hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
+                            hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(analyze_cluster_shapes) + 1)]
                             in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
                             in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
                             for region_index, region in enumerate(efficiency_regions_dut):
                                 # extend in-pixel arrays
                                 # 2D in-pixel hits
-                                # count_in_pixel_hits_2d_hist_tmp = count_in_pixel_hits_2d_hists[region_index]
-                                # count_in_pixel_hits_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
-                                # count_in_pixel_hits_2d_hists[region_index][:count_in_pixel_hits_2d_hist_tmp.shape[0], :count_in_pixel_hits_2d_hist_tmp.shape[1]] += count_in_pixel_hits_2d_hist_tmp
+                                count_in_pixel_hits_2d_hist_tmp = count_in_pixel_hits_2d_hists[region_index]
+                                count_in_pixel_hits_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                count_in_pixel_hits_2d_hists[region_index][:count_in_pixel_hits_2d_hist_tmp.shape[0], :count_in_pixel_hits_2d_hist_tmp.shape[1]] += count_in_pixel_hits_2d_hist_tmp
                                 # 2D in-pixel tracks
                                 count_in_pixel_tracks_2d_hist_tmp = count_in_pixel_tracks_2d_hists[region_index]
                                 count_in_pixel_tracks_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
@@ -968,13 +1000,26 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 count_in_pixel_tracks_with_hit_2d_hist_tmp = count_in_pixel_tracks_with_hit_2d_hists[region_index]
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index][:count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[0], :count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[1]] += count_in_pixel_tracks_with_hit_2d_hist_tmp
+                                # 2D in-pixel residuals
+                                stat_in_pixel_residuals_2d_hist_tmp = stat_in_pixel_residuals_2d_hists[region_index]
+                                stat_in_pixel_residuals_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_residuals_2d_hists[region_index][:stat_in_pixel_residuals_2d_hist_tmp.shape[0], :stat_in_pixel_residuals_2d_hist_tmp.shape[1]] += stat_in_pixel_residuals_2d_hist_tmp
                                 # 2D in-pixel charge
                                 stat_in_pixel_charge_2d_hist_tmp = stat_in_pixel_charge_2d_hists[region_index]
                                 stat_in_pixel_charge_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
                                 stat_in_pixel_charge_2d_hists[region_index][:stat_in_pixel_charge_2d_hist_tmp.shape[0], :stat_in_pixel_charge_2d_hist_tmp.shape[1]] += stat_in_pixel_charge_2d_hist_tmp
-                                count_in_pixel_charge_2d_hist_tmp = count_in_pixel_charge_2d_hists[region_index]
-                                count_in_pixel_charge_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
-                                count_in_pixel_charge_2d_hists[region_index][:count_in_pixel_charge_2d_hist_tmp.shape[0], :count_in_pixel_charge_2d_hist_tmp.shape[1]] += count_in_pixel_charge_2d_hist_tmp
+                                # 2D in-pixel frame
+                                stat_in_pixel_frame_2d_hist_tmp = stat_in_pixel_frame_2d_hists[region_index]
+                                stat_in_pixel_frame_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_frame_2d_hists[region_index][:stat_in_pixel_frame_2d_hist_tmp.shape[0], :stat_in_pixel_frame_2d_hist_tmp.shape[1]] += stat_in_pixel_frame_2d_hist_tmp
+                                # 2D in-pixel mean cluster size
+                                stat_in_pixel_cluster_size_2d_hist_tmp = stat_in_pixel_cluster_size_2d_hists[region_index]
+                                stat_in_pixel_cluster_size_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_cluster_size_2d_hists[region_index][:stat_in_pixel_cluster_size_2d_hist_tmp.shape[0], :stat_in_pixel_cluster_size_2d_hist_tmp.shape[1]] += stat_in_pixel_cluster_size_2d_hist_tmp
+                                # 2D in-pixel cluster shape
+                                count_in_pixel_cluster_shape_2d_hist_tmp = count_in_pixel_cluster_shape_2d_hists[region_index]
+                                count_in_pixel_cluster_shape_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(analyze_cluster_shapes)), dtype=np.float64)
+                                count_in_pixel_cluster_shape_2d_hists[region_index][:count_in_pixel_cluster_shape_2d_hist_tmp.shape[0], :count_in_pixel_cluster_shape_2d_hist_tmp.shape[1], :] += count_in_pixel_cluster_shape_2d_hist_tmp
 
                         for region_index, region in enumerate(efficiency_regions_dut):
                             select_valid_tracks_efficiency_region = np.ones_like(select_valid_hit)
@@ -985,14 +1030,36 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             efficiency_regions_efficiency[region_index] = (efficiency_regions_efficiency[region_index] * efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])) / (efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region))
                             efficiency_regions_stat[region_index] = efficiency_regions_stat[region_index] + select_valid_tracks_efficiency_region.shape[0]
                             if efficiency_regions_count_1d_charge_hist[region_index] is None:
-                                efficiency_regions_count_1d_charge_hist[region_index] = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int))
+                                efficiency_regions_count_1d_charge_hist[region_index] = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int64))
                             else:
-                                efficiency_region_count_1d_charge_hist_tmp = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int))
+                                efficiency_region_count_1d_charge_hist_tmp = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int64))
                                 if efficiency_region_count_1d_charge_hist_tmp.size > efficiency_regions_count_1d_charge_hist[region_index].size:
                                     efficiency_regions_count_1d_charge_hist[region_index].resize(efficiency_region_count_1d_charge_hist_tmp.size)
                                 else:
                                     efficiency_region_count_1d_charge_hist_tmp.resize(efficiency_regions_count_1d_charge_hist[region_index].size)
                                 efficiency_regions_count_1d_charge_hist[region_index] += efficiency_region_count_1d_charge_hist_tmp
+                            if efficiency_regions_count_1d_frame_hist[region_index] is None:
+                                efficiency_regions_count_1d_frame_hist[region_index] = np.bincount(frame[select_valid_tracks_efficiency_region & select_valid_hit])
+                            else:
+                                efficiency_region_count_1d_frame_hist_tmp = np.bincount(frame[select_valid_tracks_efficiency_region & select_valid_hit])
+                                if efficiency_region_count_1d_frame_hist_tmp.size > efficiency_regions_count_1d_frame_hist[region_index].size:
+                                    efficiency_regions_count_1d_frame_hist[region_index].resize(efficiency_region_count_1d_frame_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_frame_hist_tmp.resize(efficiency_regions_count_1d_frame_hist[region_index].size)
+                                efficiency_regions_count_1d_frame_hist[region_index] += efficiency_region_count_1d_frame_hist_tmp
+                            if efficiency_regions_count_1d_cluster_size_hist[region_index] is None:
+                                efficiency_regions_count_1d_cluster_size_hist[region_index] = np.bincount(cluster_size[select_valid_tracks_efficiency_region & select_valid_hit])
+                            else:
+                                efficiency_region_count_1d_cluster_size_hist_tmp = np.bincount(cluster_size[select_valid_tracks_efficiency_region & select_valid_hit])
+                                if efficiency_region_count_1d_cluster_size_hist_tmp.size > efficiency_regions_count_1d_cluster_size_hist[region_index].size:
+                                    efficiency_regions_count_1d_cluster_size_hist[region_index].resize(efficiency_region_count_1d_cluster_size_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size)
+                                efficiency_regions_count_1d_cluster_size_hist[region_index] += efficiency_region_count_1d_cluster_size_hist_tmp
+                            if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                            else:
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] += np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
                             # Pixel tracks
                             _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_tracks_efficiency_region], intersection_y_local[select_valid_tracks_efficiency_region])))
                             if efficiency_regions_count_tracks_pixel_hist[region_index] is None:
@@ -1009,15 +1076,33 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # for in-pixel statistics
                             count_in_pixel_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                             # 2D in-pixel hits
-                            # count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_hit], y=in_pixel_hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)
+                            count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_tracks_efficiency_region], y=in_pixel_hit_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                             # 2D in-pixel tracks
                             count_in_pixel_tracks_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
-                            # 2D in-pixel tracks with valid hit
-                            count_in_pixel_tracks_with_hit_2d_hists[region_index] += count_in_pixel_tracks_with_hit_2d_hist_tmp
+                            # 2D in-pixel residuals
+                            stat_in_pixel_residuals_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=distance_local[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_residuals_2d_hist_tmp = np.nan_to_num(stat_in_pixel_residuals_2d_hist_tmp)
+                            stat_in_pixel_residuals_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_residuals_2d_hists[region_index], stat_in_pixel_residuals_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 2D in-pixel charge
                             stat_in_pixel_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=charge[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
                             stat_in_pixel_charge_2d_hist_tmp = np.nan_to_num(stat_in_pixel_charge_2d_hist_tmp)
-                            stat_in_pixel_charge_2d_hists[region_index], count_in_pixel_charge_2d_hists[region_index] = np.ma.average(a=np.stack([stat_in_pixel_charge_2d_hists[region_index], stat_in_pixel_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_charge_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            stat_in_pixel_charge_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_charge_2d_hists[region_index], stat_in_pixel_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            # 2D in-pixel frame
+                            stat_in_pixel_frame_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=frame[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_frame_2d_hist_tmp = np.nan_to_num(stat_in_pixel_frame_2d_hist_tmp)
+                            stat_in_pixel_frame_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_frame_2d_hists[region_index], stat_in_pixel_frame_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            # 2D in-pixel mean cluster size
+                            stat_in_pixel_cluster_size_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_cluster_size_2d_hist_tmp = np.nan_to_num(stat_in_pixel_cluster_size_2d_hist_tmp)
+                            stat_in_pixel_cluster_size_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_cluster_size_2d_hists[region_index], stat_in_pixel_cluster_size_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            # 2D in-pixel cluster shape
+                            cluster_shape_mod_tmp = cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes].copy()
+                            for i, cluster_shape_value in enumerate(analyze_cluster_shapes):
+                                cluster_shape_mod_tmp[cluster_shape_mod_tmp == cluster_shape_value] = i
+                            count_in_pixel_cluster_shape_2d_hists[region_index] += stats.binned_statistic_dd(sample=[in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes], in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes], cluster_shape_mod_tmp], values=None, statistic='count', bins=hist_in_pixel_cluster_shape_edges)[0]
+                            # updated last:
+                            # 2D in-pixel tracks with valid hit
+                            count_in_pixel_tracks_with_hit_2d_hists[region_index] += count_in_pixel_tracks_with_hit_2d_hist_tmp
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -1059,6 +1144,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # count_2d_frame_hist = count_tracks_with_hit_2d_hist_tmp
                         # 1D frame
                         count_1d_frame_hist = np.bincount(frame[select_valid_hit])
+                        # 2D mean cluster size
+                        stat_2d_cluster_size_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=cluster_size[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_cluster_size_hist = np.nan_to_num(stat_2d_cluster_size_hist)
                     else:
                         count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D hits
@@ -1099,6 +1187,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         else:
                             count_1d_frame_hist_tmp.resize(count_1d_frame_hist.size)
                         count_1d_frame_hist += count_1d_frame_hist_tmp
+                        # 2D mean cluster size
+                        stat_2d_cluster_size_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit & select_small_cluster_sizes], y=intersection_y_local[select_valid_hit & select_small_cluster_sizes], values=cluster_size[select_valid_hit & select_small_cluster_sizes], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_cluster_size_hist_tmp = np.nan_to_num(stat_2d_cluster_size_hist_tmp)
+                        stat_2d_cluster_size_hist, _ = np.ma.average(a=np.stack([stat_2d_cluster_size_hist, stat_2d_cluster_size_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # updated last:
                         # 2D tracks with valid hit
                         count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
@@ -1149,6 +1241,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_residuals_hist = np.ma.array(stat_2d_residuals_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_charge_hist = np.ma.array(stat_2d_charge_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_frame_hist = np.ma.array(stat_2d_frame_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_cluster_size_hist = np.ma.array(stat_2d_cluster_size_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
                 if efficiency_regions_dut is not None:
                     efficiency_regions_mask = []
@@ -1166,6 +1259,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_in_pixel_efficiency_2d_hist_tmp = np.full_like(count_in_pixel_tracks_2d_hists[region_index], fill_value=np.nan, dtype=np.float64)
                         stat_in_pixel_efficiency_2d_hist_tmp[count_in_pixel_tracks_2d_hists[region_index] != 0] = count_in_pixel_tracks_with_hit_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) / count_in_pixel_tracks_2d_hists[region_index][count_in_pixel_tracks_2d_hists[region_index] != 0].astype(np.float64) * 100.0
                         efficiency_regions_stat_in_pixel_efficiency_2d_hist.append(stat_in_pixel_efficiency_2d_hist_tmp)
+                        # Calculate most probable cluster shape
+                        stat_in_pixel_cluster_shape_2d_hists.append(np.argmax(count_in_pixel_cluster_shape_2d_hists[region_index], axis=2))
 
                     # extending plot area for in-pixel plots
                     if extend_in_pixel_area is not None and extend_in_pixel_area[0] is not None:
@@ -1177,8 +1272,16 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         in_pixel_plot_range[0][1] += extend_in_pixel_area[0]
                         for region_index, region in enumerate(efficiency_regions_dut):
                             efficiency_regions_mask[region_index] = np.pad(efficiency_regions_mask[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            count_in_pixel_hits_2d_hists[region_index] = np.pad(count_in_pixel_hits_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            count_in_pixel_tracks_2d_hists[region_index] = np.pad(count_in_pixel_tracks_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.pad(count_in_pixel_tracks_with_hit_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_residuals_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_frame_2d_hists[region_index] = np.pad(stat_in_pixel_frame_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_cluster_size_2d_hists[region_index] = np.pad(stat_in_pixel_cluster_size_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            count_in_pixel_cluster_shape_2d_hists[region_index] = np.pad(count_in_pixel_cluster_shape_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0), (0, 0)), 'wrap')
+                            stat_in_pixel_cluster_shape_2d_hists[region_index] = np.pad(stat_in_pixel_cluster_shape_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                     if extend_in_pixel_area is not None and extend_in_pixel_area[1] is not None:
                         dut_hits_in_pixel_y_extend_n_bins = int(math.ceil(extend_in_pixel_area[1] / in_pixel_resolution[1]))
                         dut_hist_in_pixel_y_extent_area = dut_hits_in_pixel_y_extend_n_bins * in_pixel_resolution[1]
@@ -1188,16 +1291,36 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         in_pixel_plot_range[1][1] += extend_in_pixel_area[1]
                         for region_index, region in enumerate(efficiency_regions_dut):
                             efficiency_regions_mask[region_index] = np.pad(efficiency_regions_mask[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            count_in_pixel_hits_2d_hists[region_index] = np.pad(count_in_pixel_hits_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            count_in_pixel_tracks_2d_hists[region_index] = np.pad(count_in_pixel_tracks_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.pad(count_in_pixel_tracks_with_hit_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            stat_in_pixel_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_residuals_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
-                    # mask low stat
+                            stat_in_pixel_frame_2d_hists[region_index] = np.pad(stat_in_pixel_frame_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            stat_in_pixel_cluster_size_2d_hists[region_index] = np.pad(stat_in_pixel_cluster_size_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            count_in_pixel_cluster_shape_2d_hists[region_index] = np.pad(count_in_pixel_cluster_shape_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_cluster_shape_2d_hists[region_index] = np.pad(stat_in_pixel_cluster_shape_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                    # Masking low stat
                     for region_index, region in enumerate(efficiency_regions_dut):
                         efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.ma.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_residuals_2d_hists[region_index] = np.ma.array(stat_in_pixel_residuals_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_charge_2d_hists[region_index] = np.ma.array(stat_in_pixel_charge_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_frame_2d_hists[region_index] = np.ma.array(stat_in_pixel_frame_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_cluster_size_2d_hists[region_index] = np.ma.array(stat_in_pixel_cluster_size_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_cluster_shape_2d_hists[region_index] = np.ma.array(stat_in_pixel_cluster_shape_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
 
                 else:
+                    count_in_pixel_hits_2d_hists = None
+                    count_in_pixel_tracks_2d_hists = None
+                    count_in_pixel_tracks_with_hit_2d_hists = None
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist = None
+                    stat_in_pixel_residuals_2d_hists = None
                     stat_in_pixel_charge_2d_hists = None
+                    stat_in_pixel_frame_2d_hists = None
+                    stat_in_pixel_cluster_size_2d_hists = None
+                    count_in_pixel_cluster_shape_2d_hists = None
+                    stat_in_pixel_cluster_shape_2d_hists = None
                     in_pixel_hist_extent = None
                     in_pixel_plot_range = None
 
@@ -1217,6 +1340,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # resize so that all histograms have the same size
                         if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
                             efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
+                        if count_1d_frame_hist.size > efficiency_regions_count_1d_frame_hist[region_index].size:
+                            efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size)
                         logging.info('Mean charge for region %d = %.2f' % (region_index + 1, analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))))
 
                 if not np.any(stat_2d_efficiency_hist):
@@ -1235,6 +1360,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     stat_2d_charge_hist=stat_2d_charge_hist,
                     count_1d_frame_hist=count_1d_frame_hist,
                     stat_2d_frame_hist=stat_2d_frame_hist,
+                    stat_2d_cluster_size_hist=stat_2d_cluster_size_hist,
                     stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                     stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                     count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
@@ -1246,11 +1372,23 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions=efficiency_regions_dut,
                     efficiency_regions_efficiency=efficiency_regions_efficiency,
                     efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
+                    efficiency_regions_count_1d_frame_hist=efficiency_regions_count_1d_frame_hist,
+                    efficiency_regions_count_1d_cluster_size_hist=efficiency_regions_count_1d_cluster_size_hist,
+                    efficiency_regions_count_1d_cluster_shape_hist=efficiency_regions_count_1d_cluster_shape_hist,
                     efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
+                    efficiency_regions_count_in_pixel_hits_2d_hist=count_in_pixel_hits_2d_hists,
+                    efficiency_regions_count_in_pixel_tracks_2d_hist=count_in_pixel_tracks_2d_hists,
+                    efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist=count_in_pixel_tracks_with_hit_2d_hists,
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist=efficiency_regions_stat_in_pixel_efficiency_2d_hist,
+                    efficiency_regions_stat_in_pixel_residuals_2d_hist=stat_in_pixel_residuals_2d_hists,
                     efficiency_regions_stat_in_pixel_charge_2d_hist=stat_in_pixel_charge_2d_hists,
+                    efficiency_regions_stat_in_pixel_frame_2d_hist=stat_in_pixel_frame_2d_hists,
+                    efficiency_regions_stat_in_pixel_cluster_size_2d_hist=stat_in_pixel_cluster_size_2d_hists,
+                    efficiency_regions_count_in_pixel_cluster_shape_2d_hist=count_in_pixel_cluster_shape_2d_hists,
+                    efficiency_regions_stat_in_pixel_cluster_shape_2d_hist=stat_in_pixel_cluster_shape_2d_hists,
                     efficiency_regions_in_pixel_hist_extent=in_pixel_hist_extent,
                     efficiency_regions_in_pixel_plot_range=in_pixel_plot_range,
+                    analyze_cluster_shapes=analyze_cluster_shapes,
                     mask_zero=True,
                     output_pdf=output_pdf)
 

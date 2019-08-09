@@ -56,7 +56,7 @@ def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    plot_2d_pixel_hist(
+    ret = plot_2d_pixel_hist(
         fig=fig,
         ax=ax,
         hist2d=hist2d,
@@ -69,6 +69,7 @@ def plot_2d_map(hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=
         aspect=aspect,
         show_colorbar=show_colorbar)
     output_pdf.savefig(fig)
+    return ret
 
 
 def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=None, y_axis_title=None, z_min=0, z_max=None, cmap='viridis', aspect='auto', show_colorbar=True):
@@ -91,7 +92,9 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
         ax.set_ylabel(y_axis_title)
     if show_colorbar:
         bounds = np.linspace(start=z_min, stop=z_max, num=256, endpoint=True)
-        fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
+        cbar = fig.colorbar(im, boundaries=bounds, ticks=np.linspace(start=z_min, stop=z_max, num=9, endpoint=True), fraction=0.04, pad=0.05)
+        return im, cbar
+    return im
 
 
 def add_value_labels(ax, spacing=5):
@@ -1145,7 +1148,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, mask_zero=True, output_pdf=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_cluster_size_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, analyze_cluster_shapes, mask_zero=True, output_pdf=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -1172,6 +1175,11 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     mesh_alpha = 0.5
 
     fig = Figure()
+    txt = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name)
+    fig.text(0.5, 0.5, txt, transform=fig.transFigure, size=24, ha="center")
+    output_pdf.savefig(fig)
+
+    fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color='r')
@@ -1188,9 +1196,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    z_max = np.ceil(np.percentile(count_hits_2d_hist_masked.compressed(), q=95.45))
+    z_max = np.ceil(np.percentile(count_hits_2d_hist_masked.compressed(), q=95.00))
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, count_hits_2d_hist_masked.T, hist_extent, title='Hit density for %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
+    plot_2d_pixel_hist(fig, ax, count_hits_2d_hist_masked.T, hist_extent, title='Hit density\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1200,9 +1208,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    z_max = np.ceil(np.percentile(count_tracks_2d_hist_masked.compressed(), q=95.45))
+    z_max = np.ceil(np.percentile(count_tracks_2d_hist_masked.compressed(), q=95.00))
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, count_tracks_2d_hist_masked.T, hist_extent, title='Track density for %s\n(%d Tracks)' % (actual_dut.name, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
+    plot_2d_pixel_hist(fig, ax, count_tracks_2d_hist_masked.T, hist_extent, title='Track density\nfor %s\n(%d Tracks)' % (actual_dut.name, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1212,9 +1220,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    z_max = np.ceil(np.percentile(count_tracks_with_hit_2d_hist_masked.compressed(), q=95.45))
+    z_max = np.ceil(np.percentile(count_tracks_with_hit_2d_hist_masked.compressed(), q=95.00))
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, count_tracks_with_hit_2d_hist_masked.T, hist_extent, title='Track density with associated hit for %s\n(%d Tracks)' % (actual_dut.name, n_tracks_with_hit), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
+    plot_2d_pixel_hist(fig, ax, count_tracks_with_hit_2d_hist_masked.T, hist_extent, title='Track density with associated hit\nfor %s\n(%d Tracks)' % (actual_dut.name, n_tracks_with_hit), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1256,15 +1264,15 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     pixel_center_kd_tree = cKDTree(pixel_center_data)
     _, residual_to_pixel_center_sel = pixel_center_kd_tree.query(residual_vetors)
     _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
-    colors = np.linspace(0.0, 1.0, num=100)
+    color_indices = np.linspace(0.0, 1.0, num=100)
     cmap = cm.get_cmap('tab20')
     cmap.set_bad('w')
-    rgb_colors = np.array([cmap(color) for color in colors])
+    rgb_colors = np.array([cmap(color) for color in color_indices])
     valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
     num_colors = len(valid_color_indices)
     # select and reorder colors
-    colors = colors[valid_color_indices]
-    colors[::2] = np.roll(colors[::2], int(num_colors / 4))
+    color_indices = color_indices[valid_color_indices]
+    color_indices[::2] = np.roll(color_indices[::2], int(num_colors / 4))
     rgb_colors = rgb_colors[valid_color_indices]
     rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
     color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
@@ -1302,7 +1310,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         if count_index_array[pixel_index]:
             ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-    effective_color_2d = colors[color_index_array[effective_pixels_2d]]
+    effective_color_2d = color_indices[color_index_array[effective_pixels_2d]]
     effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
     plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations for %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
@@ -1335,15 +1343,15 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         max_hits_pixel_index = np.ravel_multi_index(max_hits_pixel_col_row.T, dims=(actual_dut.n_columns, actual_dut.n_rows))
         # generate array with pixel index of the pixel with the most hits for each bin
         max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
-        colors = np.linspace(0.0, 1.0, num=100)
+        color_indices = np.linspace(0.0, 1.0, num=100)
         cmap = cm.get_cmap('tab20')
         cmap.set_bad('w')
-        rgb_colors = np.array([cmap(color) for color in colors])
+        rgb_colors = np.array([cmap(color) for color in color_indices])
         valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
         num_colors = len(valid_color_indices)
         # select and reorder colors
-        colors = colors[valid_color_indices]
-        colors[::2] = np.roll(colors[::2], int(num_colors / 4))
+        color_indices = color_indices[valid_color_indices]
+        color_indices[::2] = np.roll(color_indices[::2], int(num_colors / 4))
         rgb_colors = rgb_colors[valid_color_indices]
         rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
         color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
@@ -1396,8 +1404,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         for region in regions:
             max_region_size = max(max_region_size, len(region))
         region_array = np.zeros((len(regions), max_region_size), dtype=np.int32)
-        for index, region in enumerate(regions):
-            region_array[index] = region + [region[-1]] * (max_region_size - len(region))
+        for region_index, region in enumerate(regions):
+            region_array[region_index] = region + [region[-1]] * (max_region_size - len(region))
         pixel_vertices = vertices[region_array]
         calculated_pixel_sizes = beam_telescope_analysis.tools.analysis_utils.polygon_area_multi(pixel_vertices[:, :, 0], pixel_vertices[:, :, 1])
         _, bin_edges, _ = ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=100, range=(0, np.ceil(max(np.max(pixel_sizes[np.isfinite(pixel_sizes)]), np.max(calculated_pixel_sizes)))), alpha=0.5, label='Measured pixel size')
@@ -1412,8 +1420,11 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
+    residual_hist, _ = np.histogram(stat_2d_residuals_hist.compressed(), bins=np.arange(np.ceil(np.max(stat_2d_residuals_hist))))
+    hist_residuals_99, _ = beam_telescope_analysis.tools.analysis_utils.hist_quantiles(hist=residual_hist, prob=(0.0, 0.99), return_indices=True)
+    z_max = np.ceil(hist_residuals_99[1])
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, stat_2d_residuals_hist.T, hist_extent, title='Mean 2D residuals for %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]")
+    plot_2d_pixel_hist(fig, ax, stat_2d_residuals_hist.T, hist_extent, title='Mean 2D residuals for %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1465,94 +1476,49 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.set_ylim(plot_range[1])
     output_pdf.savefig(fig)
 
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    # plot cluster size average (cluster sizes 1 - 4 only)
+    z_min = 1.0
+    z_max = 4.0
+    # set1_cmap = cm.get_cmap("Set1", 9)
+    # new_colors = set1_cmap(np.linspace(0, 1, 9))
+    # new_cmap = colors.ListedColormap(new_colors[1:5], name="cluster_colormap")
+    # new_cmap.set_over('k')
+    cmap = cm.get_cmap("viridis", 256)
+    cmap.set_over('magenta')
+    _, cbar = plot_2d_pixel_hist(fig, ax, stat_2d_cluster_size_hist.T, hist_extent, title='Mean cluster size for %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=cmap)
+    cbar.set_clim(1.0, 4.0)
+    cbar.set_ticks(range(1, 5))
+    cbar.set_ticklabels(['1', '2', '3', '4'])
+    cbar.set_label("cluster size")
+    # cbar.ax.tick_params(length=0)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    output_pdf.savefig(fig)
+
     if np.any(~stat_2d_efficiency_hist.mask):
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         z_min = 0.0
-        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
         ax.set_xlim(plot_range[0])
         ax.set_ylim(plot_range[1])
         output_pdf.savefig(fig)
 
-        if efficiency_regions:
-            fig = Figure()
-            _ = FigureCanvas(fig)
-            ax = fig.add_subplot(111)
-            # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-            z_min = 0.0
-            plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
-            for index, region in enumerate(efficiency_regions):
-                rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
-                ax.add_patch(rect)
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, 'Region %d\nefficiency:\n%.2f%%' % (index + 1, efficiency_regions_efficiency[index] * 100.0), horizontalalignment='center', verticalalignment='center', fontsize=8)
-            rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
-            ax.add_patch(rect)
-            ax.set_xlim(plot_range[0])
-            ax.set_ylim(plot_range[1])
-            output_pdf.savefig(fig)
-
-            for index, efficiency_region_count_1d_charge_hist in enumerate(efficiency_regions_count_1d_charge_hist):
-                region_n_pixels = np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[index]))
-                vlines = np.hstack((np.arange(0.0, efficiency_regions_in_pixel_plot_range[0][0], -actual_dut.column_size), np.arange(0.0, efficiency_regions_in_pixel_plot_range[0][1], actual_dut.column_size)[1:]))
-                hlines = np.hstack((np.arange(0.0, efficiency_regions_in_pixel_plot_range[1][0], -actual_dut.row_size), np.arange(0.0, efficiency_regions_in_pixel_plot_range[1][1], actual_dut.row_size)[1:]))
-
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                z_min = 80.0
-                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_efficiency_2d_hist[index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d:\nIn-pixel efficiency for %s\n(%d Pixels)' % (index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0, aspect=1.0)
-                for x_val in vlines:
-                    ax.axvline(x=x_val)
-                for y_val in hlines:
-                    ax.axhline(y=y_val)
-                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
-                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
-                output_pdf.savefig(fig)
-
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                z_max = charge_indices[1] + 1
-                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_charge_2d_hist[index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d:\nIn-pixel mean charge for %s\n(%d Pixels)' % (index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
-                for x_val in vlines:
-                    ax.axvline(x=x_val)
-                for y_val in hlines:
-                    ax.axhline(y=y_val)
-                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
-                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
-                output_pdf.savefig(fig)
-
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                ax.bar(x=range(charge_indices[1] + 1), height=efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1] / np.sum(efficiency_region_count_1d_charge_hist[:charge_indices[1] + 1]).astype(np.float32), align='center')
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                add_value_labels(ax=ax)
-                ax.set_title('Region %d:\nCharge distribution for %s\n(%d Pixels)' % (index + 1, actual_dut.name, region_n_pixels))
-                output_pdf.savefig(fig)
-
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                ax.grid()
-                ax.set_title('Region %d:\nEfficiency per pixel for %s\n(%d Pixels)' % (index + 1, actual_dut.name, region_n_pixels))
-                ax.set_xlabel('Efficiency [%]')
-                ax.set_ylabel('#')
-                ax.set_yscale('log')
-                ax.set_xlim([-0.5, 100.5])
-                ax.hist(efficiency_regions_stat_pixel_efficiency_hist[index], bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
-                output_pdf.savefig(fig)
-
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
+        # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         z_min = 0.0
-        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
-        _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
+        plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
         ax.set_xlim(plot_range[0])
@@ -1607,7 +1573,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         # ax = fig.add_subplot(111)
         # # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         # z_min = 0.0
-        # plot_2d_pixel_hist(fig, ax, pixel_efficiencies_bins.T, hist_extent, title='Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+        # plot_2d_pixel_hist(fig, ax, pixel_efficiencies_bins.T, hist_extent, title='Efficiency per pixel\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
         # rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         # ax.add_patch(rect)
         # ax.set_xlim(plot_range[0])
@@ -1619,7 +1585,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax = fig.add_subplot(111)
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         _ = pixels_plot_2d(fig=fig, ax=ax, regions=regions, vertices=vertices, values=stat_pixel_efficiency_hist, z_max=100.0)
-        ax.set_title('Efficiency per pixel for %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks))
+        ax.set_title('Efficiency per pixel\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks))
         ax.set_xlabel("column [$\mathrm{\mu}$m]")
         ax.set_ylabel("row [$\mathrm{\mu}$m]")
         ax.set_xlim(plot_range[0])
@@ -1642,6 +1608,313 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_xlim([-0.5, 100.5])
         ax.hist(stat_pixel_efficiency_hist.compressed(), bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
         output_pdf.savefig(fig)
+
+        if efficiency_regions:
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+            z_min = 0.0
+            plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+            for region_index, region in enumerate(efficiency_regions):
+                rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, 'Region %d\nefficiency:\n%.2f%%' % (region_index + 1, efficiency_regions_efficiency[region_index] * 100.0), horizontalalignment='center', verticalalignment='center', fontsize=8)
+            rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+            ax.add_patch(rect)
+            ax.set_xlim(plot_range[0])
+            ax.set_ylim(plot_range[1])
+            output_pdf.savefig(fig)
+
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+            z_min = 0.0
+            plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+            for region_index, region in enumerate(efficiency_regions):
+                rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, 'Region %d\nefficiency:\n%.2f%%' % (region_index + 1, efficiency_regions_efficiency[region_index] * 100.0), horizontalalignment='center', verticalalignment='center', fontsize=8)
+            _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
+            rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+            ax.add_patch(rect)
+            ax.set_xlim(plot_range[0])
+            ax.set_ylim(plot_range[1])
+            output_pdf.savefig(fig)
+
+            for region_index in range(len(efficiency_regions)):
+
+                fig = Figure()
+                txt = 'Region %d' % (region_index + 1,)
+                fig.text(0.5, 0.5, txt, transform=fig.transFigure, size=24, ha="center")
+                output_pdf.savefig(fig)
+
+                region_n_pixels = np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.grid()
+                ax.set_title('Region %d: Efficiency per pixel\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                ax.set_xlabel('Efficiency [%]')
+                ax.set_ylabel('#')
+                ax.set_yscale('log')
+                ax.set_xlim([-0.5, 100.5])
+                ax.hist(efficiency_regions_stat_pixel_efficiency_hist[region_index], bins=100, range=(0, 100))  # Histogram not masked pixel stat_2d_efficiency_hist
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x=range(charge_indices[1] + 1), height=efficiency_regions_count_1d_charge_hist[region_index][:charge_indices[1] + 1] / np.sum(efficiency_regions_count_1d_charge_hist[region_index][:charge_indices[1] + 1]).astype(np.float32), align='center')
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                add_value_labels(ax=ax)
+                ax.set_title('Region %d: Charge distribution\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x=range(max_frame), height=efficiency_regions_count_1d_frame_hist[region_index] / np.sum(efficiency_regions_count_1d_frame_hist[region_index]).astype(np.float32), align='center')
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                add_value_labels(ax=ax)
+                ax.set_title('Region %d: Frame distribution\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                ax.set_yscale('log')
+                output_pdf.savefig(fig)
+
+                total_n_hits = np.sum(np.multiply(efficiency_regions_count_1d_cluster_size_hist[region_index], range(efficiency_regions_count_1d_cluster_size_hist[region_index].shape[0])))
+                total_n_clusters = np.sum(efficiency_regions_count_1d_cluster_size_hist[region_index])
+
+                x = np.arange(efficiency_regions_count_1d_cluster_size_hist[region_index].shape[0] - 1) + 1
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x, efficiency_regions_count_1d_cluster_size_hist[region_index][1:], align='center')
+                ax.set_title('Region %d: Cluster size distribution\nfor %s\n(%d hits, %d clusters)' % (region_index + 1, actual_dut.name, total_n_hits, total_n_clusters))
+                ax.set_xlabel('Cluster size')
+                ax.set_ylabel('#')
+                ax.grid()
+                ax.set_yscale('log')
+                ax.set_ylim(ymin=1e-1)
+                output_pdf.savefig(fig)
+
+                max_bins = min(10, efficiency_regions_count_1d_cluster_size_hist[region_index].shape[0] - 1)
+                x = np.arange(max_bins) + 1
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(x, efficiency_regions_count_1d_cluster_size_hist[region_index][1:max_bins + 1], align='center')
+                ax.set_title('Region %d: Cluster size distribution\nfor %s\n(%d hits, %d clusters)' % (region_index + 1, actual_dut.name, total_n_hits, total_n_clusters))
+                ax.set_xlabel('Cluster size')
+                ax.set_ylabel('#')
+                ax.xaxis.set_ticks(x)
+                ax.grid()
+                ax.set_yscale('linear')
+                ax.set_ylim(ymin=0.0)
+                output_pdf.savefig(fig)
+                ax.autoscale()
+                ax.set_yscale('log')
+                ax.set_ylim(ymin=1e-1)
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                analyze_cluster_shapes_1d = [1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15, 95, 783, 4959]
+                cluster_shape_hist = efficiency_regions_count_1d_cluster_shape_hist[region_index][analyze_cluster_shapes_1d]
+                remaining_clusters = total_n_clusters - np.sum(cluster_shape_hist)
+                cluster_shape_hist = np.r_[cluster_shape_hist, remaining_clusters]
+                analyze_cluster_shapes_1d = np.r_[analyze_cluster_shapes_1d, -1]
+                x = np.arange(analyze_cluster_shapes_1d.shape[0])
+                ax.bar(x, cluster_shape_hist, align='center')
+                ax.xaxis.set_ticks(x)
+                fig.subplots_adjust(bottom=0.2)
+                ax.set_xticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes_1d])
+                ax.tick_params(axis='x', labelsize=7)
+                ax.set_title('Region %d: Cluster shape distribution\nfor %s\n(%d hits, %d clusters)' % (region_index + 1, actual_dut.name, total_n_hits, total_n_clusters))
+                ax.set_xlabel('Cluster shape')
+                ax.set_ylabel('#')
+                ax.grid()
+                ax.set_yscale('linear')
+                ax.set_ylim(ymin=0.0)
+                output_pdf.savefig(fig)
+                ax.autoscale()
+                ax.set_yscale('log')
+                ax.set_ylim(ymin=1e-1)
+                output_pdf.savefig(fig)
+
+                # in-pixel plots
+                vlines = np.hstack((np.arange(0.0, efficiency_regions_in_pixel_plot_range[0][0], -actual_dut.column_size), np.arange(0.0, efficiency_regions_in_pixel_plot_range[0][1], actual_dut.column_size)[1:]))
+                hlines = np.hstack((np.arange(0.0, efficiency_regions_in_pixel_plot_range[1][0], -actual_dut.row_size), np.arange(0.0, efficiency_regions_in_pixel_plot_range[1][1], actual_dut.row_size)[1:]))
+
+                # for better readability allow masking of entries that are zero
+                count_in_pixel_hits_2d_hist_masked_tmp = np.ma.array(efficiency_regions_count_in_pixel_hits_2d_hist[region_index], mask=(efficiency_regions_count_in_pixel_hits_2d_hist[region_index] == 0))
+                count_in_pixel_tracks_2d_hist_masked_tmp = np.ma.array(efficiency_regions_count_in_pixel_tracks_2d_hist[region_index], mask=(efficiency_regions_count_in_pixel_tracks_2d_hist[region_index] == 0))
+                count_in_pixel_tracks_with_hit_2d_hist_masked_tmp = np.ma.array(efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index], mask=(efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index] == 0))
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = np.ceil(np.percentile(count_in_pixel_hits_2d_hist_masked_tmp.compressed(), q=95.00))
+                plot_2d_pixel_hist(fig, ax, count_in_pixel_hits_2d_hist_masked_tmp.T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel hit density\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = np.ceil(np.percentile(count_in_pixel_tracks_2d_hist_masked_tmp.compressed(), q=95.00))
+                plot_2d_pixel_hist(fig, ax, count_in_pixel_tracks_2d_hist_masked_tmp.T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel track density\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = np.ceil(np.percentile(count_in_pixel_tracks_with_hit_2d_hist_masked_tmp.compressed(), q=95.00))
+                plot_2d_pixel_hist(fig, ax, count_in_pixel_tracks_with_hit_2d_hist_masked_tmp.T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel track density with associated hit\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_min = 0.0
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel efficiency\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = np.ceil(hist_residuals_99[1])
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_residuals_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel mean residuals\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = charge_indices[1] + 1
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_charge_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel mean charge\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = max_frame
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_frame_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel mean frame\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                # plot cluster size average (cluster sizes 1 - 4 only)
+                z_min = 1.0
+                z_max = 4.0
+                # set1_cmap = cm.get_cmap("Set1", 9)
+                # new_colors = set1_cmap(np.linspace(0, 1, 9))
+                # new_cmap = colors.ListedColormap(new_colors[1:5], name="cluster_colormap")
+                # new_cmap.set_over('k')
+                cmap = cm.get_cmap("viridis", 256)
+                cmap.set_over('magenta')
+                _, cbar = plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_cluster_size_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel mean cluster size\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=cmap, aspect=1.0)
+                cbar.set_clim(1.0, 4.0)
+                cbar.set_ticks(range(1, 5))
+                cbar.set_ticklabels(['1', '2', '3', '4'])
+                cbar.set_label("cluster size")
+                # cbar.ax.tick_params(length=0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_min = -0.5
+                z_max = len(analyze_cluster_shapes) - 0.5
+                set1_cmap = cm.get_cmap("Set1", 9)
+                new_colors = set1_cmap(np.linspace(0, 1, 9))
+                new_cmap = colors.ListedColormap(new_colors[1:len(analyze_cluster_shapes) + 1], name="cluster_colormap")
+                new_cmap.set_over('k')
+                _, cbar = plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title='Region %d: Most probable cluster size\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=new_cmap, aspect=1.0)
+                cbar.set_clim(-0.5, len(analyze_cluster_shapes) - 0.5)
+                cbar.set_ticks(range(len(analyze_cluster_shapes)))
+                cbar.set_ticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes])
+                cbar.set_label("cluster shape")
+                cbar.ax.tick_params(length=0)
+                for x_val in vlines:
+                    ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                for y_val in hlines:
+                    ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                plot_shapes = [[1], [3, 5], [13, 14, 7, 11], [15]]
+                for shapes in plot_shapes:
+                    if not np.all(np.in1d(shapes, analyze_cluster_shapes)):
+                        continue
+                    count_in_pixel_cluster_shape_2d_hist_tmp = np.zeros_like(efficiency_regions_count_in_pixel_cluster_shape_2d_hist[region_index][:, :, 0])
+                    for shape in shapes:
+                        count_in_pixel_cluster_shape_2d_hist_tmp += efficiency_regions_count_in_pixel_cluster_shape_2d_hist[region_index][:, :, np.where(shape == np.array(analyze_cluster_shapes))[0][0]]
+                    count_in_pixel_cluster_shape_2d_hist_masked_tmp = np.ma.array(count_in_pixel_cluster_shape_2d_hist_tmp, mask=(count_in_pixel_cluster_shape_2d_hist_tmp == 0))
+                    count_in_pixel_cluster_shape_2d_hist_masked_tmp /= efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index]
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    z_max = np.percentile(count_in_pixel_cluster_shape_2d_hist_masked_tmp.compressed(), q=99.00)
+                    plot_2d_pixel_hist(fig, ax, count_in_pixel_cluster_shape_2d_hist_masked_tmp.T, efficiency_regions_in_pixel_hist_extent, title='Region %d: In-pixel track density for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, ', '.join([str(shape) for shape in shapes]), actual_dut.name, region_n_pixels), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                    for x_val in vlines:
+                        ax.axvline(x=x_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                    for y_val in hlines:
+                        ax.axhline(y=y_val, color='r', alpha=mesh_alpha, linewidth=1.0)
+                    ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                    ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                    output_pdf.savefig(fig)
 
     else:
         logging.warning('Cannot create stat_2d_efficiency_hist plots, all pixels are masked')
