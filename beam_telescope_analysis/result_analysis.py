@@ -860,6 +860,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     count_in_pixel_hits_2d_hists = []
                     count_in_pixel_tracks_2d_hists = []
                     count_in_pixel_tracks_with_hit_2d_hists = []
+                    stat_in_pixel_x_residuals_2d_hists = []
+                    stat_in_pixel_y_residuals_2d_hists = []
                     stat_in_pixel_residuals_2d_hists = []
                     stat_in_pixel_charge_2d_hists = []
                     stat_in_pixel_frame_2d_hists = []
@@ -873,6 +875,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_in_pixel_tracks_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel tracks with valid hit
                         count_in_pixel_tracks_with_hit_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel x residuals
+                        stat_in_pixel_x_residuals_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
+                        # 2D in-pixel y residuals
+                        stat_in_pixel_y_residuals_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel residuals
                         stat_in_pixel_residuals_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel charge
@@ -1000,6 +1006,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 count_in_pixel_tracks_with_hit_2d_hist_tmp = count_in_pixel_tracks_with_hit_2d_hists[region_index]
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index][:count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[0], :count_in_pixel_tracks_with_hit_2d_hist_tmp.shape[1]] += count_in_pixel_tracks_with_hit_2d_hist_tmp
+                                # 2D in-pixel x residuals
+                                stat_in_pixel_x_residuals_2d_hist_tmp = stat_in_pixel_x_residuals_2d_hists[region_index]
+                                stat_in_pixel_x_residuals_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_x_residuals_2d_hists[region_index][:stat_in_pixel_x_residuals_2d_hist_tmp.shape[0], :stat_in_pixel_x_residuals_2d_hist_tmp.shape[1]] += stat_in_pixel_x_residuals_2d_hist_tmp
+                                # 2D in-pixel y residuals
+                                stat_in_pixel_y_residuals_2d_hist_tmp = stat_in_pixel_y_residuals_2d_hists[region_index]
+                                stat_in_pixel_y_residuals_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
+                                stat_in_pixel_y_residuals_2d_hists[region_index][:stat_in_pixel_y_residuals_2d_hist_tmp.shape[0], :stat_in_pixel_y_residuals_2d_hist_tmp.shape[1]] += stat_in_pixel_y_residuals_2d_hist_tmp
                                 # 2D in-pixel residuals
                                 stat_in_pixel_residuals_2d_hist_tmp = stat_in_pixel_residuals_2d_hists[region_index]
                                 stat_in_pixel_residuals_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64)
@@ -1079,6 +1093,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_tracks_efficiency_region], y=in_pixel_hit_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                             # 2D in-pixel tracks
                             count_in_pixel_tracks_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
+                            # 2D in-pixel x residuals
+                            stat_in_pixel_x_residuals_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=x_residuals[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_x_residuals_2d_hist_tmp = np.nan_to_num(stat_in_pixel_x_residuals_2d_hist_tmp)
+                            stat_in_pixel_x_residuals_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_x_residuals_2d_hists[region_index], stat_in_pixel_x_residuals_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            # 2D in-pixel y residuals
+                            stat_in_pixel_y_residuals_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=y_residuals[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
+                            stat_in_pixel_y_residuals_2d_hist_tmp = np.nan_to_num(stat_in_pixel_y_residuals_2d_hist_tmp)
+                            stat_in_pixel_y_residuals_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_y_residuals_2d_hists[region_index], stat_in_pixel_y_residuals_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 2D in-pixel residuals
                             stat_in_pixel_residuals_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=distance_local[select_valid_tracks_efficiency_region & select_valid_hit], statistic='mean', bins=hist_in_pixel_2d_edges)
                             stat_in_pixel_residuals_2d_hist_tmp = np.nan_to_num(stat_in_pixel_residuals_2d_hist_tmp)
@@ -1276,6 +1298,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             count_in_pixel_tracks_2d_hists[region_index] = np.pad(count_in_pixel_tracks_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.pad(count_in_pixel_tracks_with_hit_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_x_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_x_residuals_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
+                            stat_in_pixel_y_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_y_residuals_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             stat_in_pixel_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_residuals_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
                             stat_in_pixel_frame_2d_hists[region_index] = np.pad(stat_in_pixel_frame_2d_hists[region_index], ((dut_hits_in_pixel_x_extend_n_bins, dut_hits_in_pixel_x_extend_n_bins), (0, 0)), 'wrap')
@@ -1295,6 +1319,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             count_in_pixel_tracks_2d_hists[region_index] = np.pad(count_in_pixel_tracks_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             count_in_pixel_tracks_with_hit_2d_hists[region_index] = np.pad(count_in_pixel_tracks_with_hit_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.pad(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            stat_in_pixel_x_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_x_residuals_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
+                            stat_in_pixel_y_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_y_residuals_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             stat_in_pixel_residuals_2d_hists[region_index] = np.pad(stat_in_pixel_residuals_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             stat_in_pixel_charge_2d_hists[region_index] = np.pad(stat_in_pixel_charge_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
                             stat_in_pixel_frame_2d_hists[region_index] = np.pad(stat_in_pixel_frame_2d_hists[region_index], ((0, 0), (dut_hits_in_pixel_y_extend_n_bins, dut_hits_in_pixel_y_extend_n_bins)), 'wrap')
@@ -1304,6 +1330,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Masking low stat
                     for region_index, region in enumerate(efficiency_regions_dut):
                         efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index] = np.ma.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_x_residuals_2d_hists[region_index] = np.ma.array(stat_in_pixel_x_residuals_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
+                        stat_in_pixel_y_residuals_2d_hists[region_index] = np.ma.array(stat_in_pixel_y_residuals_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_residuals_2d_hists[region_index] = np.ma.array(stat_in_pixel_residuals_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_charge_2d_hists[region_index] = np.ma.array(stat_in_pixel_charge_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_frame_2d_hists[region_index] = np.ma.array(stat_in_pixel_frame_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
@@ -1315,6 +1343,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     count_in_pixel_tracks_2d_hists = None
                     count_in_pixel_tracks_with_hit_2d_hists = None
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist = None
+                    stat_in_pixel_x_residuals_2d_hists = None
+                    stat_in_pixel_y_residuals_2d_hists = None
                     stat_in_pixel_residuals_2d_hists = None
                     stat_in_pixel_charge_2d_hists = None
                     stat_in_pixel_frame_2d_hists = None
@@ -1380,6 +1410,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_in_pixel_tracks_2d_hist=count_in_pixel_tracks_2d_hists,
                     efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist=count_in_pixel_tracks_with_hit_2d_hists,
                     efficiency_regions_stat_in_pixel_efficiency_2d_hist=efficiency_regions_stat_in_pixel_efficiency_2d_hist,
+                    efficiency_regions_stat_in_pixel_x_residuals_2d_hist=stat_in_pixel_x_residuals_2d_hists,
+                    efficiency_regions_stat_in_pixel_y_residuals_2d_hist=stat_in_pixel_y_residuals_2d_hists,
                     efficiency_regions_stat_in_pixel_residuals_2d_hist=stat_in_pixel_residuals_2d_hists,
                     efficiency_regions_stat_in_pixel_charge_2d_hist=stat_in_pixel_charge_2d_hists,
                     efficiency_regions_stat_in_pixel_frame_2d_hist=stat_in_pixel_frame_2d_hists,
