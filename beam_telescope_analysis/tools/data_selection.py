@@ -340,7 +340,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
             for index, actual_dut_index in enumerate(select_duts):
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
                 logging.info('== Selecting tracks for %s ==', telescope[actual_dut_index].name)
-
+                if query[index]:
+                    logging.info('Query string: {}'.format(query[index]))
                 hit_mask = 0
                 for dut in select_hit_duts[index]:
                     hit_mask |= (1 << dut)
