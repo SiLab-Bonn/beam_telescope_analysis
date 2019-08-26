@@ -675,7 +675,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     # Create track, hit selection
     if select_fit_duts is None:  # If None: use all DUTs
         select_fit_duts = []
-        # copy each item
+        # copy each item from select_hit_duts
         for hit_duts in select_hit_duts:
             select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
@@ -760,9 +760,9 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         else:
             output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_aligned.yaml'
     elif output_telescope_configuration == telescope_configuration:
-        raise ValueError('Output configuration file must be different from input configuration file.')
+        raise ValueError('Output telescope configuration file must be different from input telescope configuration file.')
     if os.path.isfile(output_telescope_configuration):
-        logging.info('Output configuration file already exists. Keeping configuration file.')
+        logging.info('Output telescope configuration file already exists. Keeping telescope configuration file.')
         aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
         # For the case where not all DUTs are aligned,
         # only revert the alignment for the DUTs that will be aligned.
@@ -823,7 +823,6 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
 
 def _duts_alignment(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
-    alignment_duts_str = ", ".join(str(dut) for dut in align_duts)
     aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
 
     output_track_candidates_file = None
@@ -849,7 +848,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         #         fit_quality_distances[index, 1] = item[1]
         # fit_quality_distances = fit_quality_distances.tolist()
         if iteration_step > 0:
-            logging.info('= Alignment step 1 - iteration %d: Finding tracks for DUTs %s =', iteration_step, alignment_duts_str)
+            logging.info('= Alignment step 1 - iteration %d: Finding tracks for %d DUTs =', iteration_step, len(align_duts))
             # remove temporary file
             if output_track_candidates_file is not None:
                 os.remove(output_track_candidates_file)
@@ -864,7 +863,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
 
         # The quality flag of the actual align DUT depends on the alignment calculated
         # in the previous iteration, therefore this step has to be done every time
-        logging.info('= Alignment step 2 - iteration %d: Fitting tracks for DUTs %s =', iteration_step, alignment_duts_str)
+        logging.info('= Alignment step 2 - iteration %d: Fitting tracks for %d DUTs =', iteration_step, len(align_duts))
         output_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
         fit_tracks(
             telescope_configuration=output_telescope_configuration,
@@ -886,7 +885,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             plot=plot,
             chunk_size=chunk_size)
 
-        logging.info('= Alignment step 3a - iteration %d: Selecting tracks for DUTs %s =', iteration_step, alignment_duts_str)
+        logging.info('= Alignment step 3a - iteration %d: Selecting tracks for %d DUTs =', iteration_step, len(align_duts))
         output_selected_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
         # TODO: adding detection if cluster shape is always -1 (not set)
         # Select good tracks und limit cluster shapes to 1x1, 1x2, 2x1, and 2x2.
@@ -943,7 +942,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
                 chunk_size=chunk_size)
             os.remove(output_residuals_file)
 
-        logging.info('= Alignment step 4 - iteration %d: Calculating transformation matrix for DUTs %s =', iteration_step, alignment_duts_str)
+        logging.info('= Alignment step 4 - iteration %d: Calculating transformation matrix for %d DUTs =', iteration_step, len(align_duts))
         calculate_transformation(
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_selected_tracks_file,

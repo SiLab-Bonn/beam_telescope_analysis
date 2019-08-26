@@ -1218,33 +1218,35 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
 
                     if in_cluster_file_h5:
+                        # get 2D indices (without overflow bins)
                         binnumber = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges, expand_binnumbers=True).binnumber
+                        # get 1D index, and remove 1st overflow bin
                         tracks_with_hits_to_bin_center_index = np.ravel_multi_index(binnumber - 1, (hist_2d_x_n_bins, hist_2d_y_n_bins))
                         # event_number_id_array = np.repeat(np.column_stack((tracks_chunk['event_number'][select_valid_hit], tracks_chunk['cluster_id_dut_%d' % actual_dut_index][select_valid_hit])), tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit])
                         for actual_cluster_hits_dut, start_index_cluster_hits in analysis_utils.data_aligned_at_events(in_cluster_file_h5.root.ClusterHits, start_index=start_index_cluster_hits, start_event_number=tracks_chunk['event_number'][0], stop_event_number=tracks_chunk['event_number'][-1] + 1, chunk_size=chunk_size, fail_on_missing_events=False):
                             cluster_hits_event_numbers_cluster_ids = actual_cluster_hits_dut[['event_number', 'cluster_ID']]
                             selected_event_numbers_clusters_ids = np.array(tracks_chunk[['event_number', 'cluster_ID_dut_%d' % actual_dut_index]][select_valid_hit], dtype=cluster_hits_event_numbers_cluster_ids.dtype)
                             selected_cluster_hits, selected_indices = analysis_utils.in1d_index(ar1=cluster_hits_event_numbers_cluster_ids, ar2=selected_event_numbers_clusters_ids, fill_invalid=None, assume_sorted=False)
+                            # get the cluster hits
                             actual_cluster_hits = actual_cluster_hits_dut[selected_cluster_hits]
                             # actual_tracks = np.repeat(tracks_chunk[select_valid_hit][selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
+                            # expand size of index array so that the length matches the cluster array
                             actual_bin_center_indices = np.repeat(tracks_with_hits_to_bin_center_index[selected_indices], tracks_chunk['n_hits_dut_%d' % actual_dut_index][select_valid_hit][selected_indices])
                             actual_bin_center_col_row_pair = np.column_stack(np.unravel_index(actual_bin_center_indices, dims=(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1])))
+                            # get the corresponding pixel center for each track
                             actual_pixel_center_indices = bin_center_to_pixel_center[actual_bin_center_indices]
                             actual_pixel_center_col_row_pair = np.column_stack(np.unravel_index(indices=actual_pixel_center_indices, dims=(actual_dut.n_columns, actual_dut.n_rows)))
+                            # get the corresponding cluster hits
                             actual_cluster_hits_col_row_pair = np.column_stack((actual_cluster_hits['column'] - 1, actual_cluster_hits['row'] - 1))
-                            sel = actual_pixel_center_col_row_pair[:, 0] == 0
-                            sel &= actual_pixel_center_col_row_pair[:, 1] == 0
+                            # calculate the relative index
                             actual_col_index = actual_cluster_hits_col_row_pair[:, 0] - actual_pixel_center_col_row_pair[:, 0] + int(count_pixel_hits_2d_hist.shape[2] / 2)
                             actual_row_index = actual_cluster_hits_col_row_pair[:, 1] - actual_pixel_center_col_row_pair[:, 1] + int(count_pixel_hits_2d_hist.shape[3] / 2)
+                            # select hits which are inside the array
                             hits_select = actual_col_index >= 0
                             hits_select &= actual_col_index < count_pixel_hits_2d_hist.shape[2]
                             hits_select &= actual_row_index >= 0
                             hits_select &= actual_row_index < count_pixel_hits_2d_hist.shape[3]
-                            # TODO: check histograms for significant loss of data, increase size of array
-                            # hits_col = np.histogram(actual_col_index, bins=np.arange(-10, 11))
-                            # hist_row = np.histogram(actual_row_index, bins=np.arange(-10, 11))
-                            # hist_col_sel = np.histogram(actual_col_index[hits_select], bins=np.arange(-10, 11))
-                            # hist_row_sel = np.histogram(actual_row_index[hits_select], bins=np.arange(-10, 11))
+                            # check for significant number of hits outside of the array
                             if np.count_nonzero(~hits_select) / hits_select.shape[0] > 1e-3:
                                 logging.warning('Consider increasing shape of count_pixel_hits_2d_hist')
                             ravel_indices = np.ravel_multi_index((actual_bin_center_col_row_pair[hits_select, 0], actual_bin_center_col_row_pair[hits_select, 1], actual_col_index[hits_select], actual_row_index[hits_select]), dims=count_pixel_hits_2d_hist.shape)
