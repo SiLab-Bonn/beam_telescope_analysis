@@ -100,3 +100,6 @@ Please use GitHub's [issue tracker](https://github.com/SiLab-Bonn/beam_telescope
 5. Push your topic branch to your fork.
 6. Open a [Pull Request (PR)](https://help.github.com/en/articles/about-pull-requests) with clear title and description about the modifications.
 
+### Predecessor of BTA
+
+[Testbeam Analysis](https://github.com/SiLab-Bonn/testbeam_analysis) (TBA) is the predecessor of Beam Telescope Analysis (BTA).
