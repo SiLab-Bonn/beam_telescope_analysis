@@ -242,7 +242,7 @@ def hist_quantiles(hist, prob=(0.05, 0.95), return_indices=False, copy=True):
     masked_hist = np.ma.array(hist, copy=copy, mask=True)
     masked_hist.mask[lp_index:hp_index + 1] = False
     if return_indices:
-        return masked_hist, (lp_index, hp_index)
+        return masked_hist, range(lp_index, hp_index + 1)
     else:
         return masked_hist
 
