@@ -27,7 +27,16 @@ from beam_telescope_analysis.telescope.telescope import Telescope
 import beam_telescope_analysis.tools.analysis_utils
 import beam_telescope_analysis.tools.geometry_utils
 
+
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")  # Plot backend error not important
+
+
+# Python 3 compatibility
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 cluster_shape_strings = {
     -1: 'others',

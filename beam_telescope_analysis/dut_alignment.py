@@ -614,7 +614,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
 
     # Create list with combinations of DUTs to align
     if select_duts is None:  # If None: align all DUTs
-        select_duts = range(n_duts)
+        select_duts = list(range(n_duts))
     # Check for value errors
     if not isinstance(select_duts, Iterable):
         raise ValueError("select_duts is no iterable")

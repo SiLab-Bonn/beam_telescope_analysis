@@ -63,7 +63,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
         output_track_candidates_file = os.path.join(os.path.dirname(input_merged_file), 'Track_Candidates.h5')
 
     if select_extrapolation_duts is None:
-        select_extrapolation_duts = range(n_duts)
+        select_extrapolation_duts = list(range(n_duts))
     elif isinstance(select_extrapolation_duts, (list, tuple)):
         if set(select_extrapolation_duts) - set(range(n_duts)):
             raise ValueError("Found invalid DUTs in select_extrapolation_duts: %s" % ', '.join(str(dut) for dut in (set(select_extrapolation_duts) - set(range(n_duts)))))
@@ -614,7 +614,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         output_pdf = None
 
     if select_duts is None:
-        select_duts = range(n_duts)  # standard setting: fit tracks for all DUTs
+        select_duts = list(range(n_duts))  # standard setting: fit tracks for all DUTs
     elif not isinstance(select_duts, Iterable):
         select_duts = [select_duts]
     # Check for duplicates
@@ -626,10 +626,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     # Create track, hit selection
     if select_fit_duts is None:  # If None: use all DUTs
-        select_fit_duts = range(n_duts)
-#         # copy each item
-#         for hit_duts in select_hit_duts:
-#             select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
+        select_fit_duts = list(range(n_duts))
+        # # copy each item
+        # for hit_duts in select_hit_duts:
+        #     select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_fit_duts, Iterable):
         raise ValueError("select_fit_duts is no iterable")
@@ -652,7 +652,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     # Create track, hit selection
     if select_hit_duts is None:  # If None, require no hit
-        #         select_hit_duts = range(n_duts)
+        # select_hit_duts = list(range(n_duts))
         select_hit_duts = []
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):

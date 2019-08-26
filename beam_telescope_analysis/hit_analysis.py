@@ -47,7 +47,7 @@ def convert(telescope_configuration, input_hit_files, output_hit_files=None, sel
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
     if select_duts is None:
-        select_duts = range(len(telescope))
+        select_duts = list(range(len(telescope)))
     if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
@@ -194,7 +194,7 @@ def check(telescope_configuration, input_hit_files, output_check_files=None, sel
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
     if select_duts is None:
-        select_duts = range(len(telescope))
+        select_duts = list(range(len(telescope)))
     if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
@@ -444,7 +444,7 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
     if select_duts is None:
-        select_duts = range(len(telescope))
+        select_duts = list(range(len(telescope)))
     if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
@@ -660,7 +660,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
     if select_duts is None:
-        select_duts = range(len(telescope))
+        select_duts = list(range(len(telescope)))
     if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:
@@ -1218,7 +1218,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
     telescope = Telescope(telescope_configuration)
     n_duts = len(telescope)
     if select_duts is None:
-        select_duts = range(len(telescope))
+        select_duts = list(range(len(telescope)))
     if not isinstance(select_duts, (list, tuple)):
         raise ValueError('Parameter "select_duts" is not a list.')
     if max(select_duts) > n_duts or min(select_duts) < 0:

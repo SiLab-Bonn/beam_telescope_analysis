@@ -11,6 +11,13 @@ from yaml import safe_load, safe_dump
 from beam_telescope_analysis.telescope.dut import Dut
 
 
+# Python 3 compatibility
+try:
+    basestring
+except NameError:
+    basestring = str
+
+
 def open_configuation(configuation):
     configuration_dict = {}
     if not configuation:
@@ -58,7 +65,7 @@ class Telescope(object):
         self.dut[key] = value
 
     def __iter__(self):
-        for sorted_key in sorted(self.dut.iterkeys()):
+        for sorted_key in sorted(self.dut.keys()):
             yield self.dut[sorted_key]
 
     def __str__(self):
@@ -183,7 +190,7 @@ class Telescope(object):
             raise ValueError("No valid configuration file given.")
 
     def add_dut(self, dut_type, dut_id, **kwargs):
-        if not isinstance(dut_id, (long, int)):
+        if not isinstance(dut_id, (int,)):
             raise ValueError("DUT ID has to be an integer.")
         if "name" not in kwargs:
             kwargs["name"] = "DUT%d" % dut_id

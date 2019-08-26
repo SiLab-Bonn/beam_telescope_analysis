@@ -200,7 +200,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     elif not select_duts:  # empty iterable
         raise ValueError("select_duts has no items")
     # Check if only non-iterable in iterable
-    if not all(map(lambda val: isinstance(val, (int, long)), select_duts)):
+    if not all(map(lambda val: isinstance(val, (int,)), select_duts)):
         raise ValueError("not all items in select_duts are integer")
 
     # Create select_hit_duts
