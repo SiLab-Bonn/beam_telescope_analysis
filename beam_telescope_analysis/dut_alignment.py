@@ -23,7 +23,7 @@ from beam_telescope_analysis.track_analysis import find_tracks, fit_tracks, line
 from beam_telescope_analysis.result_analysis import calculate_residuals, histogram_track_angle, get_angles
 
 
-all_alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
+default_alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
 
 
 def apply_alignment(telescope_configuration, input_file, output_file=None, local_to_global=True, align_to_beam=False, chunk_size=1000000):
@@ -947,7 +947,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_selected_tracks_file,
             select_duts=actual_align_duts,
-            select_alignment_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if (dut_index in select_telescope_duts and (alignment_parameters is None or alignment_parameters[i] is None)) else (all_alignment_parameters if (alignment_parameters is None or alignment_parameters[i] is None) else alignment_parameters[i])) for i, dut_index in enumerate(actual_align_duts)],
+            select_alignment_parameters=[(["translation_x", "translation_y", "rotation_alpha", "rotation_beta", "rotation_gamma"] if (dut_index in select_telescope_duts and (alignment_parameters is None or alignment_parameters[i] is None)) else (default_alignment_parameters if (alignment_parameters is None or alignment_parameters[i] is None) else alignment_parameters[i])) for i, dut_index in enumerate(actual_align_duts)],
             use_limits=use_limits,
             max_iterations=100,
             chunk_size=chunk_size)
@@ -1107,14 +1107,14 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
     logging.info('== Calculating transformation for %d DUTs ==' % len(select_duts))
 
     if select_alignment_parameters is None:
-        select_alignment_parameters = [all_alignment_parameters] * len(select_duts)
+        select_alignment_parameters = [default_alignment_parameters] * len(select_duts)
     if len(select_duts) != len(select_alignment_parameters):
         raise ValueError("select_alignment_parameters has the wrong length")
     for index, actual_alignment_parameters in enumerate(select_alignment_parameters):
         if actual_alignment_parameters is None:
-            select_alignment_parameters[index] = all_alignment_parameters
+            select_alignment_parameters[index] = default_alignment_parameters
         else:
-            non_valid_paramters = set(actual_alignment_parameters) - set(all_alignment_parameters)
+            non_valid_paramters = set(actual_alignment_parameters) - set(default_alignment_parameters)
             if non_valid_paramters:
                 raise ValueError("found invalid values in select_alignment_parameters: %s" % ", ".join(non_valid_paramters))
 
