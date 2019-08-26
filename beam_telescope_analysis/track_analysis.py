@@ -1073,19 +1073,17 @@ def store_track_data(out_file_h5, track_candidates_chunk, good_track_selection, 
 
         # generate quality array
         dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=np.bool)
-        select_valid_hit = np.isfinite(hit_x_local)
-
-        dut_quality_flag_sel[~select_valid_hit] = False
         dut_quality_flag_sel[~select_finite_distance] = False
         # select tracks within limits and set quality flag
         if limit_x_local is not None and np.isfinite(limit_x_local[0]):
-            dut_quality_flag_sel[select_valid_hit] &= (hit_x_local[select_valid_hit] >= limit_x_local[0])
+            dut_quality_flag_sel &= (hit_x_local >= limit_x_local[0])
         if limit_x_local is not None and np.isfinite(limit_x_local[1]):
-            dut_quality_flag_sel[select_valid_hit] &= (hit_x_local[select_valid_hit] <= limit_x_local[1])
+            dut_quality_flag_sel &= (hit_x_local <= limit_x_local[1])
         if limit_y_local is not None and np.isfinite(limit_y_local[0]):
-            dut_quality_flag_sel[select_valid_hit] &= (hit_y_local[select_valid_hit] >= limit_y_local[0])
+            dut_quality_flag_sel &= (hit_y_local >= limit_y_local[0])
         if limit_y_local is not None and np.isfinite(limit_y_local[1]):
-            dut_quality_flag_sel[select_valid_hit] &= (hit_y_local[select_valid_hit] <= limit_y_local[1])
+            dut_quality_flag_sel &= (hit_y_local <= limit_y_local[1])
+
         # distance for quality flag calculation
         if quality_distances[dut_index] is None:
             quality_distance_x = np.inf
