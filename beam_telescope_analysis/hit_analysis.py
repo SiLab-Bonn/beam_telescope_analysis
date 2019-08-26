@@ -602,7 +602,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     return output_mask_file
 
 
-def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=0, max_hit_charges=None, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
+def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=None, max_hit_charges=None, charge_corrections=None, charge_weighted_clustering=False, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
     '''Clustering hits. Wrapper for cluster_hits(). For detailed description of the parameters see cluster_hits().
 
     Parameters
@@ -622,16 +622,32 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
         If True, cluster local positions instead of hit indices.
         Conversion to local position is done on the fly, if input hit file provides hit indices.
         If None, automatically decide from input hit file format.
-    min_hit_charges : list
-        Minimum hit charges.
-    max_hit_charges : list
-        Maximum hit charges.
-    column_cluster_distances : list
-        Maximum column distances.
-    row_cluster_distances : list
-        Maximum row distances.
-    frame_cluster_distances : list
-        Maximum frame distances.
+    min_hit_charges : list of floats
+        Minimum hit charge. Hits with charge below this limit will be ignored.
+        If None, all hits will be used.
+    max_hit_charges : list of floats
+        Maximum hit charge. Hits with charge above this limit will be ignored.
+        If None, all hits will be used.
+    charge_corrections : list of floats
+        Charge added to the hit charge. Used when charge_weighted_clustering is True.
+        Note:
+        Charge digitizers of some front-end chips start with a value of 0.
+        If the privded data contains hits with chage of 0, charge_correction must
+        be set to 1 in this case. Otherwise hits with a charge value of 0
+        will not contribute to the charge weighted clustering.
+    charge_weighted_clustering : list of booleans
+        If True, the charge value of the hits is used to calculate center of gravity of a cluster.
+        For correct function, the parameter charge_correction must be set correctly.
+        If False, only the arithmetic mean of the hit positions is used to calculate the center of a cluster.
+    column_cluster_distance : uint
+        Maximum column distance between hist so that they are assigned to the same cluster.
+        A value of 0 effectively disables the clusterizer in column direction.
+    row_cluster_distance : uint
+        Maximum row distance between hist so that they are assigned to the same cluster.
+        A value of 0 effectively disables the clusterizer in row direction.
+    frame_cluster_distance : uint
+        Sometimes an event has additional timing information (e.g. bunch crossing ID, frame ID).
+        A value of 0 effectively disables the clusterizer for hits in different time bins.
     plot : bool
         If True, create additional output plots.
     chunk_size : uint
@@ -674,6 +690,16 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
             raise ValueError('Parameter "max_hit_charges" has wrong length.')
     else:
         max_hit_charges = [max_hit_charges] * len(select_duts)
+    if isinstance(charge_corrections, (list, tuple)):
+        if len(select_duts) != len(charge_corrections):
+            raise ValueError('Parameter "charge_corrections" has wrong length.')
+    else:
+        charge_corrections = [charge_corrections] * len(select_duts)
+    if isinstance(charge_weighted_clustering, (list, tuple)):
+        if len(select_duts) != len(charge_weighted_clustering):
+            raise ValueError('Parameter "charge_weighted_clustering" has wrong length.')
+    else:
+        charge_weighted_clustering = [charge_weighted_clustering] * len(select_duts)
     if isinstance(column_cluster_distances, (list, tuple)):
         if len(select_duts) != len(column_cluster_distances):
             raise ValueError('Parameter "column_cluster_distances" has wrong length.')
@@ -700,6 +726,8 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
             use_positions=use_positions[i],
             min_hit_charge=min_hit_charges[i],
             max_hit_charge=max_hit_charges[i],
+            charge_correction=charge_corrections[i],
+            charge_weighted_clustering=charge_weighted_clustering[i],
             column_cluster_distance=column_cluster_distances[i],
             row_cluster_distance=row_cluster_distances[i],
             frame_cluster_distance=frame_cluster_distances[i],
@@ -708,7 +736,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     return output_files
 
 
-def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=0, max_hit_charge=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, plot=True, chunk_size=1000000):
+def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=None, max_hit_charge=None, charge_correction=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, charge_weighted_clustering=False, plot=True, chunk_size=1000000):
     '''Clusters the hits in the data file containing the hit table.
 
     Parameters
@@ -725,16 +753,32 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         If True, cluster local positions instead of hit indices.
         Conversion to local position is done on the fly, if input hit file provides hit indices.
         If None, automatically decide from input hit file format.
-    min_hit_charge : uint
-        Minimum hit charge. Minimum possible hit charge must be given in order to correcly calculate the cluster coordinates.
-    max_hit_charge : uint
-        Maximum hit charge. Hits wit charge above the limit will be ignored.
+    min_hit_charge : float
+        Minimum hit charge. Hits with charge below this limit will be ignored.
+        If None, all hits will be used.
+    max_hit_charge : float
+        Maximum hit charge. Hits with charge above this limit will be ignored.
+        If None, all hits will be used.
+    charge_correction : float
+        Charge added to the hit charge. Used when charge_weighted_clustering is True.
+        Note:
+        Charge digitizers of some front-end chips start with a value of 0.
+        If the privded data contains hits with chage of 0, charge_correction must
+        be set to 1 in this case. Otherwise hits with a charge value of 0
+        will not contribute to the charge weighted clustering.
+    charge_weighted_clustering : bool
+        If True, the charge value of the hits is used to calculate center of gravity of a cluster.
+        For correct function, the parameter charge_correction must be set correctly.
+        If False, only the arithmetic mean of the hit positions is used to calculate the center of a cluster.
     column_cluster_distance : uint
-        Maximum column distance between hist so that they are assigned to the same cluster. Value of 0 effectively disables the clusterizer in column direction.
+        Maximum column distance between hist so that they are assigned to the same cluster.
+        A value of 0 effectively disables the clusterizer in column direction.
     row_cluster_distance : uint
-        Maximum row distance between hist so that they are assigned to the same cluster. Value of 0 effectively disables the clusterizer in row direction.
+        Maximum row distance between hist so that they are assigned to the same cluster.
+        A value of 0 effectively disables the clusterizer in row direction.
     frame_cluster_distance : uint
-        Sometimes an event has additional timing information (e.g. bunch crossing ID, frame ID). Value of 0 effectively disables the clusterization in time.
+        Sometimes an event has additional timing information (e.g. bunch crossing ID, frame ID).
+        A value of 0 effectively disables the clusterizer for hits in different time bins.
     plot : bool
         If True, create additional output plots.
     chunk_size : int
@@ -936,14 +980,16 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
 
     clusterizer = HitClusterizer(
         hit_fields=hit_fields,
+        hit_dtype=hit_dtype,
         cluster_fields=cluster_fields,
+        cluster_dtype=cluster_dtype,
+        min_hit_charge=min_hit_charge,
+        max_hit_charge=max_hit_charge,
+        charge_correction=charge_correction,
+        charge_weighted_clustering=charge_weighted_clustering,
         column_cluster_distance=column_cluster_distance,
         row_cluster_distance=row_cluster_distance,
         frame_cluster_distance=frame_cluster_distance,
-        min_hit_charge=min_hit_charge,
-        max_hit_charge=max_hit_charge,
-        hit_dtype=hit_dtype,
-        cluster_dtype=cluster_dtype,
         pure_python=False)
     if use_positions:
         clusterizer.add_cluster_field(description=('err_x', '<f4'))  # Add an additional field to hold the cluster size in x
