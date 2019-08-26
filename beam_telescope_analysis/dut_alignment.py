@@ -1127,8 +1127,8 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
             logging.info("Modify alignment parameters: %s", ', '.join([alignment_paramter for alignment_paramter in select_alignment_parameters[index]]))
 
             if use_limits:
-                limit_x_local = actual_dut.x_limit
-                limit_y_local = actual_dut.y_limit
+                limit_x_local = actual_dut.x_limit  # (lower limit, upper limit)
+                limit_y_local = actual_dut.y_limit  # (lower limit, upper limit)
             else:
                 limit_x_local = None
                 limit_y_local = None

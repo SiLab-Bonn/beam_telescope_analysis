@@ -112,7 +112,7 @@ class Dut(object):
         if limit is None:
             self._x_limit = None
         else:
-            self._x_limit = (float(limit[0]), float(limit[1]))
+            self._x_limit = (float(min(limit)), float(max(limit)))  # (lower limit, upper limit)
 
     @property
     def y_limit(self):
@@ -123,7 +123,7 @@ class Dut(object):
         if limit is None:
             self._y_limit = None
         else:
-            self._y_limit = (float(limit[0]), float(limit[1]))
+            self._y_limit = (float(min(limit)), float(max(limit)))  # (lower limit, upper limit)
 
     @property
     def material_budget(self):

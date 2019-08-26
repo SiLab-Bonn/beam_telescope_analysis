@@ -70,8 +70,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 logging.info('== Calculating residuals for %s ==', actual_dut.name)
 
                 if use_limits:
-                    limit_x_local = actual_dut.x_limit
-                    limit_y_local = actual_dut.y_limit
+                    limit_x_local = actual_dut.x_limit  # (lower limit, upper limit)
+                    limit_y_local = actual_dut.y_limit  # (lower limit, upper limit)
                 else:
                     limit_x_local = None
                     limit_y_local = None
