@@ -184,7 +184,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
         fig = Figure()
         _ = FigureCanvas(fig)
         ax = fig.add_subplot(111)
-        ax.set_title('Occupancy for %s' % (dut_name, ))
+        ax.set_title('Occupancy for %s' % (dut_name,))
         ax.imshow(occupancy, aspect=aspect, cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max), extent=[0.5, occupancy.shape[1] + 0.5, 0.5, occupancy.shape[0] + 0.5])
         ax.set_xlim(0.5, occupancy.shape[1] + 0.5)
         ax.set_ylim(0.5, occupancy.shape[0] + 0.5)
@@ -219,7 +219,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
             # title of the page
             fig.suptitle('Occupancy for %s%s' % (dut_name, '\n(noisy and disabled pixels masked)' if masked_hits else ''))
             ax = fig.add_subplot(111)
-            # ax.set_title('Occupancy for %s' % (dut_name, ))
+            # ax.set_title('Occupancy for %s' % (dut_name,))
             im = ax.imshow(np.ma.getdata(occupancy), aspect='auto', cmap=cmap, interpolation='none', origin='lower', clim=(0, c_max), extent=[0.5, occupancy.shape[1] + 0.5, 0.5, occupancy.shape[0] + 0.5])
             # np.ma.filled(occupancy, fill_value=0)
             ax.set_xlim(0.5, occupancy.shape[1] + 0.5)

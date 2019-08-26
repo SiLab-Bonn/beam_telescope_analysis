@@ -657,8 +657,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
         raise ValueError("select_hit_duts is no iterable")
-#     elif not select_hit_duts:  # empty iterable
-#         raise ValueError("select_hit_duts has no items")
+    # elif not select_hit_duts:  # empty iterable
+    #     raise ValueError("select_hit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_hit_duts)):
         select_hit_duts = [select_hit_duts[:] for _ in select_duts]

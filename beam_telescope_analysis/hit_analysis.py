@@ -313,7 +313,7 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
                 where=out_file_h5.root,
                 name='EventDelta',
                 title='Change of event number per non empty event',
-                shape=(0, ),
+                shape=(0,),
                 atom=tb.Atom.from_dtype(np.dtype(np.uint64)),
                 filters=tb.Filters(
                     complib='blosc',
@@ -323,7 +323,7 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
                 where=out_file_h5.root,
                 name='EventNumber',
                 title='Event number of non empty event',
-                shape=(0, ),
+                shape=(0,),
                 atom=tb.Atom.from_dtype(np.dtype(np.uint64)),
                 filters=tb.Filters(
                     complib='blosc',
