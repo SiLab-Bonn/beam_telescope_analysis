@@ -24,6 +24,7 @@ from beam_telescope_analysis.result_analysis import calculate_residuals, histogr
 
 
 default_alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
+default_cluster_shapes = [1, 3, 5, 13, 14, 7, 11, 15]
 
 
 def apply_alignment(telescope_configuration, input_file, output_file=None, local_to_global=True, align_to_beam=False, chunk_size=1000000):
@@ -500,7 +501,7 @@ def find_ransac(x, y, iterations=100, threshold=1.0, ratio=0.5):
     return model_ratio, model_m, model_c, model_x_list, model_y_list
 
 
-def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
+def align(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_iterations=3, max_events=100000, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, quality_distances=(250.0, 250.0), reject_quality_distances=(500.0, 500.0), use_limits=True, plot=True, chunk_size=100000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -584,6 +585,11 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         A smaller value reduces the number of tracks for the alignment.
         A large value increases the number of tracks but at the cost of alignment efficiency bacause of potentially bad tracks.
         A good start value is 5.0 to 10.0 for high energy beams and 15.0 to 50.0 for low energy beams.
+    cluster_shapes : iterable or iterable of iterables
+        List of cluster shapes (unsigned integer) for each DUT. Only the selected cluster shapes will be used for the alignment.
+        Cluster shapes have impact on precision of the alignment. Larger clusters and certain cluster shapes can have a significant uncertainty for the hit position.
+        If None, use default cluster shapes [1, 3, 5, 13, 14, 7, 11, 15], i.e. 1x1, 2x1, 1x2, 3-pixel cluster, 4-pixel cluster. If empty list, all cluster sizes will be used.
+        The cluster shape can be calculated with the help of beam_telescope_analysis.tools.analysis_utils.calculate_cluster_array/calculate_cluster_shape.
     quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
         must have a smaller distance to have the quality flag to be set to 1.
@@ -704,6 +710,27 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     if len(track_chi2) != len(select_duts):
         raise ValueError("track_chi2 has the wrong length")
 
+    # Create cluster shape selection
+    if cluster_shapes is None:  # If None: set default value for all DUTs
+        cluster_shapes = [cluster_shapes] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(cluster_shapes, Iterable):
+        raise ValueError("cluster_shapes is no iterable")
+    elif not cluster_shapes:  # empty iterable
+        raise ValueError("cluster_shapes has no items")
+    # Check if only non-iterable in iterable
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, cluster_shapes)):
+        cluster_shapes = [cluster_shapes[:] for _ in select_duts]
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, cluster_shapes)):
+        raise ValueError("not all items in cluster_shapes are iterable")
+    # Finally check length of all arrays
+    if len(cluster_shapes) != len(select_duts):  # empty iterable
+        raise ValueError("cluster_shapes has the wrong length")
+    for shapes in cluster_shapes:
+        if not shapes and shapes is not None:  # check the length of the items
+            raise ValueError("item in cluster_shapes has no items")
+
     # Create quality distance
     if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
@@ -809,6 +836,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
             track_chi2=track_chi2[index],
+            cluster_shapes=cluster_shapes[index],
             quality_distances=quality_distances,
             reject_quality_distances=reject_quality_distances,
             use_limits=use_limits,
@@ -821,7 +849,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def _duts_alignment(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, select_telescope_duts, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_iterations, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, cluster_shapes, quality_distances, reject_quality_distances, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
     alignment_duts = "_".join(str(dut) for dut in align_duts)
     aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
 
@@ -887,13 +915,11 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
 
         logging.info('= Alignment step 3a - iteration %d: Selecting tracks for %d DUTs =', iteration_step, len(align_duts))
         output_selected_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
-        # TODO: adding detection if cluster shape is always -1 (not set)
-        # Select good tracks und limit cluster shapes to 1x1, 1x2, 2x1, and 2x2.
-        # Occurrences of other cluster shapes should not be included.
-        # if np.all(cluster_shape == -1):
-        #     select_condition = None
-        # else:
-        #     select_condition = ['((cluster_shape_dut_{0} == 1) | (cluster_shape_dut_{0} == 3) | (cluster_shape_dut_{0} == 5) | (cluster_shape_dut_{0} == 15))'.format(dut_index) for dut_index in actual_align_duts]
+        # generate query for select_tracks
+        # generate default selection of cluster shapes: 1x1, 2x1, 1x2, 3-pixel cluster, 4-pixel cluster
+        if cluster_shapes is None:
+            cluster_shapes = default_cluster_shapes
+        select_condition = [(('(track_chi2 < %f)' % track_chi2 if track_chi2 else '') + (' & ' if track_chi2 and cluster_shapes else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes]).format(dut_index) + ')') if cluster_shapes else '')) for dut_index in actual_align_duts]
         data_selection.select_tracks(
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_tracks_file,
@@ -902,7 +928,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             select_hit_duts=actual_hit_duts,
             select_quality_duts=actual_quality_duts,
             # Select good tracks und limit cluster size to 4
-            condition=[(('(track_chi2 < %f) & ' % track_chi2) if track_chi2 else '') + '(n_hits_dut_{0} <= 4)'.format(dut_index) for dut_index in actual_align_duts],
+            condition=select_condition,
             max_events=None,
             chunk_size=chunk_size)
 
