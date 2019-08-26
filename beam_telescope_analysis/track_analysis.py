@@ -13,7 +13,7 @@ from numba import njit
 from scipy.stats import gaussian_kde
 from matplotlib.backends.backend_pdf import PdfPages
 
-import progressbar
+from tqdm import tqdm
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import plot_utils
@@ -186,13 +186,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
             total_n_tracks_stored = 0
             total_n_events_stored = 0
 
-            widgets = ['', progressbar.Percentage(), ' ',
-                       progressbar.Bar(marker='*', left='|', right='|'),
-                       ' ', progressbar.AdaptiveETA()]
-            progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                   maxval=total_n_tracks,
-                                                   term_width=80)
-            progress_bar.start()
+            progress_bar = tqdm(total=total_n_tracks, ncols=80)
 
             for tracklets_data_chunk, index_chunk in analysis_utils.data_aligned_at_events(tracklets_node, chunk_size=chunk_size):
                 n_tracks_chunk = tracklets_data_chunk.shape[0]
@@ -294,7 +288,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 last_index_chunk = index_chunk
                 progress_bar.update(index_chunk)
 
-            progress_bar.finish()
+            progress_bar.close()
 
     return output_track_candidates_file
 
@@ -772,14 +766,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
                 if len(fit_duts) < 2 and method == "fit":
                     raise ValueError('The number of required hit DUTs is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
-                widgets = ['', progressbar.Percentage(), ' ',
-                           progressbar.Bar(marker='*', left='|', right='|'),
-                           ' ', progressbar.AdaptiveETA()]
-                progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=total_n_tracks,
-                                                       term_width=80)
-                # progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], term_width=80)
-                progress_bar.start()
+                progress_bar = tqdm(total=total_n_tracks, ncols=80)
+                # progress_bar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
 
                 chunk_indices = []
                 chunk_stats = []
@@ -927,7 +915,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     last_index_chunk = index_chunk
                     progress_bar.update(index_chunk)
                     # progress_bar.update(min(total_n_tracks, max_tracks) if max_tracks is not None else index_chunk)
-                progress_bar.finish()
+                progress_bar.close()
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored

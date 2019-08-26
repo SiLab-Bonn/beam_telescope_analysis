@@ -21,7 +21,7 @@ import numpy as np
 import tables as tb
 from numba import njit
 
-import progressbar
+from tqdm import tqdm
 
 import pylandau
 
@@ -476,18 +476,7 @@ class SimulateData(object):
 
         if n_events * self.tracks_per_event > 100000:
             show_progress = True
-            widgets = [
-                '',
-                progressbar.Percentage(),
-                ' ',
-                progressbar.Bar(marker='*', left='|', right='|'),
-                ' ',
-                progressbar.AdaptiveETA()]
-            progress_bar = progressbar.ProgressBar(
-                widgets=widgets,
-                maxval=len(range(0, n_events, chunk_size)),
-                term_width=80)
-            progress_bar.start()
+            progress_bar = tqdm(total=len(range(0, n_events, chunk_size)), ncols=80)
         else:
             show_progress = False
         # Fill output files in chunks
@@ -508,7 +497,7 @@ class SimulateData(object):
             if show_progress:
                 progress_bar.update(chunk_index)
         if show_progress:
-            progress_bar.finish()
+            progress_bar.close()
 
         for output_file in output_files:
             output_file.close()

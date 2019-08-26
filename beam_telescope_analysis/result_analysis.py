@@ -14,7 +14,7 @@ from scipy import stats
 from scipy.signal import hilbert
 from scipy.spatial import cKDTree
 
-import progressbar
+from tqdm import tqdm
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import plot_utils
@@ -2161,13 +2161,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     fit_limit_y_local = None
 
                 correlate_n_tracks = min(correlate_n_tracks, node.nrows)
-                widgets = ['', progressbar.Percentage(), ' ',
-                           progressbar.Bar(marker='*', left='|', right='|'),
-                           ' ', progressbar.AdaptiveETA()]
-                progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=1.0,
-                                                       term_width=80)
-                progress_bar.start()
+                progress_bar = tqdm(total=1.0, ncols=80)
 
                 correlate_n_tracks_total = 0
 
@@ -2391,7 +2385,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     correlate_start_index = curr_ref_index
                     ref_index_last = curr_ref_index
 
-                progress_bar.finish()
+                progress_bar.close()
 
     if plot:
         plot_utils.plot_residual_correlation(input_residual_correlation_file=output_residual_correlation_file, select_duts=select_duts, pixel_size=pixel_size, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)

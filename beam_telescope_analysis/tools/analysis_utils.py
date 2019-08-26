@@ -21,7 +21,7 @@ from scipy.special import erf
 from scipy.ndimage import distance_transform_edt
 
 import requests
-import progressbar
+from tqdm import tqdm
 
 from beam_telescope_analysis import analysis_functions
 
@@ -1331,10 +1331,11 @@ def get_data(path, output=None, fail_on_overwrite=False):
         logging.info('Downloading %s', name)
         with open(filename, 'wb') as f:
             num_bars = file_size / (32 * 1024)
-            bar = progressbar.ProgressBar(maxval=num_bars).start()
+            pbar = tqdm(total=num_bars, ncols=80)
             for i, chunk in enumerate(r.iter_content(32 * 1024)):
                 f.write(chunk)
-                bar.update(i)
+                pbar.update(i)
+            pbar.close()
 
     if not output:
         output = os.path.basename(path)

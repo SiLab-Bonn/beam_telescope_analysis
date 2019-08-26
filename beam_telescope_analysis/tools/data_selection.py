@@ -10,7 +10,7 @@ import numpy as np
 import tables as tb
 import numexpr as ne
 
-import progressbar
+from tqdm import tqdm
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import analysis_utils
@@ -128,13 +128,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                 total_n_tracks = node.shape[0]
                 total_n_tracks_stored = 0
                 total_n_events_stored = 0
-                widgets = ['', progressbar.Percentage(), ' ',
-                           progressbar.Bar(marker='*', left='|', right='|'),
-                           ' ', progressbar.AdaptiveETA()]
-                progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=total_n_tracks,
-                                                       term_width=80)
-                progress_bar.start()
+                progress_bar = tqdm(total=total_n_tracks, ncols=80)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,
@@ -180,7 +174,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                     progress_bar.update(index_chunk)
-                progress_bar.finish()
+                progress_bar.close()
 
 
 def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, condition=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_no_quality_duts=None, chunk_size=1000000):
@@ -328,13 +322,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 total_n_tracks = node.shape[0]
                 total_n_tracks_stored = 0
                 total_n_events_stored = 0
-                widgets = ['', progressbar.Percentage(), ' ',
-                           progressbar.Bar(marker='*', left='|', right='|'),
-                           ' ', progressbar.AdaptiveETA()]
-                progress_bar = progressbar.ProgressBar(widgets=widgets,
-                                                       maxval=total_n_tracks,
-                                                       term_width=80)
-                progress_bar.start()
+                progress_bar = tqdm(total=total_n_tracks, ncols=80)
+
                 for tracks, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = tracks.shape[0]
 
@@ -388,7 +377,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                     progress_bar.update(index_chunk)
-                progress_bar.finish()
+                progress_bar.close()
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored

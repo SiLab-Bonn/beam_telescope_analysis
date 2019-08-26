@@ -12,7 +12,7 @@ import numpy as np
 import scipy
 from matplotlib.backends.backend_pdf import PdfPages
 
-import progressbar
+import tqdm as tqdm
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import analysis_utils
@@ -145,8 +145,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         complevel=5,
                         fletcher32=False))
 
-                progress_bar = progressbar.ProgressBar(widgets=['', progressbar.Percentage(), ' ', progressbar.Bar(marker='*', left='|', right='|'), ' ', progressbar.AdaptiveETA()], maxval=node.shape[0], term_width=80)
-                progress_bar.start()
+                progress_bar = tqdm(total=node.shape[0], ncols=80)
 
                 for data_chunk, index in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):  # Loop over the hits
                     for dut_index, dut in enumerate(telescope):  # Loop over the DUTs
@@ -162,7 +161,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                             convert_data(dut=telescope, dut_index=dut_index, node=node, conv=conv, data=data_chunk)
                     hits_aligned_table.append(data_chunk)
                     progress_bar.update(index)
-                progress_bar.finish()
+                progress_bar.close()
 
     return output_file
 
