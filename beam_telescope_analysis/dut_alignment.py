@@ -191,6 +191,11 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
 
     if output_telescope_configuration is None:
         output_telescope_configuration = os.path.splitext(telescope_configuration)[0] + '_prealigned.yaml'
+    elif output_telescope_configuration == telescope_configuration:
+        raise ValueError('Output telescope configuration file must be different from input telescope configuration file.')
+
+    # remove reference DUT from list of all DUTs
+    select_duts = list(set(range(n_duts)) - set([select_reference_dut]))
 
     if plot is True:
         output_pdf = PdfPages(os.path.splitext(input_correlation_file)[0] + '_prealigned.pdf', keep_empty=False)
@@ -198,34 +203,36 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
         output_pdf = None
 
     with tb.open_file(input_correlation_file, mode="r") as in_file_h5:
-        # remove reference DUT from list of DUTs
-        select_duts = list(set(range(n_duts)) - set([select_reference_dut]))
-
-        for dut_index in select_duts:
+        # loop over DUTs for pre-alignment
+        for actual_dut_index in select_duts:
+            actual_dut = telescope[actual_dut_index]
+            logging.info("== Pre-aligning %s ==" % actual_dut.name)
             x_global_pixel, y_global_pixel, z_global_pixel = [], [], []
-            for column in range(1, telescope[dut_index].n_columns + 1):
-                global_positions = telescope[dut_index].index_to_global_position(
-                    column=[column] * telescope[dut_index].n_rows,
-                    row=range(1, telescope[dut_index].n_rows + 1))
+            for column in range(1, actual_dut.n_columns + 1):
+                global_positions = actual_dut.index_to_global_position(
+                    column=[column] * actual_dut.n_rows,
+                    row=range(1, actual_dut.n_rows + 1))
                 x_global_pixel = np.hstack([x_global_pixel, global_positions[0]])
                 y_global_pixel = np.hstack([y_global_pixel, global_positions[1]])
                 z_global_pixel = np.hstack([z_global_pixel, global_positions[2]])
             # calculate rotation matrix for later rotation corrections
-            rotation_alpha = telescope[dut_index].rotation_alpha
-            rotation_beta = telescope[dut_index].rotation_beta
-            rotation_gamma = telescope[dut_index].rotation_gamma
+            rotation_alpha = actual_dut.rotation_alpha
+            rotation_beta = actual_dut.rotation_beta
+            rotation_gamma = actual_dut.rotation_gamma
             R = geometry_utils.rotation_matrix(
                 alpha=rotation_alpha,
                 beta=rotation_beta,
                 gamma=rotation_gamma)
+            select = None
+            # loop over x- and y-axis
             for x_direction in [True, False]:
                 if reduce_background:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d_reduced_background' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
+                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d_reduced_background' % ('x' if x_direction else 'y', select_reference_dut, actual_dut_index))
                 else:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % ('x' if x_direction else 'y', select_reference_dut, dut_index))
-                dut_name = telescope[dut_index].name
+                    node = in_file_h5.get_node(in_file_h5.root, 'Correlation_%s_%d_%d' % ('x' if x_direction else 'y', select_reference_dut, actual_dut_index))
+                dut_name = actual_dut.name
                 ref_name = telescope[select_reference_dut].name
-                pixel_size = telescope[dut_index].column_size if x_direction else telescope[dut_index].row_size
+                pixel_size = actual_dut.column_size if x_direction else actual_dut.row_size
                 logging.info('Pre-aligning data from %s', node.name)
                 bin_size = node.attrs.resolution
                 ref_hist_extent = node.attrs.ref_hist_extent
@@ -271,7 +278,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     if np.isclose(slope, 1.0, rtol=0.0, atol=0.1) or np.isclose(slope, -1.0, rtol=0.0, atol=0.1):
                         break
                 else:
-                    raise RuntimeError('Cannot find %s correlation between %s and %s' % ("X" if x_direction else "Y", telescope[select_reference_dut].name, telescope[dut_index].name))
+                    raise RuntimeError('Cannot find %s correlation between %s and %s' % ("X" if x_direction else "Y", telescope[select_reference_dut].name, actual_dut.name))
                 # offset in the center of the pixel matrix
                 offset_center = offset + slope * (0.5 * dut_hist_size - 0.5 * bin_size)
                 # calculate offset for local frame
@@ -311,38 +318,40 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     reduce_background=reduce_background,
                     output_pdf=output_pdf)
 
+                if select is None:
+                    select = np.ones_like(x_global_pixel, dtype=np.bool)
                 if x_direction:
-                    select = (x_global_pixel > dut_pos_limit[0]) & (x_global_pixel < dut_pos_limit[1])
+                    select &= (x_global_pixel >= dut_pos_limit[0]) & (x_global_pixel <= dut_pos_limit[1])
                     if slope < 0.0:
                         R = np.linalg.multi_dot([geometry_utils.rotation_matrix_y(beta=np.pi), R])
                     translation_x = offset_center
                 else:
-                    select &= (y_global_pixel > dut_pos_limit[0]) & (y_global_pixel < dut_pos_limit[1])
+                    select &= (y_global_pixel >= dut_pos_limit[0]) & (y_global_pixel <= dut_pos_limit[1])
                     if slope < 0.0:
                         R = np.linalg.multi_dot([geometry_utils.rotation_matrix_x(alpha=np.pi), R])
                     translation_y = offset_center
             # Setting new parameters
             # Only use new limits if they are narrower
             # Convert from global to local coordinates
-            local_coordinates = telescope[dut_index].global_to_local_position(
+            local_coordinates = actual_dut.global_to_local_position(
                 x=x_global_pixel[select],
                 y=y_global_pixel[select],
                 z=z_global_pixel[select])
-            if telescope[dut_index].x_limit is None:
-                telescope[dut_index].x_limit = (min(local_coordinates[0]), max(local_coordinates[0]))
+            if actual_dut.x_limit is None:
+                actual_dut.x_limit = (min(local_coordinates[0]), max(local_coordinates[0]))
             else:
-                telescope[dut_index].x_limit = (max(min(local_coordinates[0]), min(telescope[dut_index].x_limit)), min(max(local_coordinates[0]), max(telescope[dut_index].x_limit)))
-            if telescope[dut_index].y_limit is None:
-                telescope[dut_index].y_limit = (min(local_coordinates[1]), max(local_coordinates[1]))
+                actual_dut.x_limit = (max((min(local_coordinates[0]), actual_dut.x_limit[0])), min((max(local_coordinates[0]), actual_dut.x_limit[1])))
+            if actual_dut.y_limit is None:
+                actual_dut.y_limit = (min(local_coordinates[1]), max(local_coordinates[1]))
             else:
-                telescope[dut_index].y_limit = (max(min(local_coordinates[1]), min(telescope[dut_index].y_limit)), min(max(local_coordinates[1]), max(telescope[dut_index].y_limit)))
+                actual_dut.y_limit = (max((min(local_coordinates[1]), actual_dut.y_limit[0])), min((max(local_coordinates[1]), actual_dut.y_limit[1])))
             # Setting geometry
-            telescope[dut_index].translation_x = translation_x
-            telescope[dut_index].translation_y = translation_y
+            actual_dut.translation_x = translation_x
+            actual_dut.translation_y = translation_y
             rotation_alpha, rotation_beta, rotation_gamma = geometry_utils.euler_angles(R=R)
-            telescope[dut_index].rotation_alpha = rotation_alpha
-            telescope[dut_index].rotation_beta = rotation_beta
-            telescope[dut_index].rotation_gamma = rotation_gamma
+            actual_dut.rotation_alpha = rotation_alpha
+            actual_dut.rotation_beta = rotation_beta
+            actual_dut.rotation_gamma = rotation_gamma
 
     telescope.save_configuration(configuration_file=output_telescope_configuration)
 
