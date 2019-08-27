@@ -54,13 +54,13 @@ pip install .
 ## Usage
 
 1. Provide input data files (PyTables/HDF5) specified below.
-2. Write a BTA script which is specific to your telescope setup (see exampĺes in ./beam_telescope_analysis/examples/ folder).
+2. Write a BTA script which is specific to your telescope setup (see examples in [`./beam_telescope_analysis/examples/`](https://github.com/SiLab-Bonn/beam_telescope_analysis/tree/master/beam_telescope_analysis/examples) folder).
 3. Run BTA script and wait for the output plots (PDF) to appear.
 4. Check output plots for validity and in case of failure modify the BTA script.
 
 Optional:
 1. Modify the BTA source code according to your needs.
-2. Under some circumstances it might be necessary to add your detector specifications to BTA. For that, add your specification to `./beam_telescope_analysis/telescope/dut.py`.
+2. Under some circumstances it might be necessary to add your detector specifications to BTA. For that, add your specification to [`./beam_telescope_analysis/telescope/dut.py`](https://github.com/SiLab-Bonn/beam_telescope_analysis/blob/master/beam_telescope_analysis/telescope/dut.py).
 
 ## Input Data File
 
@@ -73,11 +73,11 @@ A single file must be provided for each detector (i.e., telescope plane, DUT, re
 ###  Hit Data Table
 Each input data file must contain a data table with the node name `Hits`.
 The hit data table must at least contain the following columns:
-- event_number (int): unique event number (increasing) for all events accross all detectors
-- column (int): column index starting from 1
-- row (int): row index starting from 1
-- frame (int): timing bin (only applicable to some detectors, can be used for cluster building); if not available, set to 0.
-- charge (float): charge seen by the detector (only applicable to some detectors, can be used for charge weighted clustering); if not available, set to 0.
+- `event_number` (int): unique event number (increasing) for all events accross all detectors
+- `column` (int): column index starting from 1
+- `row` (int): row index starting from 1
+- `frame` (int): timing bin (only applicable to some detectors, can be used for cluster building); if not available, set to 0.
+- `charge` (float): charge seen by the detector (only applicable to some detectors, can be used for charge weighted clustering); if not available, set to 0.
 
 Additional columns can be provided.
 
