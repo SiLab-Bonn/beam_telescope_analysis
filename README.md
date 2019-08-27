@@ -25,7 +25,7 @@ BTA uses some novel approaches which have not yet been applied to data from beam
 
 Python 2.7 or Python 3 must be used.
 
-The following packages are required and can be obtained from PyPI (via `pip install`) and/or from Anaconda (via `conada install`):
+The following packages are required and can be obtained from PyPI (via `pip install`) and/or from Anaconda (via `conda install`):
 - Cython
 - PyTables
 - NumPy
