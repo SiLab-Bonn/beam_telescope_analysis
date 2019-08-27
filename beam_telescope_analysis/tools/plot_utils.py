@@ -1838,7 +1838,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                         ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
                 effective_color_2d = color_indices[color_index_array[effective_pixels_2d]]
                 effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
-                plot_2d_pixel_hist(fig, ax, effective_color_2d.T, efficiency_regions_in_pixel_hist_extent, title='Effective pixel locations\nfor %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, aspect=1.0, show_colorbar=False)
+                plot_2d_pixel_hist(fig, ax, effective_color_2d.T, efficiency_regions_in_pixel_hist_extent, title='Region %d: Effective pixel locations\nfor %s' % (region_index + 1, actual_dut.name), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, aspect=1.0, show_colorbar=False)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                 ax.set_xlabel("column [$\mathrm{\mu}$m]")
                 ax.set_ylabel("row [$\mathrm{\mu}$m]")
