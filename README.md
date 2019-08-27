@@ -2,10 +2,22 @@
 Beam Telescope Analysis (BTA) software written in Python (and C++).
 
 ## Intended Use
+
 BTA is intended for use with data from multiple particle detectors in a particle beam.
 One or more detectors may be the device under test (DUT).
 Any detectors can part of a beam telescope (or hodoscope) or can be a trigger plane (e.g., region of interest trigger) or timing reference (i.e., reference plane, usually of the same type as the DUT).
 The software provides detailed analysis of any detector in sub-micrometer range if the resolution of the telescope allows.
+
+### Features
+
+1. Supporting any pixelated detectors, e.g., detectors with hexagonal pixels have been successfully investigated.
+2. Works even under harsh beam environments (i.e., high track densities, strong beam background) and delivers precise efficiencies.
+3. Alignment works even with limited information about the location of each detector (e.g., only z-position from the first and last telescope plane necessary).
+4. Providing Kalman-based estimates of particle tracks, especially for low-energy particle beams.
+
+BTA uses some novel approaches which have not yet been applied to data from beam telescopes:
+1. SVD-based method for suppressing beam background in pre-alignment.
+2. SVD-based method for alignment of the detector planes.
 
 ## Installation
 
@@ -83,6 +95,27 @@ Additional columns can be provided.
 
 *Note:*
 The columns `column` and `row` can be provided as float data type if x/y coordinates instead of indices are available.
+
+## Publications
+
+### Proceedings and Papers
+1. J. Janssen (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Test Beam Results of ATLAS DBM pCVD Diamond Detectors Using a Novel Threshold Tuning Method*, JINST. DOI: [10.1088/1748-0221/12/03/C03072](https://dx.doi.org/10.1088/1748-0221/12/03/C03072)
+2. D.-L. Pohl et al., *Radiation Hard Pixel Sensors Using High-Resistive Wafers in a 150nm CMOS Processing Line*, JINST. DOI: [10.1088/1748-0221/12/06/P06020](https://dx.doi.org/10.1088/1748-0221/12/06/P06020)
+3. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, preprint submitted.
+
+...more to come.
+
+### Conferences
+
+1. J. Janssen (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Test Beam Results of ATLAS Diamond Beam Monitor poly-crystalline CVD Diamond Modules*, [Topical Seminar on Innovative Particle and Radiation Detectors (IPRD)](http://www.bo.infn.it/sminiato/siena16.html), 2016, Siena, Italy.
+2. D.-L. Pohl et al., *Radiation-hard passive CMOS-sensors*, [13th Trento Workshop on Advanced Silicon Radiation Detectors](https://indico.cern.ch/event/666427/), 2018, Munich, Germany. https://indico.cern.ch/event/666427/contributions/2881132/
+3. H. Kagan (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Beam Test Results of 3D Pixel Detectors Constructed with pCVD Diamond*, [International Workshop on Semiconductor Pixel Detectors for Particles and Imaging (Pixel)](https://indico.cern.ch/event/669866/), 2018, Taipei, Taiwan. https://indico.cern.ch/event/669866/contributions/3245181/
+4. A. Oh (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Latest Results on Radiation Tolerance of Diamond Detectors & Status of 3D Diamond*, [Advanced Diamond Assemblies (ADAMAS)](http://www-adamas.gsi.de/workshops), 2018, Vienna, Austria.
+5. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, [15th Vienna Conference on Instrumentation (VCI)](https://vci2019.hephy.at/home/), 2019, Vienna, Austria.
+6. D. Sanz (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Development of Polycrystalline Chemical Vapor Deposition Diamond Detectors for Radiation Monitoring*, [7th International Conference on Radiation in Various Fields of Research (RAD)](https://rad2019.rad-conference.org/welcome.php), 2019, Herceg Novi, Montenegro.
+7. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Beam Test Results of 3D Pixel Detectors Constructed with Poly-Crystalline CVD Diamond*, [29th International Symposium on Lepton Photon Interactions at High Energies](https://indico.cern.ch/event/688643/), 2019, Toronto, Canada. https://indico.cern.ch/event/688643/contributions/3427856/
+
+...more to come.
 
 ## Contributing to BTA
 
