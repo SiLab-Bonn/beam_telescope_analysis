@@ -68,14 +68,14 @@ Optional:
 
 The input data for BTA must be using the PyTables/HDF5 file format.
 No other file format is currently supported.
-A single file must be provided for each detector (i.e., telescope plane, DUT, reference DUT, etc.).
+A single file must be provided for each detector (i.e., telescope plane, timing reference, DUT, etc.).
 
 ###  Hit Data Table
 Each input data file must contain a data table with the node name `Hits`.
 The hit data table must at least contain the following columns:
-- `event_number` (int): unique event number (increasing) for all events accross all detectors
-- `column` (int): column index starting from 1
-- `row` (int): row index starting from 1
+- `event_number` (int): unique event number (increasing) for all events accross all detectors; starting from 0
+- `column` (int): pixel column index; starting from 1
+- `row` (int): pixel row index; starting from 1
 - `frame` (int): timing bin (only applicable to some detectors, can be used for cluster building); if not available, set to 0.
 - `charge` (float): charge seen by the detector (only applicable to some detectors, can be used for charge weighted clustering); if not available, set to 0.
 
