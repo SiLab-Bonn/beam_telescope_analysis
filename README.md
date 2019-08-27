@@ -100,8 +100,9 @@ The columns `column` and `row` can be provided as float data type if x/y coordin
 
 ### Proceedings and Papers
 1. J. Janssen (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Test Beam Results of ATLAS DBM pCVD Diamond Detectors Using a Novel Threshold Tuning Method*, JINST. DOI: [10.1088/1748-0221/12/03/C03072](https://dx.doi.org/10.1088/1748-0221/12/03/C03072)
-2. D.-L. Pohl et al., *Radiation Hard Pixel Sensors Using High-Resistive Wafers in a 150nm CMOS Processing Line*, JINST. DOI: [10.1088/1748-0221/12/06/P06020](https://dx.doi.org/10.1088/1748-0221/12/06/P06020)
-3. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, preprint submitted.
+2. N. Wermes, *Pixel detectors ... where do we stand?*, NIMA. DOI: [10.1016/j.nima.2018.07.003](https://dx.doi.org/10.1016/j.nima.2018.07.003)
+3. D.-L. Pohl et al., *Radiation Hard Pixel Sensors Using High-Resistive Wafers in a 150nm CMOS Processing Line*, JINST. DOI: [10.1088/1748-0221/12/06/P06020](https://dx.doi.org/10.1088/1748-0221/12/06/P06020)
+4. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, preprint submitted.
 
 ...more to come.
 
