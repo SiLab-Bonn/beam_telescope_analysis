@@ -703,11 +703,25 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
+    # Create chi2 array
     if not isinstance(track_chi2, Iterable):
         track_chi2 = [track_chi2] * len(select_duts)
     # Finally check length
     if len(track_chi2) != len(select_duts):
         raise ValueError("track_chi2 has the wrong length")
+    # expand dimensions
+    # Check iterable and length for each item
+    for index, chi2 in enumerate(track_chi2):
+        # Check if non-iterable
+        if not isinstance(chi2, Iterable):
+            track_chi2[index] = [chi2] * len(select_duts[index])
+    # again check for consistency
+    for index, chi2 in enumerate(track_chi2):
+        # Check iterable and length
+        if not isinstance(chi2, Iterable):
+            raise ValueError("item in track_chi2 is no iterable")
+        if len(chi2) != len(select_duts[index]):  # empty iterable
+            raise ValueError("item in track_chi2 has the wrong length")
 
     # Create cluster shape selection
     if cluster_shapes is None:  # If None: set default value for all DUTs
@@ -715,20 +729,37 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     # Check iterable and length
     if not isinstance(cluster_shapes, Iterable):
         raise ValueError("cluster_shapes is no iterable")
-    elif not cluster_shapes:  # empty iterable
-        raise ValueError("cluster_shapes has no items")
+    # elif not cluster_shapes:  # empty iterable
+    #     raise ValueError("cluster_shapes has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable) and val is not None, cluster_shapes)):
         cluster_shapes = [cluster_shapes[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, cluster_shapes)):
-        raise ValueError("not all items in cluster_shapes are iterable")
+        raise ValueError("not all items in cluster_shapes are iterable or None")
     # Finally check length of all arrays
     if len(cluster_shapes) != len(select_duts):  # empty iterable
         raise ValueError("cluster_shapes has the wrong length")
-    for shapes in cluster_shapes:
-        if not shapes and shapes is not None:  # check the length of the items
+    # expand dimensions
+    # Check iterable and length for each item
+    for index, shapes in enumerate(cluster_shapes):
+        # Check if only non-iterable in iterable
+        if shapes is None:
+            cluster_shapes[index] = [shapes] * len(select_duts[index])
+        elif all(map(lambda val: not isinstance(val, Iterable) and val is not None, shapes)):
+            cluster_shapes[index] = [shapes[:] for _ in select_duts[index]]
+    # again check for consistency
+    for index, shapes in enumerate(cluster_shapes):
+        # Check iterable and length
+        if not isinstance(shapes, Iterable):
+            raise ValueError("item in cluster_shapes is no iterable")
+        elif not shapes:  # empty iterable
             raise ValueError("item in cluster_shapes has no items")
+        # Check if only iterable in iterable
+        if not all(map(lambda val: isinstance(val, Iterable) or val is None, shapes)):
+            raise ValueError("not all items of item in cluster_shapes are iterable or None")
+        if len(shapes) != len(select_duts[index]):  # empty iterable
+            raise ValueError("item in cluster_shapes has the wrong length")
 
     # Create quality distance
     if isinstance(quality_distances, tuple) or quality_distances is None:
@@ -743,7 +774,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         raise ValueError("quality_distances has the wrong length")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
-        raise ValueError("not all items in quality_distances are iterable")
+        raise ValueError("not all items in quality_distances are iterable or None")
     # Finally check length of all arrays
     for distance in quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
@@ -762,7 +793,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         raise ValueError("reject_quality_distances has the wrong length")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, reject_quality_distances)):
-        raise ValueError("not all items in reject_quality_distances are iterable")
+        raise ValueError("not all items in reject_quality_distances are iterable or None")
     # Finally check length of all arrays
     for distance in reject_quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
@@ -916,9 +947,10 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         output_selected_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_aligned_selected_tracks_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
         # generate query for select_tracks
         # generate default selection of cluster shapes: 1x1, 2x1, 1x2, 3-pixel cluster, 4-pixel cluster
-        if cluster_shapes is None:
-            cluster_shapes = default_cluster_shapes
-        select_condition = [(('(track_chi2 < %f)' % track_chi2 if track_chi2 else '') + (' & ' if track_chi2 and cluster_shapes else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes]).format(dut_index) + ')') if cluster_shapes else '')) for dut_index in actual_align_duts]
+        for index, shapes in enumerate(cluster_shapes):
+            if shapes is None:
+                cluster_shapes[index] = default_cluster_shapes
+        select_condition = [((('(track_chi2 < %f)' % track_chi2[index]) if track_chi2[index] else '') + (' & ' if (track_chi2[index] and cluster_shapes[index]) else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes[index]]).format(dut_index) + ')') if cluster_shapes[index] else '')) for index, dut_index in enumerate(actual_align_duts)]
         data_selection.select_tracks(
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_tracks_file,
