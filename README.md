@@ -21,9 +21,9 @@ BTA uses some novel approaches which have not yet been applied to data from beam
 
 ## Installation
 
-### Prerequisites for installation:
+Python 2.7 or Python 3 must be used. There are many ways to install Python, though we recommend using [Anaconda Python](https://www.anaconda.com/distribution/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
-Python 2.7 or Python 3 must be used.
+### Prerequisites
 
 The following packages are required and can be obtained from PyPI (via `pip install`) and/or from Anaconda (via `conda install`):
 - Cython
@@ -53,7 +53,7 @@ Clone the BTA repository:
 git clone https://github.com/SiLab-Bonn/beam_telescope_analysis.git
 ```
 
-If you want to modify the code without having to re-install the package every time, use the following command (from inside the repository):
+If you want to modify the code without having to re-install the package every time, use the following command (from within the repository folder):
 ```
 pip install -e .
 ```
@@ -83,6 +83,7 @@ No other file format is currently supported.
 A single file must be provided for each detector (i.e., telescope plane, timing reference, DUT, etc.).
 
 ###  Hit Data Table
+
 Each input data file must contain a data table with the node name `Hits`.
 The hit data table must at least contain the following columns:
 - `event_number` (int): unique event number (increasing) for all events accross all detectors; starting from 0
@@ -95,6 +96,26 @@ Additional columns can be provided.
 
 *Note:*
 The columns `column` and `row` can be provided as float data type if x/y coordinates instead of indices are available.
+
+## Contributing to BTA
+
+### Bug Report / Feature Request / Question
+
+Please use GitHub's [issue tracker](https://github.com/SiLab-Bonn/beam_telescope_analysis/issues).
+
+### Contributing Code to BTA
+
+1. Fork the project.
+2. Clone your fork and/or get the latest changes from upstream.
+2. Create a topic branch.
+3. Modify the code and commit your changes in logical chunks.
+4. Locally rebase the upstream branch into your topic branch.
+5. Push your topic branch to your fork.
+6. Open a [Pull Request (PR)](https://help.github.com/en/articles/about-pull-requests) with clear title and description about the modifications.
+
+### Predecessor of BTA
+
+[Testbeam Analysis](https://github.com/SiLab-Bonn/testbeam_analysis) (TBA) is the predecessor of Beam Telescope Analysis (BTA).
 
 ## Publications
 
@@ -117,23 +138,3 @@ The columns `column` and `row` can be provided as float data type if x/y coordin
 7. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Beam Test Results of 3D Pixel Detectors Constructed with Poly-Crystalline CVD Diamond*, [29th International Symposium on Lepton Photon Interactions at High Energies](https://indico.cern.ch/event/688643/), 2019, Toronto, Canada. https://indico.cern.ch/event/688643/contributions/3427856/
 
 ...more to come.
-
-## Contributing to BTA
-
-### Bug Report / Feature Request / Question
-
-Please use GitHub's [issue tracker](https://github.com/SiLab-Bonn/beam_telescope_analysis/issues).
-
-### Contributing Code to BTA
-
-1. Fork the project.
-2. Clone your fork and/or get the latest changes from upstream.
-2. Create a topic branch.
-3. Modify the code and commit your changes in logical chunks.
-4. Locally rebase the upstream branch into your topic branch.
-5. Push your topic branch to your fork.
-6. Open a [Pull Request (PR)](https://help.github.com/en/articles/about-pull-requests) with clear title and description about the modifications.
-
-### Predecessor of BTA
-
-[Testbeam Analysis](https://github.com/SiLab-Bonn/testbeam_analysis) (TBA) is the predecessor of Beam Telescope Analysis (BTA).
