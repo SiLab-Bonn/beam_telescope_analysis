@@ -538,6 +538,7 @@ def _mat_trans(X):
 def _mat_inverse(X, atol=1e-5, rtol=1e-8):
     '''Helper function to calculate inverese of 3D matrix. Inversion is done on last two axes.
     '''
+    X = np.ascontiguousarray(X)  # make array contiguous (avoid NumbaPerformance warning)
     inv = np.zeros((X.shape), dtype=np.float64)
     for i in range(X.shape[0]):
         inv[i] = linalg.inv(X[i])
