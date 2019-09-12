@@ -326,61 +326,80 @@ def plot_tracks_per_event(input_tracks_file, output_pdf_file=None):
                 output_pdf.savefig(fig)
 
 
-def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name=None, dut_names=None, select_duts=None, output_pdf_file=None, chunk_size=1000000):
+def plot_cluster_hists(telescope_configuration=None, input_cluster_file=None, input_merged_file=None, input_track_candidates_file=None, input_tracks_file=None, dut_name=None, select_duts=None, output_pdf_file=None, chunk_size=1000000):
     '''Plotting cluster histograms.
 
     Parameters
     ----------
     input_cluster_file : string
         Filename of the input cluster file.
+    input_merged_file : string
+        Filename of the input merged file.
+    input_track_candidates_file : string
+        Filename of the input track candiates file.
     input_tracks_file : string
         Filename of the input tracks file.
     dut_name : string
-        TBD
-    dut_names : iterable
-        TBD
+        Name of the DUT. Only needed when input_cluster_file file is used.
+        Otherwise dut_name is used from telescope object.
     select_duts : iterable
-        TBD
+        Selecting DUTs that will be processed.
     output_pdf_file : string
         Filename of the output PDF file. If None, the filename is derived from the input file.
     chunk_size : int
         Chunk size of the data when reading from file.
     '''
-    if (input_cluster_file and input_tracks_file) or (not input_cluster_file and not input_tracks_file):
+    if (input_cluster_file and (input_merged_file or input_track_candidates_file or input_tracks_file)) or (not input_cluster_file and not input_merged_file and not input_track_candidates_file and not input_tracks_file):
         raise ValueError("A single input file must be given")
 
-    if input_cluster_file and dut_names:
-        raise ValueError("\"dut_name\" parameter must be used")
+    if input_cluster_file and telescope_configuration:
+        raise ValueError("\"dut_name\" parameter must be used instead of \"telescope_configuration\" parameter")
 
-    if input_tracks_file and dut_name:
-        raise ValueError("\"dut_names\" parameter must be used")
+    if input_cluster_file and select_duts:
+        raise ValueError("\"select_duts\" parameter not supported when using input_cluster_file")
 
-    if input_tracks_file and not select_duts:
-        raise ValueError("\"select_duts\" parameter must be given")
+    if (input_merged_file or input_track_candidates_file or input_tracks_file) and dut_name:
+        raise ValueError("\"telescope_configuration\" parameter must be used instead of \"dut_name\" parameter")
+
+    if telescope_configuration is not None:
+        telescope = Telescope(telescope_configuration)
 
     if input_cluster_file:
         input_file = input_cluster_file
         select_duts = [None]
-    else:
+    elif input_merged_file:
+        input_file = input_merged_file
+        if select_duts is None:
+            select_duts = range(len(telescope))
+    elif input_track_candidates_file:
+        input_file = input_track_candidates_file
+        if select_duts is None:
+            select_duts = range(len(telescope))
+    elif input_tracks_file:
         input_file = input_tracks_file
+        if select_duts is None:
+            select_duts = range(len(telescope))
 
     if not output_pdf_file:
-        output_pdf_file = os.path.splitext(input_file)[0] + '.pdf'
+        output_pdf_file = os.path.splitext(input_file)[0] + '_cluster_hists.pdf'
 
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_file, mode='r') as in_file_h5:
             for actual_dut_index in select_duts:
-                if actual_dut_index is None:
+                if actual_dut_index is None:  # Cluster file
                     node = in_file_h5.get_node(in_file_h5.root, 'Clusters')
                 else:
-                    node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
+                    try:  # Track file
+                        node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
+                    except Exception:
+                        try:  # Merged file
+                            node = in_file_h5.get_node(in_file_h5.root, 'MergedClusters')
+                        except Exception:  # Track candidates file
+                            node = in_file_h5.get_node(in_file_h5.root, 'TrackCandidates')
 
-                    logging.info('Plotting cluster histograms for DUT%d', actual_dut_index)
-
-                    if dut_names is not None:
-                        dut_name = dut_names[actual_dut_index]
-                    else:
-                        dut_name = "DUT%d" % actual_dut_index
+                    actual_dut = telescope[actual_dut_index]
+                    dut_name = actual_dut.name
+                    logging.info('= Plotting cluster histograms for %s =', dut_name)
 
                 initialize = True  # initialize the histograms
                 try:
@@ -389,21 +408,23 @@ def plot_cluster_hists(input_cluster_file=None, input_tracks_file=None, dut_name
                     total_n_clusters = np.sum(cluster_size_hist)
                     cluster_shapes_hist = in_file_h5.root.HistClusterShape[:]
                 except tb.NoSuchNodeError:
-                    raise ValueError()
                     total_n_hits = 0
                     total_n_clusters = 0
                     for chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
-
                         if actual_dut_index is None:
                             cluster_n_hits = chunk['n_hits']
                             cluster_shape = chunk['cluster_shape']
                         else:
                             cluster_n_hits = chunk['n_hits_dut_%d' % actual_dut_index]
                             cluster_shape = chunk['cluster_shape_dut_%d' % actual_dut_index]
+                            valid_hits = ~np.isnan(chunk['x_dut_%d' % actual_dut_index])
+                            # Select events with valid hits in DUT
+                            cluster_n_hits = cluster_n_hits[valid_hits]
+                            cluster_shape = cluster_shape[valid_hits]
 
                         max_cluster_size = np.max(cluster_n_hits)
                         total_n_hits += np.sum(cluster_n_hits)
-                        total_n_clusters += chunk.shape[0]
+                        total_n_clusters += cluster_n_hits.shape[0]
                         # limit cluster shape histogram to cluster size 4x4
                         edges = np.arange(2**(4 * 4))
                         if initialize:
