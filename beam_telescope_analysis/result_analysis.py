@@ -557,7 +557,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -591,6 +591,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         Fiducial region in x and y direction (in um) for each selected DUT.
         The efficiency will be calculated plotted for each region individually.
         For each efficiency region, in-pixel plots are generated.
+    efficiency_region_names : list of strings
+        Optional names for efficiency regions.
     output_efficiency_file : string
         Filename of the output efficiency file. If None, the filename will be derived from the input hits file.
     minimum_track_density : uint
@@ -730,6 +732,22 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     if len(region_direction) != 2:  # check the length of the items
                         raise ValueError("item in efficiency_regions is not list of tuples of 2-tuples")
 
+    # Create efficiency_region_names array
+    if isinstance(efficiency_region_names, tuple) or efficiency_region_names is None:
+        efficiency_region_names = [efficiency_region_names] * len(select_duts)
+    # Check iterable and length
+    if not isinstance(efficiency_region_names, Iterable):
+        raise ValueError("efficiency_region_names is no iterable")
+    elif not efficiency_region_names:  # empty iterable
+        raise ValueError("efficiency_region_names has no items")
+    # Finally check length of all arrays
+    if len(efficiency_region_names) != len(select_duts):  # empty iterable
+        raise ValueError("efficiency_region_names has the wrong length")
+    # Finally check length of all arrays
+    for region_name, regions, in zip(efficiency_region_names, efficiency_regions):
+        if len(region_name) != len(regions):
+            raise ValueError("Items in efficiency_region_names do not have the same lenght as items in efficiency_regions")
+
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
         cut_distances = [cut_distances] * len(select_duts)
@@ -815,6 +833,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 if plot_range is None:
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
                 efficiency_regions_dut = efficiency_regions[index]
+                efficiency_region_names_dut = efficiency_region_names[index]
                 if efficiency_regions_dut is not None:
                     extend_in_pixel_area = extend_in_pixel_areas[index]
                     # Calculate in-pixel histogram properties (bins size and number of bins)
@@ -1489,13 +1508,20 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 logging.info('Efficiency = %.2f (+%.2f / %.2f)%%' % (eff * 100.0, eff_err_pl * 100.0, eff_err_min * 100.0))
                 if efficiency_regions_dut is not None:
                     for region_index, efficiency in enumerate(efficiency_regions_efficiency):
-                        logging.info('Efficiency for region %d = %.2f%%' % (region_index + 1, efficiency * 100.0))
+                        if efficiency_region_names_dut[region_index] is not None:
+                            logging.info('Efficiency for region %d (%s)= %.2f%%' % (region_index + 1, efficiency_region_names_dut[region_index], efficiency * 100.0))
+                        else:
+                            logging.info('Efficiency for region %d= %.2f%%' % (region_index + 1, efficiency * 100.0))
                         # resize so that all histograms have the same size
                         if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
                             efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
                         if count_1d_frame_hist.size > efficiency_regions_count_1d_frame_hist[region_index].size:
                             efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size)
-                        logging.info('Mean charge for region %d = %.2f' % (region_index + 1, analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))))
+                        mean_charge = analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))
+                        if efficiency_region_names_dut[region_index] is not None:
+                            logging.info('Mean charge for region %d (%s) = %.2f' % (region_index + 1, efficiency_region_names_dut[region_index], mean_charge))
+                        else:
+                            logging.info('Mean charge for region %d = %.2f' % (region_index + 1, mean_charge))
 
                 if not np.any(stat_2d_efficiency_hist):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut_index)
