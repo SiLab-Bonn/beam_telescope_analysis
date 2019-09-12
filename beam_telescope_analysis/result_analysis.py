@@ -1071,9 +1071,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                     efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size)
                                 efficiency_regions_count_1d_cluster_size_hist[region_index] += efficiency_region_count_1d_cluster_size_hist_tmp
                             if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
-                                efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
                             else:
-                                efficiency_regions_count_1d_cluster_shape_hist[region_index] += np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] += np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
                             # Pixel tracks
                             _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_tracks_efficiency_region], intersection_y_local[select_valid_tracks_efficiency_region])))
                             if efficiency_regions_count_tracks_pixel_hist[region_index] is None:
