@@ -1178,7 +1178,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_cluster_size_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, analyze_cluster_shapes, mask_zero=True, output_pdf=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_region_names, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, analyze_cluster_shapes, mask_zero=True, output_pdf=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -1527,6 +1527,87 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.set_ylim(plot_range[1])
     output_pdf.savefig(fig)
 
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    count_1d_total_angle_hist_edges = count_1d_total_angle_hist_edges * 1000.0  # convert to mrad
+    bin_centers = (count_1d_total_angle_hist_edges[1:] + count_1d_total_angle_hist_edges[:-1]) / 2.0
+    width = np.diff(bin_centers)[0]
+    ax.bar(x=bin_centers, height=count_1d_total_angle_hist, width=width, align='center')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_title('Total track angle distribution\nfor %s' % actual_dut.name)
+    ax.set_yscale('log')
+    ax.set_xlabel('Track angle [mrad]')
+    output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+    stat_2d_total_angle_hist = stat_2d_total_angle_hist * 1000.0  # convert to mrad
+    z_max = stat_2d_total_angle_hist.max()
+    z_min = stat_2d_total_angle_hist.min()
+    plot_2d_pixel_hist(fig, ax, stat_2d_total_angle_hist.T, hist_extent, title='Mean total track angle\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    count_1d_alpha_angle_hist_edges = count_1d_alpha_angle_hist_edges * 1000.0  # convert to mrad
+    bin_centers = (count_1d_alpha_angle_hist_edges[1:] + count_1d_alpha_angle_hist_edges[:-1]) / 2.0
+    width = np.diff(bin_centers)[0]
+    ax.bar(x=bin_centers, height=count_1d_alpha_angle_hist, width=width, align='center')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_title('Alpha track angle distribution\nfor %s' % actual_dut.name)
+    ax.set_yscale('log')
+    ax.set_xlabel('Track angle [mrad]')
+    output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+    stat_2d_alpha_angle_hist = stat_2d_alpha_angle_hist * 1000.0  # convert to mrad
+    z_max = stat_2d_alpha_angle_hist.max()
+    z_min = stat_2d_alpha_angle_hist.min()
+    plot_2d_pixel_hist(fig, ax, stat_2d_alpha_angle_hist.T, hist_extent, title='Mean alpha track angle\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    count_1d_beta_angle_hist_edges = count_1d_beta_angle_hist_edges * 1000.0  # convert to mrad
+    bin_centers = (count_1d_beta_angle_hist_edges[1:] + count_1d_beta_angle_hist_edges[:-1]) / 2.0
+    width = np.diff(bin_centers)[0]
+    ax.bar(x=bin_centers, height=count_1d_beta_angle_hist, width=width, align='center')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_title('Beta track angle distribution\nfor %s' % actual_dut.name)
+    ax.set_yscale('log')
+    ax.set_xlabel('Track angle [mrad]')
+    output_pdf.savefig(fig)
+
+    fig = Figure()
+    _ = FigureCanvas(fig)
+    ax = fig.add_subplot(111)
+    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+    stat_2d_beta_angle_hist = stat_2d_beta_angle_hist * 1000.0  # convert to mrad
+    z_max = stat_2d_beta_angle_hist.max()
+    z_min = stat_2d_beta_angle_hist.min()
+    plot_2d_pixel_hist(fig, ax, stat_2d_beta_angle_hist.T, hist_extent, title='Mean beta track angle\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max)
+    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+    ax.add_patch(rect)
+    ax.set_xlim(plot_range[0])
+    ax.set_ylim(plot_range[1])
+    output_pdf.savefig(fig)
+
     if np.any(~stat_2d_efficiency_hist.mask):
         fig = Figure()
         _ = FigureCanvas(fig)
@@ -1769,6 +1850,45 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.autoscale()
                 ax.set_yscale('log')
                 ax.set_ylim(ymin=1e-1)
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                efficiency_regions_count_1d_total_angle_hist_edges[region_index] = efficiency_regions_count_1d_total_angle_hist_edges[region_index] * 1000.0  # convert to mrad
+                bin_centers = (efficiency_regions_count_1d_total_angle_hist_edges[region_index][1:] + efficiency_regions_count_1d_total_angle_hist_edges[region_index][:-1]) / 2.0
+                width = np.diff(bin_centers)[0]
+                ax.bar(x=bin_centers, height=efficiency_regions_count_1d_total_angle_hist[region_index] / np.sum(efficiency_regions_count_1d_total_angle_hist[region_index]).astype(np.float32), width=width, align='center')
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax.set_title('Region %d: Total track angle distribution\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                ax.set_yscale('log')
+                ax.set_xlabel('Track angle [mrad]')
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                efficiency_regions_count_1d_alpha_angle_hist_edges[region_index] = efficiency_regions_count_1d_alpha_angle_hist_edges[region_index] * 1000.0  # convert to mrad
+                bin_centers = (efficiency_regions_count_1d_alpha_angle_hist_edges[region_index][1:] + efficiency_regions_count_1d_alpha_angle_hist_edges[region_index][:-1]) / 2.0
+                width = np.diff(bin_centers)[0]
+                ax.bar(x=bin_centers, height=efficiency_regions_count_1d_alpha_angle_hist[region_index] / np.sum(efficiency_regions_count_1d_alpha_angle_hist[region_index]).astype(np.float32), align='center', width=width)
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax.set_title('Region %d: Alpha track angle distribution\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                ax.set_yscale('log')
+                ax.set_xlabel('Track angle [mrad]')
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                efficiency_regions_count_1d_beta_angle_hist_edges[region_index] = efficiency_regions_count_1d_beta_angle_hist_edges[region_index] * 1000.0  # convert to mrad
+                bin_centers = (efficiency_regions_count_1d_beta_angle_hist_edges[region_index][1:] + efficiency_regions_count_1d_beta_angle_hist_edges[region_index][:-1]) / 2.0
+                width = np.diff(bin_centers)[0]
+                ax.bar(x=bin_centers, height=efficiency_regions_count_1d_beta_angle_hist[region_index] / np.sum(efficiency_regions_count_1d_beta_angle_hist[region_index]).astype(np.float32), width=width, align='center')
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax.set_title('Region %d: Beta track angle distribution\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
+                ax.set_yscale('log')
+                ax.set_xlabel('Track angle [mrad]')
                 output_pdf.savefig(fig)
 
                 # in-pixel plots

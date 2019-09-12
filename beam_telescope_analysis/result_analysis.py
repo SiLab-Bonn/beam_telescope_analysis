@@ -557,7 +557,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, efficiency_regions=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -585,6 +585,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     plot_ranges : 2-tuple of 2-tuples or list of 2-tuple of 2-tuples
         Plot range in x and y direction (in um) for each selected DUT.
         If None, use default values (i.e., positive direction of the x axis to the right and of y axis to the top, including extended area).
+    n_bins_track_angle: int
+        Number of bins for track angle histograms.
     efficiency_regions : tuple of tuples of 2-tuples or list of lists of tuples of 2-tuples
         Fiducial region in x and y direction (in um) for each selected DUT.
         The efficiency will be calculated plotted for each region individually.
@@ -830,6 +832,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_1d_frame_hist = []
                     efficiency_regions_count_1d_cluster_size_hist = []
                     efficiency_regions_count_1d_cluster_shape_hist = []
+                    efficiency_regions_count_1d_total_angle_hist = []
+                    efficiency_regions_count_1d_total_angle_hist_edges = []
+                    efficiency_regions_count_1d_alpha_angle_hist = []
+                    efficiency_regions_count_1d_alpha_angle_hist_edges = []
+                    efficiency_regions_count_1d_beta_angle_hist = []
+                    efficiency_regions_count_1d_beta_angle_hist_edges = []
                     efficiency_regions_count_tracks_pixel_hist = []
                     efficiency_regions_count_tracks_with_hit_pixel_hist = []
                     efficiency_regions_stat_pixel_efficiency_hist = []
@@ -839,6 +847,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency_regions_count_1d_charge_hist.append(None)
                         efficiency_regions_count_1d_frame_hist.append(None)
                         efficiency_regions_count_1d_cluster_size_hist.append(None)
+                        efficiency_regions_count_1d_total_angle_hist.append(None)
+                        efficiency_regions_count_1d_total_angle_hist_edges.append(None)
+                        efficiency_regions_count_1d_alpha_angle_hist.append(None)
+                        efficiency_regions_count_1d_alpha_angle_hist_edges.append(None)
+                        efficiency_regions_count_1d_beta_angle_hist.append(None)
+                        efficiency_regions_count_1d_beta_angle_hist_edges.append(None)
                         efficiency_regions_count_1d_cluster_shape_hist.append(None)
                         efficiency_regions_count_tracks_pixel_hist.append(None)
                         efficiency_regions_count_tracks_with_hit_pixel_hist.append(None)
@@ -895,6 +909,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_1d_charge_hist = None
                     efficiency_regions_count_1d_frame_hist = None
                     efficiency_regions_count_1d_cluster_size_hist = None
+                    efficiency_regions_count_1d_total_angle_hist = None
+                    efficiency_regions_count_1d_total_angle_hist_edges = None
+                    efficiency_regions_count_1d_alpha_angle_hist = None
+                    efficiency_regions_count_1d_alpha_angle_hist_edges = None
+                    efficiency_regions_count_1d_beta_angle_hist = None
+                    efficiency_regions_count_1d_beta_angle_hist_edges = None
                     efficiency_regions_count_1d_cluster_shape_hist = None
                     efficiency_regions_count_tracks_pixel_hist = None
                     efficiency_regions_count_tracks_with_hit_pixel_hist = None
@@ -952,6 +972,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     y_residuals = hit_y_local - intersection_y_local
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
                     select_finite_distance = np.isfinite(distance_local)
+
+                    # Calculate track angles in column and row direction (local coordinate system)
+                    track_slopes_local = np.column_stack([
+                        tracks_chunk['slope_x'],
+                        tracks_chunk['slope_y'],
+                        tracks_chunk['slope_z']])
+                    total_angles_local, alpha_angles_local, beta_angles_local = get_angles(
+                        slopes=track_slopes_local,
+                        xz_plane_normal=np.array([0.0, 1.0, 0.0]),
+                        yz_plane_normal=np.array([1.0, 0.0, 0.0]),
+                        dut_plane_normal=np.array([0.0, 0.0, 1.0]))
 
                     cut_distance = cut_distances[index]
                     if cut_distance is None:
@@ -1070,6 +1101,39 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 else:
                                     efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size)
                                 efficiency_regions_count_1d_cluster_size_hist[region_index] += efficiency_region_count_1d_cluster_size_hist_tmp
+                            if efficiency_regions_count_1d_total_angle_hist[region_index] is None:
+                                local_total_mean = np.nanmean(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_total_std = np.nanstd(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_total_angle_hist[region_index], efficiency_regions_count_1d_total_angle_hist_edges[region_index] = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
+                            else:
+                                efficiency_region_count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_total_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_total_angle_hist_tmp.size > efficiency_regions_count_1d_total_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_total_angle_hist[region_index].resize(efficiency_region_count_1d_total_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_total_angle_hist_tmp.resize(efficiency_regions_count_1d_total_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_total_angle_hist[region_index] += efficiency_region_count_1d_total_angle_hist_tmp
+                            if efficiency_regions_count_1d_alpha_angle_hist[region_index] is None:
+                                local_alpha_mean = np.nanmean(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_alpha_std = np.nanstd(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_alpha_angle_hist[region_index], efficiency_regions_count_1d_alpha_angle_hist_edges[region_index] = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
+                            else:
+                                efficiency_region_count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_alpha_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_alpha_angle_hist_tmp.size > efficiency_regions_count_1d_alpha_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_alpha_angle_hist[region_index].resize(efficiency_region_count_1d_alpha_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_alpha_angle_hist_tmp.resize(efficiency_regions_count_1d_alpha_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_alpha_angle_hist[region_index] += efficiency_region_count_1d_alpha_angle_hist_tmp
+                            if efficiency_regions_count_1d_beta_angle_hist[region_index] is None:
+                                local_beta_mean = np.nanmean(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_beta_std = np.nanstd(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_beta_angle_hist[region_index], efficiency_regions_count_1d_beta_angle_hist_edges[region_index] = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
+                            else:
+                                efficiency_region_count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_beta_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_beta_angle_hist_tmp.size > efficiency_regions_count_1d_beta_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_beta_angle_hist[region_index].resize(efficiency_region_count_1d_beta_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_beta_angle_hist_tmp.resize(efficiency_regions_count_1d_beta_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_beta_angle_hist[region_index] += efficiency_region_count_1d_beta_angle_hist_tmp
                             if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
                                 efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
                             else:
@@ -1169,6 +1233,27 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # 2D mean cluster size
                         stat_2d_cluster_size_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=cluster_size[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_cluster_size_hist = np.nan_to_num(stat_2d_cluster_size_hist)
+                        # 1D total track angle
+                        local_total_mean = np.nanmean(total_angles_local[select_valid_hit])
+                        local_total_std = np.nanstd(total_angles_local[select_valid_hit])
+                        count_1d_total_angle_hist, count_1d_total_angle_hist_edges = np.histogram(total_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
+                        # 2D mean total angle
+                        stat_2d_total_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=total_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_total_angle_hist = np.nan_to_num(stat_2d_total_angle_hist)
+                        # 1D alpha track angle
+                        local_alpha_mean = np.nanmean(alpha_angles_local[select_valid_hit])
+                        local_alpha_std = np.nanstd(alpha_angles_local[select_valid_hit])
+                        count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges = np.histogram(alpha_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
+                        # 2D mean alpha track angle
+                        stat_2d_alpha_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=alpha_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_alpha_angle_hist = np.nan_to_num(stat_2d_alpha_angle_hist)
+                        # 1D beta track angle
+                        local_beta_mean = np.nanmean(beta_angles_local[select_valid_hit])
+                        local_beta_std = np.nanstd(beta_angles_local[select_valid_hit])
+                        count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges = np.histogram(beta_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
+                        # 2D mean beta track angle
+                        stat_2d_beta_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_beta_angle_hist = np.nan_to_num(stat_2d_beta_angle_hist)
                     else:
                         count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D hits
@@ -1213,6 +1298,39 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_cluster_size_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit & select_small_cluster_sizes], y=intersection_y_local[select_valid_hit & select_small_cluster_sizes], values=cluster_size[select_valid_hit & select_small_cluster_sizes], statistic='mean', bins=hist_2d_edges)
                         stat_2d_cluster_size_hist_tmp = np.nan_to_num(stat_2d_cluster_size_hist_tmp)
                         stat_2d_cluster_size_hist, _ = np.ma.average(a=np.stack([stat_2d_cluster_size_hist, stat_2d_cluster_size_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D total track anlge
+                        count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_hit], bins=count_1d_total_angle_hist_edges)[0]
+                        if count_1d_total_angle_hist_tmp.size > count_1d_total_angle_hist.size:
+                            count_1d_total_angle_hist.resize(count_1d_total_angle_hist_tmp.size)
+                        else:
+                            count_1d_total_angle_hist_tmp.resize(count_1d_total_angle_hist.size)
+                        count_1d_total_angle_hist += count_1d_total_angle_hist_tmp
+                        # 2D total track angle
+                        stat_2d_total_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=total_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_total_angle_hist_tmp = np.nan_to_num(stat_2d_total_angle_hist_tmp)
+                        stat_2d_total_angle_hist, count_2d_total_angle_hist = np.ma.average(a=np.stack([stat_2d_total_angle_hist, stat_2d_total_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D alpha track angle
+                        count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_hit], bins=count_1d_alpha_angle_hist_edges)[0]
+                        if count_1d_alpha_angle_hist_tmp.size > count_1d_alpha_angle_hist.size:
+                            count_1d_alpha_angle_hist.resize(count_1d_alpha_angle_hist_tmp.size)
+                        else:
+                            count_1d_alpha_angle_hist_tmp.resize(count_1d_alpha_angle_hist.size)
+                        count_1d_alpha_angle_hist += count_1d_alpha_angle_hist_tmp
+                        # 2D alpha track angle
+                        stat_2d_alpha_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=alpha_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_alpha_angle_hist_tmp = np.nan_to_num(stat_2d_alpha_angle_hist_tmp)
+                        stat_2d_alpha_angle_hist, count_2d_alpha_angle_hist = np.ma.average(a=np.stack([stat_2d_alpha_angle_hist, stat_2d_alpha_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D beta track angle
+                        count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_hit], bins=count_1d_beta_angle_hist_edges)[0]
+                        if count_1d_beta_angle_hist_tmp.size > count_1d_beta_angle_hist.size:
+                            count_1d_beta_angle_hist.resize(count_1d_beta_angle_hist_tmp.size)
+                        else:
+                            count_1d_beta_angle_hist_tmp.resize(count_1d_beta_angle_hist.size)
+                        count_1d_beta_angle_hist += count_1d_beta_angle_hist_tmp
+                        # 2D beta track angle
+                        stat_2d_beta_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_beta_angle_hist_tmp = np.nan_to_num(stat_2d_beta_angle_hist_tmp)
+                        stat_2d_beta_angle_hist, count_2d_beta_angle_hist = np.ma.average(a=np.stack([stat_2d_beta_angle_hist, stat_2d_beta_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # updated last:
                         # 2D tracks with valid hit
                         count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
@@ -1266,6 +1384,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_charge_hist = np.ma.array(stat_2d_charge_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_frame_hist = np.ma.array(stat_2d_frame_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_cluster_size_hist = np.ma.array(stat_2d_cluster_size_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_total_angle_hist = np.ma.array(stat_2d_total_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_alpha_angle_hist = np.ma.array(stat_2d_alpha_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_beta_angle_hist = np.ma.array(stat_2d_beta_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
                 if efficiency_regions_dut is not None:
                     efficiency_regions_mask = []
@@ -1393,6 +1514,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     count_1d_frame_hist=count_1d_frame_hist,
                     stat_2d_frame_hist=stat_2d_frame_hist,
                     stat_2d_cluster_size_hist=stat_2d_cluster_size_hist,
+                    count_1d_total_angle_hist=count_1d_total_angle_hist,
+                    count_1d_total_angle_hist_edges=count_1d_total_angle_hist_edges,
+                    stat_2d_total_angle_hist=stat_2d_total_angle_hist,
+                    count_1d_alpha_angle_hist=count_1d_alpha_angle_hist,
+                    count_1d_alpha_angle_hist_edges=count_1d_alpha_angle_hist_edges,
+                    stat_2d_alpha_angle_hist=stat_2d_alpha_angle_hist,
+                    count_1d_beta_angle_hist=count_1d_beta_angle_hist,
+                    count_1d_beta_angle_hist_edges=count_1d_beta_angle_hist_edges,
+                    stat_2d_beta_angle_hist=stat_2d_beta_angle_hist,
                     stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                     stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                     count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
@@ -1406,6 +1536,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
                     efficiency_regions_count_1d_frame_hist=efficiency_regions_count_1d_frame_hist,
                     efficiency_regions_count_1d_cluster_size_hist=efficiency_regions_count_1d_cluster_size_hist,
+                    efficiency_regions_count_1d_total_angle_hist=efficiency_regions_count_1d_total_angle_hist,
+                    efficiency_regions_count_1d_total_angle_hist_edges=efficiency_regions_count_1d_total_angle_hist_edges,
+                    efficiency_regions_count_1d_alpha_angle_hist=efficiency_regions_count_1d_alpha_angle_hist,
+                    efficiency_regions_count_1d_alpha_angle_hist_edges=efficiency_regions_count_1d_alpha_angle_hist_edges,
+                    efficiency_regions_count_1d_beta_angle_hist=efficiency_regions_count_1d_beta_angle_hist,
+                    efficiency_regions_count_1d_beta_angle_hist_edges=efficiency_regions_count_1d_beta_angle_hist_edges,
                     efficiency_regions_count_1d_cluster_shape_hist=efficiency_regions_count_1d_cluster_shape_hist,
                     efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
                     efficiency_regions_count_in_pixel_hits_2d_hist=count_in_pixel_hits_2d_hists,
@@ -1523,6 +1659,57 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(stat_2d_frame_hist.dtype),
                     shape=stat_2d_frame_hist.shape)
                 out_stat_2d_frame_hist[:] = stat_2d_frame_hist
+
+                out_count_1d_total_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_total_angle_hist',
+                    title='count_1d_total_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_total_angle_hist.dtype),
+                    shape=count_1d_total_angle_hist.shape)
+                out_count_1d_total_angle_hist[:] = count_1d_total_angle_hist
+                out_count_1d_total_angle_hist.attrs.edges = count_1d_total_angle_hist_edges
+
+                out_stat_2d_total_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_total_angle_hist',
+                    title='stat_2d_total_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_total_angle_hist.dtype),
+                    shape=stat_2d_total_angle_hist.shape)
+                out_stat_2d_total_angle_hist[:] = stat_2d_total_angle_hist
+
+                out_count_1d_alpha_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_alpha_angle_hist',
+                    title='count_1d_alpha_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_alpha_angle_hist.dtype),
+                    shape=count_1d_alpha_angle_hist.shape)
+                out_count_1d_alpha_angle_hist[:] = count_1d_alpha_angle_hist
+                out_count_1d_alpha_angle_hist.attrs.edges = count_1d_alpha_angle_hist_edges
+
+                out_stat_2d_alpha_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_alpha_angle_hist',
+                    title='stat_2d_alpha_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_alpha_angle_hist.dtype),
+                    shape=stat_2d_alpha_angle_hist.shape)
+                out_stat_2d_alpha_angle_hist[:] = stat_2d_alpha_angle_hist
+
+                out_count_1d_beta_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_beta_angle_hist',
+                    title='count_1d_beta_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_beta_angle_hist.dtype),
+                    shape=count_1d_beta_angle_hist.shape)
+                out_count_1d_beta_angle_hist[:] = count_1d_beta_angle_hist
+                out_count_1d_beta_angle_hist.attrs.edges = count_1d_beta_angle_hist_edges
+
+                out_stat_2d_beta_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_beta_angle_hist',
+                    title='stat_2d_beta_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_beta_angle_hist.dtype),
+                    shape=stat_2d_beta_angle_hist.shape)
+                out_stat_2d_beta_angle_hist[:] = stat_2d_beta_angle_hist
 
                 out_stat_2d_efficiency_hist = out_file_h5.create_carray(
                     where=dut_group,
