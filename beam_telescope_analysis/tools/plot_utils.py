@@ -1763,6 +1763,23 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
+                # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+                z_min = 0.0
+                plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+                region = efficiency_regions[region_index]
+                rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                txt = 'Region %d\nefficiency:\n%.2f%%' % (region_index + 1, efficiency_regions_efficiency[region_index] * 100.0)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, txt, horizontalalignment='center', verticalalignment='center', fontsize=8)
+                rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                ax.set_xlim(plot_range[0])
+                ax.set_ylim(plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
                 ax.grid()
                 ax.set_title('Region %d: Efficiency per pixel\nfor %s\n(%d Pixels)' % (region_index + 1, actual_dut.name, region_n_pixels))
                 ax.set_xlabel('Efficiency [%]')
