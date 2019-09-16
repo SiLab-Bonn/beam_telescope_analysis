@@ -286,7 +286,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                progress_bar.update(index_chunk)
+                progress_bar.update(tracklets_data_chunk.shape[0])
 
             progress_bar.close()
 
@@ -913,7 +913,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     total_n_events_stored_last = total_n_events_stored
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    progress_bar.update(index_chunk)
+                    progress_bar.update(track_candidates_chunk.shape[0])
                     # progress_bar.update(min(total_n_tracks, max_tracks) if max_tracks is not None else index_chunk)
                 progress_bar.close()
                 # print "***************"

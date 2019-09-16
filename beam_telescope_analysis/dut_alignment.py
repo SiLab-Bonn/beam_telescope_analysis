@@ -160,7 +160,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         if align_to_beam and local_to_global:
                             convert_data(dut=telescope, dut_index=dut_index, node=node, conv=conv, data=data_chunk)
                     hits_aligned_table.append(data_chunk)
-                    progress_bar.update(index)
+                    progress_bar.update(data_chunk.shape[0])
                 progress_bar.close()
 
     return output_file

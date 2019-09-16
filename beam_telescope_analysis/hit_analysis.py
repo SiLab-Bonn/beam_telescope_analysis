@@ -158,7 +158,7 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
                         z=0.0)
 
                 out_table.append(out_data)
-                progress_bar.update(index)
+                progress_bar.update(data_chunk.shape[0])
             progress_bar.close()
 
     return output_file
@@ -1334,7 +1334,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                     for index, dut_result in enumerate(dut_results):
                         (start_indices[index], x_correlations[index], y_correlations[index]) = dut_result.get()
 
-                    progress_bar.update(ref_read_index)
+                    progress_bar.update(ref_data_chunk.shape[0])
                 progress_bar.close()
 
                 pool.close()
@@ -1662,7 +1662,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 merged_cluster_table.append(merged_cluster_array)
                 merged_cluster_table.flush()
                 actual_start_event_number = common_event_numbers[-1] + 1  # Set the starting event number for the next chunked read
-                progress_bar.update(start_indices_data_loop[0])
+                progress_bar.update(actual_cluster_dut_0.shape[0])
             progress_bar.close()
 
     return output_merged_file
