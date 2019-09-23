@@ -66,7 +66,7 @@ def sort_modules_by_timestamp(pybar_runs, partition_dirs):
 
         partitions.append(np.sort(np.concatenate(module_hits), order=('spill', 'trigger_time_stamp', 'module')))
     run = np.sort(np.concatenate(partitions), order=('spill', 'trigger_time_stamp', 'partition', 'module'))  # combine all partition arrays to one run array
-    print "hits in run", run.shape
+    print("hits in run", run.shape)
     spills.extend(np.split(run, np.where(np.diff(run['spill']) > 0)[0]))  # sort hits by spill rather than partition
 
     return partitions, spills
@@ -102,8 +102,8 @@ def plot_timestamps(partition_hit_tables, spill_hit_tables):
         edges.append(edge)
     timestamps = np.vstack(timestamps)
     ts = np.sum(timestamps, axis=0)
-    print ts
-    print edges[-1][:-1]
+    print(ts)
+    print(edges[-1][:-1])
 #         np.histogram(np.diff(timestamps), bins= 50, range=(1,1000))[0] #np.bincount(np.diff(ts),minlength = 10)
     plt.title('Difference of timestamps for run 2815')
     plt.xlabel("# clock cycles")
@@ -236,7 +236,7 @@ def merge_hits(hit_tables_in, chunk_size=None, files = None):
         event_number += 1
 
     for i, plane in enumerate(hit_tables_in):
-        print "old event number of table", i, plane[indices[i]]['event_number'], "new event number", new_tables[i][indices[i]]['event_number'], "timestamp", plane[indices[i]]['trigger_time_stamp']
+        print("old event number of table", i, plane[indices[i]]['event_number'], "new event number", new_tables[i][indices[i]]['event_number'], "timestamp", plane[indices[i]]['trigger_time_stamp'])
     logging.info("fixed event numbers for %s spills" % n_spills)
     logging.info("last event_number %s , timestamp %s" % (event_number, min_ts))
     return new_tables
