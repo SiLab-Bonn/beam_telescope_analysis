@@ -983,13 +983,16 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 pbar.close()
                 fitted_duts.extend(actual_fit_duts)
 
-                plot_utils.plot_fit_tracks_statistics(
-                    telescope=telescope,
-                    fit_duts=actual_fit_duts,
-                    chunk_indices=chunk_indices,
-                    chunk_stats=chunk_stats,
-                    dut_stats=dut_stats,
-                    output_pdf=output_pdf)
+                try:
+                    plot_utils.plot_fit_tracks_statistics(
+                        telescope=telescope,
+                        fit_duts=actual_fit_duts,
+                        chunk_indices=chunk_indices,
+                        chunk_stats=chunk_stats,
+                        dut_stats=dut_stats,
+                        output_pdf=output_pdf)
+                except ValueError:
+                    logging.error('could not plot fit statistics')
 
     pool.close()
     pool.join()
