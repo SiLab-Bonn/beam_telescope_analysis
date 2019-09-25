@@ -41,7 +41,7 @@ with open('requirements.txt') as f:
 setup(
     name='beam_telescope_analysis',
     version=version,
-    description='Beam telescope analysis in Python',
+    description='Beam Telescope Analysis (BTA) is a testbeam analysis software written in Python (and C++).',
     url='https://github.com/SiLab-Bonn/beam_telescope_analysis',
     license='MIT',
     long_description='',
@@ -56,7 +56,7 @@ setup(
     ext_modules=cpp_extension,
     include_dirs=[np.get_include()],
     cmdclass={'build_ext': build_ext_opt},
-    keywords=['beam', 'telescope', 'eudaq', 'mimosa26', 'atlas', 'fei4', 'alignment', 'dut'],
+    keywords=['telescope', 'eudaq', 'mimosa26', 'psi46', 'fei4', 'alignment', 'testbeam', 'cern', "hodoscope", "beam-telescope", "pixelated-detectors"],
     python_requires='>=2.7',
     platforms='any'
 )
