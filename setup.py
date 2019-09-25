@@ -57,5 +57,6 @@ setup(
     include_dirs=[np.get_include()],
     cmdclass={'build_ext': build_ext_opt},
     keywords=['beam', 'telescope', 'eudaq', 'mimosa26', 'atlas', 'fei4', 'alignment', 'dut'],
+    python_requires='>=2.7',
     platforms='any'
 )
