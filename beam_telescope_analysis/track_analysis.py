@@ -186,7 +186,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
             total_n_tracks_stored = 0
             total_n_events_stored = 0
 
-            progress_bar = tqdm(total=total_n_tracks, ncols=80)
+            pbar = tqdm(total=total_n_tracks, ncols=80)
 
             for tracklets_data_chunk, index_chunk in analysis_utils.data_aligned_at_events(tracklets_node, chunk_size=chunk_size):
                 n_tracks_chunk = tracklets_data_chunk.shape[0]
@@ -286,9 +286,9 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                progress_bar.update(tracklets_data_chunk.shape[0])
+                pbar.update(tracklets_data_chunk.shape[0])
 
-            progress_bar.close()
+            pbar.close()
 
     return output_track_candidates_file
 
@@ -766,8 +766,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
                 if len(fit_duts) < 2 and method == "fit":
                     raise ValueError('The number of required hit DUTs is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
-                progress_bar = tqdm(total=total_n_tracks, ncols=80)
-                # progress_bar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
+                pbar = tqdm(total=total_n_tracks, ncols=80)
+                # pbar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
 
                 chunk_indices = []
                 chunk_stats = []
@@ -913,8 +913,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     total_n_events_stored_last = total_n_events_stored
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    progress_bar.update(track_candidates_chunk.shape[0])
-                progress_bar.close()
+                    pbar.update(track_candidates_chunk.shape[0])
+                pbar.close()
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored

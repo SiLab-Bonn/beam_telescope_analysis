@@ -145,7 +145,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         complevel=5,
                         fletcher32=False))
 
-                progress_bar = tqdm(total=node.shape[0], ncols=80)
+                pbar = tqdm(total=node.shape[0], ncols=80)
 
                 for data_chunk, index in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):  # Loop over the hits
                     for dut_index, dut in enumerate(telescope):  # Loop over the DUTs
@@ -160,8 +160,8 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         if align_to_beam and local_to_global:
                             convert_data(dut=telescope, dut_index=dut_index, node=node, conv=conv, data=data_chunk)
                     hits_aligned_table.append(data_chunk)
-                    progress_bar.update(data_chunk.shape[0])
-                progress_bar.close()
+                    pbar.update(data_chunk.shape[0])
+                pbar.close()
 
     return output_file
 

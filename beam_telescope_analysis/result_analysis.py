@@ -2374,7 +2374,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     fit_limit_y_local = None
 
                 correlate_n_tracks = min(correlate_n_tracks, node.nrows)
-                progress_bar = tqdm(total=1.0, ncols=80)
+                pbar = tqdm(total=1.0, ncols=80)
 
                 correlate_n_tracks_total = 0
 
@@ -2589,7 +2589,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                             ref_y_residuals_arr = np.full(y_residuals_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
                             ref_y_residuals_earray.append(ref_y_residuals_arr)
                             ref_y_residuals_earray.flush()
-                            progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)) - progress_bar.n)
+                            pbar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)) - pbar.n)
                         correlate_index_last = curr_correlate_index
                     correlate_n_tracks_total += iterate_n_ref_tracks
 
@@ -2598,7 +2598,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     correlate_start_index = curr_ref_index
                     ref_index_last = curr_ref_index
 
-                progress_bar.close()
+                pbar.close()
 
     if plot:
         plot_utils.plot_residual_correlation(input_residual_correlation_file=output_residual_correlation_file, select_duts=select_duts, pixel_size=pixel_size, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)
