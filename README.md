@@ -1,12 +1,12 @@
 # Beam Telescope Analysis
-Beam Telescope Analysis (BTA) software written in Python (and C++).
+Beam Telescope Analysis (BTA) is a testbeam analysis software written in Python (and C++).
 
 ## Intended Use
 
 BTA is intended for use with data from multiple particle detectors in a particle beam.
 One or more detectors may be the device under test (DUT).
 Any detectors can part of a beam telescope (or hodoscope) or can be a trigger plane (e.g., region of interest trigger) or timing reference (i.e., reference plane, usually of the same type as the DUT).
-The software provides detailed analysis of any detector in sub-micrometer range if the resolution of the telescope allows.
+The software allows a detailed analysis of each detector in the sub-micrometer range, if the resolution of the telescope allows it.
 
 ### Features
 
@@ -16,12 +16,12 @@ The software provides detailed analysis of any detector in sub-micrometer range 
 4. Providing Kalman-based estimates of particle tracks, especially for low-energy particle beams.
 
 BTA uses some novel approaches which have not yet been applied to data from beam telescopes:
-1. SVD-based method for suppressing beam background in pre-alignment.
+1. SVD-based method for suppressing un-correlated background in pre-alignment.
 2. SVD-based method for alignment of the detector planes.
 
 ## Installation
 
-Python 2.7 or Python 3 must be used. There are many ways to install Python, though we recommend using [Anaconda Python](https://www.anaconda.com/distribution/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
+Python 2.7 or Python 3.7 or higher must be used. There are many ways to install Python, though we recommend using [Anaconda Python](https://www.anaconda.com/distribution/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
 ### Prerequisites
 
