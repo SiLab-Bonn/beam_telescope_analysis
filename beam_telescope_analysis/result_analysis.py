@@ -2589,7 +2589,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                             ref_y_residuals_arr = np.full(y_residuals_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
                             ref_y_residuals_earray.append(ref_y_residuals_arr)
                             ref_y_residuals_earray.flush()
-                            progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)))
+                            progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)) - progress_bar.n)
                         correlate_index_last = curr_correlate_index
                     correlate_n_tracks_total += iterate_n_ref_tracks
 

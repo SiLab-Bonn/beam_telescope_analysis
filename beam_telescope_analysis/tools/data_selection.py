@@ -173,7 +173,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                     total_n_events_stored_last = total_n_events_stored
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    progress_bar.update(index_chunk)
+                    progress_bar.update(data_chunk.shape[0])
                 progress_bar.close()
 
 
@@ -376,7 +376,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     total_n_events_stored_last = total_n_events_stored
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    progress_bar.update(index_chunk)
+                    progress_bar.update(tracks.shape[0])
                 progress_bar.close()
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored

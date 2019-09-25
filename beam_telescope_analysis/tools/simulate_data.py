@@ -495,7 +495,7 @@ class SimulateData(object):
                     2] / 10.  # One charge LSB corresponds to 10 electrons
                 hit_tables[dut_index].append(actual_hits)
             if show_progress:
-                progress_bar.update(chunk_index)
+                progress_bar.update(1)
         if show_progress:
             progress_bar.close()
 

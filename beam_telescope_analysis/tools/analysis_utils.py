@@ -1330,11 +1330,10 @@ def get_data(path, output=None, fail_on_overwrite=False):
         file_size = int(r.headers['Content-Length'])
         logging.info('Downloading %s', name)
         with open(filename, 'wb') as f:
-            num_bars = file_size / (32 * 1024)
-            pbar = tqdm(total=num_bars, ncols=80)
+            pbar = tqdm(total=file_size, ncols=80)
             for i, chunk in enumerate(r.iter_content(32 * 1024)):
                 f.write(chunk)
-                pbar.update(i)
+                pbar.update(len(chunk))
             pbar.close()
 
     if not output:
