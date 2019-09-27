@@ -1510,20 +1510,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 logging.info('Efficiency = %.2f (+%.2f / %.2f)%%' % (eff * 100.0, eff_err_pl * 100.0, eff_err_min * 100.0))
                 if efficiency_regions_dut is not None:
                     for region_index, efficiency in enumerate(efficiency_regions_efficiency):
-                        if efficiency_regions_names_dut[region_index] is not None:
-                            logging.info('Efficiency for region %d (%s)= %.2f%%' % (region_index + 1, efficiency_regions_names_dut[region_index], efficiency * 100.0))
-                        else:
-                            logging.info('Efficiency for region %d= %.2f%%' % (region_index + 1, efficiency * 100.0))
+                        logging.info('Efficiency for region %d%s= %.2f%%' % (region_index + 1, (" (" + efficiency_regions_names_dut[region_index] + ")") if efficiency_regions_names_dut[region_index] else "", efficiency * 100.0))
                         # resize so that all histograms have the same size
                         if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
                             efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
                         if count_1d_frame_hist.size > efficiency_regions_count_1d_frame_hist[region_index].size:
                             efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size)
                         mean_charge = analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))
-                        if efficiency_regions_names_dut[region_index] is not None:
-                            logging.info('Mean charge for region %d (%s) = %.2f' % (region_index + 1, efficiency_regions_names_dut[region_index], mean_charge))
-                        else:
-                            logging.info('Mean charge for region %d = %.2f' % (region_index + 1, mean_charge))
+                        logging.info('Mean charge for region %d%s = %.2f' % (region_index + 1, (" (" + efficiency_regions_names_dut[region_index] + ")") if efficiency_regions_names_dut[region_index] else "", mean_charge))
 
                 if not np.any(stat_2d_efficiency_hist):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut_index)
