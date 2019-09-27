@@ -712,8 +712,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     if isinstance(efficiency_regions, tuple) or efficiency_regions is None:
         efficiency_regions = [efficiency_regions] * len(select_duts)
     # Check iterable and length
-    if not isinstance(efficiency_regions, Iterable):
-        raise ValueError("efficiency_regions is no iterable")
+    if not isinstance(efficiency_regions, list):
+        raise ValueError("efficiency_regions is no list")
     elif not efficiency_regions:  # empty iterable
         raise ValueError("efficiency_regions has no items")
     # Finally check length of all arrays
@@ -730,23 +730,25 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     raise ValueError("item in efficiency_regions has length != 2")
                 for region_direction in region:
                     if len(region_direction) != 2:  # check the length of the items
-                        raise ValueError("item in efficiency_regions is not list of tuples of 2-tuples")
+                        raise ValueError("item in efficiency_regions is not list of 2-tuples of 2-tuples")
 
     # Create efficiency_region_names array
-    if isinstance(efficiency_region_names, tuple) or efficiency_region_names is None:
-        efficiency_region_names = [efficiency_region_names] * len(select_duts)
+    if efficiency_region_names is None:
+        efficiency_region_names = [None] * len(select_duts)  # expand to select_duts
     # Check iterable and length
-    if not isinstance(efficiency_region_names, Iterable):
-        raise ValueError("efficiency_region_names is no iterable")
+    if not isinstance(efficiency_region_names, list):
+        raise ValueError("efficiency_region_names is no list")
     elif not efficiency_region_names:  # empty iterable
         raise ValueError("efficiency_region_names has no items")
     # Finally check length of all arrays
     if len(efficiency_region_names) != len(select_duts):  # empty iterable
         raise ValueError("efficiency_region_names has the wrong length")
     # Finally check length of all arrays
-    for region_name, regions, in zip(efficiency_region_names, efficiency_regions):
-        if len(region_name) != len(regions):
-            raise ValueError("Items in efficiency_region_names do not have the same lenght as items in efficiency_regions")
+    for index, (region_name, regions) in enumerate(zip(efficiency_region_names, efficiency_regions)):
+        if regions and region_name is None:
+            efficiency_region_names[index] = [None] * len(regions)  # expand to item in select_duts
+        if regions and len(efficiency_region_names[index]) != len(regions):
+            raise ValueError("Item in efficiency_region_names does not have the same lenght as items in efficiency_regions")
 
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
