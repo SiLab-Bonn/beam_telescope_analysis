@@ -1205,8 +1205,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     mesh_alpha = 0.5
 
     fig = Figure()
-    txt = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name)
-    fig.text(0.5, 0.5, txt, transform=fig.transFigure, size=24, ha="center")
+    text = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name.title())
+    fig.text(0.5, 0.5, text, transform=fig.transFigure, size=24, ha="center")
     output_pdf.savefig(fig)
 
     fig = Figure()
@@ -1727,11 +1727,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             for region_index, region in enumerate(efficiency_regions):
                 rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
-                if efficiency_regions_names[region_index] is not None:
-                    text = 'Region %d%s\nefficiency:\n%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
-                else:
-                    text = 'Region %d\nefficiency:\n%.2f%%' % (region_index + 1, efficiency_regions_efficiency[region_index] * 100.0)
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8)
+                text = 'Region %d%s:\nEfficiency=%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6)
             rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
             ax.add_patch(rect)
             ax.set_xlim(plot_range[0])
@@ -1747,8 +1744,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             for region_index, region in enumerate(efficiency_regions):
                 rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
-                txt = 'Region %d%s\nefficiency:\n%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, txt, horizontalalignment='center', verticalalignment='center', fontsize=8)
+                text = 'Region %d%s:\nEfficiency=%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6)
             _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
             rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
             ax.add_patch(rect)
@@ -1758,8 +1755,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
 
             for region_index in range(len(efficiency_regions)):
                 fig = Figure()
-                txt = 'Region %d%s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "")
-                fig.text(0.5, 0.5, txt, transform=fig.transFigure, size=24, ha="center")
+                text = 'Region %d%s' % (region_index + 1, (":\n" + efficiency_regions_names[region_index].title()) if efficiency_regions_names[region_index] else "")
+                fig.text(0.5, 0.5, text, transform=fig.transFigure, size=24, ha="center")
                 output_pdf.savefig(fig)
 
                 region_n_pixels = np.count_nonzero(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
@@ -1769,12 +1766,30 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax = fig.add_subplot(111)
                 # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
                 z_min = 0.0
-                plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+                plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Region %d%s: Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
                 region = efficiency_regions[region_index]
                 rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
-                txt = 'Region %d%s\nefficiency:\n%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, txt, horizontalalignment='center', verticalalignment='center', fontsize=8)
+                text = 'Region %d%s:\nEfficiency=%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6)
+                rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                ax.set_xlim(plot_range[0])
+                ax.set_ylim(plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
+                z_min = 0.0
+                plot_2d_pixel_hist(fig, ax, stat_2d_efficiency_hist.T, hist_extent, title='Region %d%s: Efficiency\nfor %s\n(%d Hits, %d Tracks)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0)
+                region = efficiency_regions[region_index]
+                rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+                ax.add_patch(rect)
+                text = 'Region %d%s:\nEfficiency=%.2f%%' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", efficiency_regions_efficiency[region_index] * 100.0)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6)
+                _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
                 rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
                 ax.set_xlim(plot_range[0])
