@@ -476,7 +476,7 @@ class SimulateData(object):
 
         if n_events * self.tracks_per_event > 100000:
             show_progress = True
-            progress_bar = tqdm(total=len(range(0, n_events, chunk_size)), ncols=80)
+            pbar = tqdm(total=len(range(0, n_events, chunk_size)), ncols=80)
         else:
             show_progress = False
         # Fill output files in chunks
@@ -495,9 +495,9 @@ class SimulateData(object):
                     2] / 10.  # One charge LSB corresponds to 10 electrons
                 hit_tables[dut_index].append(actual_hits)
             if show_progress:
-                progress_bar.update(chunk_index)
+                pbar.update(1)
         if show_progress:
-            progress_bar.close()
+            pbar.close()
 
         for output_file in output_files:
             output_file.close()

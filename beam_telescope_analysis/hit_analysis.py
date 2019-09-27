@@ -133,7 +133,7 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
                     complevel=5,
                     fletcher32=False))
 
-            progress_bar = tqdm(total=node.shape[0], ncols=80)
+            pbar = tqdm(total=node.shape[0], ncols=80)
 
             for data_chunk, index in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):  # Loop over the hits
                 out_data = np.empty(data_chunk.shape[0], dtype=out_dtype)
@@ -158,8 +158,8 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
                         z=0.0)
 
                 out_table.append(out_data)
-                progress_bar.update(index)
-            progress_bar.close()
+                pbar.update(data_chunk.shape[0])
+            pbar.close()
 
     return output_file
 
@@ -559,7 +559,6 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     with tb.open_file(output_mask_file, mode='r+') as out_file_h5:
         occupancy = out_file_h5.root.HistOcc[:]
         pixel_mask = np.zeros_like(occupancy, dtype=np.bool)
-        iterations = 100
         i = 0
         while(True):
             i += 1
@@ -1300,7 +1299,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                 else:
                     ref_use_positions = False
 
-                progress_bar = tqdm(total=ref_node.shape[0], ncols=80)
+                pbar = tqdm(total=ref_node.shape[0], ncols=80)
 
                 pool = Pool()
                 # Loop over the hits/clusters of reference DUT
@@ -1334,8 +1333,8 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                     for index, dut_result in enumerate(dut_results):
                         (start_indices[index], x_correlations[index], y_correlations[index]) = dut_result.get()
 
-                    progress_bar.update(ref_read_index)
-                progress_bar.close()
+                    pbar.update(ref_data_chunk.shape[0])
+                pbar.close()
 
                 pool.close()
                 pool.join()
@@ -1411,7 +1410,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                     correlation -= correlation.min()  # only positive values
                 out_x_reduced[:] = x_correlations[index]
                 out_y_reduced[:] = y_correlations[index]
-            progress_bar.close()
+            pbar.close()
 
     if plot:
         plot_utils.plot_correlations(input_correlation_file=output_correlation_file, dut_names=telescope.dut_names)
@@ -1556,7 +1555,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 complevel=5,
                 fletcher32=False))
         with tb.open_file(input_cluster_files[0], mode='r') as in_file_h5:  # Open DUT0 cluster file
-            progress_bar = tqdm(total=in_file_h5.root.Clusters.shape[0], ncols=80)
+            pbar = tqdm(total=in_file_h5.root.Clusters.shape[0], ncols=80)
 
             for actual_cluster_dut_0, start_indices_data_loop[0] in analysis_utils.data_aligned_at_events(in_file_h5.root.Clusters, start_index=start_indices_data_loop[0], start_event_number=actual_start_event_number, stop_event_number=None, chunk_size=chunk_size):  # Loop over the cluster of DUT0 in chunks
                 actual_event_numbers = actual_cluster_dut_0['event_number']
@@ -1662,8 +1661,8 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 merged_cluster_table.append(merged_cluster_array)
                 merged_cluster_table.flush()
                 actual_start_event_number = common_event_numbers[-1] + 1  # Set the starting event number for the next chunked read
-                progress_bar.update(start_indices_data_loop[0])
-            progress_bar.close()
+                pbar.update(actual_cluster_dut_0.shape[0])
+            pbar.close()
 
     return output_merged_file
 

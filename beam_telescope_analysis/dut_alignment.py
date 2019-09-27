@@ -145,7 +145,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         complevel=5,
                         fletcher32=False))
 
-                progress_bar = tqdm(total=node.shape[0], ncols=80)
+                pbar = tqdm(total=node.shape[0], ncols=80)
 
                 for data_chunk, index in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):  # Loop over the hits
                     for dut_index, dut in enumerate(telescope):  # Loop over the DUTs
@@ -160,8 +160,8 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
                         if align_to_beam and local_to_global:
                             convert_data(dut=telescope, dut_index=dut_index, node=node, conv=conv, data=data_chunk)
                     hits_aligned_table.append(data_chunk)
-                    progress_bar.update(index)
-                progress_bar.close()
+                    pbar.update(data_chunk.shape[0])
+                pbar.close()
 
     return output_file
 
@@ -617,19 +617,19 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         select_duts = list(range(n_duts))
     # Check for value errors
     if not isinstance(select_duts, Iterable):
-        raise ValueError("select_duts is no iterable")
+        raise ValueError("Parameter select_duts is not a iterable.")
     elif not select_duts:  # empty iterable
-        raise ValueError("select_duts has no items")
+        raise ValueError("Parameter select_duts has no items.")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_duts)):
         select_duts = [select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_duts)):
-        raise ValueError("not all items in select_duts are iterable")
+        raise ValueError("Not all items in parameter select_duts are iterable.")
     # Finally check length of all iterables in iterable
     for dut in select_duts:
         if not dut:  # check the length of the items
-            raise ValueError("item in select_duts has length 0")
+            raise ValueError("Item in parameter select_duts has length 0.")
 
     # Check if some DUTs will not be aligned
     non_select_duts = set(range(n_duts)) - set(np.unique(np.hstack(np.array(select_duts))).tolist())
@@ -641,17 +641,17 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         alignment_parameters = [[None] * len(duts) for duts in select_duts]
     # Check for value errors
     if not isinstance(alignment_parameters, Iterable):
-        raise ValueError("alignment_parameters is no iterable")
+        raise ValueError("Parameter alignment_parameters is not a iterable.")
     elif not alignment_parameters:  # empty iterable
-        raise ValueError("alignment_parameters has no items")
+        raise ValueError("Parameter alignment_parameters has no items.")
     # Finally check length of all arrays
     if len(alignment_parameters) != len(select_duts):  # empty iterable
-        raise ValueError("alignment_parameters has the wrong length")
+        raise ValueError("Parameter alignment_parameters has the wrong length.")
     for index, alignment_parameter in enumerate(alignment_parameters):
         if alignment_parameter is None:
             alignment_parameters[index] = [None] * len(select_duts[index])
         if len(alignment_parameters[index]) != len(select_duts[index]):  # check the length of the items
-            raise ValueError("item in alignment_parameter has the wrong length")
+            raise ValueError("Item in parameter alignment_parameter has the wrong length.")
 
     # Create track, hit selection
     if select_hit_duts is None:  # If None: use all DUTs
@@ -661,21 +661,21 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             select_hit_duts.append(duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("select_hit_duts is no iterable")
+        raise ValueError("Parameter select_hit_duts is not a iterable.")
     elif not select_hit_duts:  # empty iterable
-        raise ValueError("select_hit_duts has no items")
+        raise ValueError("Parameter select_hit_duts has no items.")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_hit_duts)):
         select_hit_duts = [select_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
-        raise ValueError("not all items in select_hit_duts are iterable")
+        raise ValueError("Not all items in parameter select_hit_duts are iterable.")
     # Finally check length of all arrays
     if len(select_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_hit_duts has the wrong length")
+        raise ValueError("Parameter select_hit_duts has the wrong length.")
     for hit_dut in select_hit_duts:
         if len(hit_dut) < 2:  # check the length of the items
-            raise ValueError("item in select_hit_duts has length < 2")
+            raise ValueError("Item in parameter select_hit_duts has length < 2.")
 
     # Create track, hit selection
     if select_fit_duts is None:  # If None: use all DUTs
@@ -685,30 +685,30 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_fit_duts, Iterable):
-        raise ValueError("select_fit_duts is no iterable")
+        raise ValueError("Parameter select_fit_duts is not a iterable.")
     elif not select_fit_duts:  # empty iterable
-        raise ValueError("select_fit_duts has no items")
+        raise ValueError("Parameter select_fit_duts has no items.")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_fit_duts)):
         select_fit_duts = [select_fit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_fit_duts)):
-        raise ValueError("not all items in select_fit_duts are iterable")
+        raise ValueError("Not all items in parameter select_fit_duts are iterable.")
     # Finally check length of all arrays
     if len(select_fit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_fit_duts has the wrong length")
+        raise ValueError("Parameter select_fit_duts has the wrong length.")
     for index, fit_dut in enumerate(select_fit_duts):
         if len(fit_dut) < 2:  # check the length of the items
-            raise ValueError("item in select_fit_duts has length < 2")
+            raise ValueError("Item in parameter select_fit_duts has length < 2.")
         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
-            raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
+            raise ValueError("DUT in select_fit_duts is not in select_hit_duts.")
 
     # Create chi2 array
     if not isinstance(track_chi2, Iterable):
         track_chi2 = [track_chi2] * len(select_duts)
     # Finally check length
     if len(track_chi2) != len(select_duts):
-        raise ValueError("track_chi2 has the wrong length")
+        raise ValueError("Parameter track_chi2 has the wrong length.")
     # expand dimensions
     # Check iterable and length for each item
     for index, chi2 in enumerate(track_chi2):
@@ -719,27 +719,27 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     for index, chi2 in enumerate(track_chi2):
         # Check iterable and length
         if not isinstance(chi2, Iterable):
-            raise ValueError("item in track_chi2 is no iterable")
+            raise ValueError("Item in parameter track_chi2 is not a iterable.")
         if len(chi2) != len(select_duts[index]):  # empty iterable
-            raise ValueError("item in track_chi2 has the wrong length")
+            raise ValueError("Item in parameter track_chi2 has the wrong length.")
 
     # Create cluster shape selection
     if cluster_shapes is None:  # If None: set default value for all DUTs
         cluster_shapes = [cluster_shapes] * len(select_duts)
     # Check iterable and length
     if not isinstance(cluster_shapes, Iterable):
-        raise ValueError("cluster_shapes is no iterable")
+        raise ValueError("Parameter cluster_shapes is not a iterable.")
     # elif not cluster_shapes:  # empty iterable
-    #     raise ValueError("cluster_shapes has no items")
+    #     raise ValueError("Parameter cluster_shapes has no items.")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable) and val is not None, cluster_shapes)):
         cluster_shapes = [cluster_shapes[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, cluster_shapes)):
-        raise ValueError("not all items in cluster_shapes are iterable or None")
+        raise ValueError("Not all items in parameter cluster_shapes are iterable or None.")
     # Finally check length of all arrays
     if len(cluster_shapes) != len(select_duts):  # empty iterable
-        raise ValueError("cluster_shapes has the wrong length")
+        raise ValueError("Parameter cluster_shapes has the wrong length.")
     # expand dimensions
     # Check iterable and length for each item
     for index, shapes in enumerate(cluster_shapes):
@@ -752,64 +752,64 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     for index, shapes in enumerate(cluster_shapes):
         # Check iterable and length
         if not isinstance(shapes, Iterable):
-            raise ValueError("item in cluster_shapes is no iterable")
+            raise ValueError("Item in parameter cluster_shapes is not a iterable.")
         elif not shapes:  # empty iterable
-            raise ValueError("item in cluster_shapes has no items")
+            raise ValueError("Item in parameter cluster_shapes has no items.")
         # Check if only iterable in iterable
         if not all(map(lambda val: isinstance(val, Iterable) or val is None, shapes)):
-            raise ValueError("not all items of item in cluster_shapes are iterable or None")
+            raise ValueError("Not all items of item in cluster_shapes are iterable or None.")
         if len(shapes) != len(select_duts[index]):  # empty iterable
-            raise ValueError("item in cluster_shapes has the wrong length")
+            raise ValueError("Item in parameter cluster_shapes has the wrong length.")
 
     # Create quality distance
     if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
-        raise ValueError("quality_distances is no iterable")
+        raise ValueError("Parameter quality_distances is not a iterable.")
     elif not quality_distances:  # empty iterable
-        raise ValueError("quality_distances has no items")
+        raise ValueError("Parameter quality_distances has no items.")
     # Finally check length of all arrays
     if len(quality_distances) != n_duts:  # empty iterable
-        raise ValueError("quality_distances has the wrong length")
+        raise ValueError("Parameter quality_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
-        raise ValueError("not all items in quality_distances are iterable or None")
+        raise ValueError("Not all items in parameter quality_distances are iterable or None.")
     # Finally check length of all arrays
     for distance in quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in quality_distances has length != 2")
+            raise ValueError("Item in parameter quality_distances has length != 2.")
 
     # Create reject quality distance
     if isinstance(reject_quality_distances, tuple) or reject_quality_distances is None:
         reject_quality_distances = [reject_quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(reject_quality_distances, Iterable):
-        raise ValueError("reject_quality_distances is no iterable")
+        raise ValueError("Parameter reject_quality_distances is not a iterable.")
     elif not reject_quality_distances:  # empty iterable
-        raise ValueError("reject_quality_distances has no items")
+        raise ValueError("Parameter reject_quality_distances has no items.")
     # Finally check length of all arrays
     if len(reject_quality_distances) != n_duts:  # empty iterable
-        raise ValueError("reject_quality_distances has the wrong length")
+        raise ValueError("Parameter reject_quality_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, reject_quality_distances)):
-        raise ValueError("not all items in reject_quality_distances are iterable or None")
+        raise ValueError("Not all items in parameter reject_quality_distances are iterable or None.")
     # Finally check length of all arrays
     for distance in reject_quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in reject_quality_distances has length != 2")
+            raise ValueError("Item in parameter reject_quality_distances has length != 2.")
 
     if not isinstance(max_iterations, Iterable):
         max_iterations = [max_iterations] * len(select_duts)
     # Finally check length of all arrays
     if len(max_iterations) != len(select_duts):  # empty iterable
-        raise ValueError("max_iterations has the wrong length")
+        raise ValueError("Parameter max_iterations has the wrong length.")
 
     if not isinstance(max_events, Iterable):
         max_events = [max_events] * len(select_duts)
     # Finally check length
     if len(max_events) != len(select_duts):
-        raise ValueError("max_events has the wrong length")
+        raise ValueError("Parameter max_events has the wrong length.")
 
     if output_telescope_configuration is None:
         if 'prealigned' in telescope_configuration:

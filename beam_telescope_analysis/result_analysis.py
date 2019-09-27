@@ -557,7 +557,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, efficiency_regions=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -585,10 +585,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     plot_ranges : 2-tuple of 2-tuples or list of 2-tuple of 2-tuples
         Plot range in x and y direction (in um) for each selected DUT.
         If None, use default values (i.e., positive direction of the x axis to the right and of y axis to the top, including extended area).
+    n_bins_track_angle: int
+        Number of bins for track angle histograms.
     efficiency_regions : tuple of tuples of 2-tuples or list of lists of tuples of 2-tuples
         Fiducial region in x and y direction (in um) for each selected DUT.
         The efficiency will be calculated plotted for each region individually.
         For each efficiency region, in-pixel plots are generated.
+    efficiency_region_names : list of strings
+        Optional names for efficiency regions.
     output_efficiency_file : string
         Filename of the output efficiency file. If None, the filename will be derived from the input hits file.
     minimum_track_density : uint
@@ -610,142 +614,160 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         resolutions = [resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(resolutions, Iterable):
-        raise ValueError("resolutions is no iterable")
+        raise ValueError("Parameter resolutions is not a iterable.")
     elif not resolutions:  # empty iterable
-        raise ValueError("resolutions has no items")
+        raise ValueError("Parameter resolutions has no items.")
     # Finally check length of all arrays
     if len(resolutions) != len(select_duts):  # empty iterable
-        raise ValueError("resolutions has the wrong length")
+        raise ValueError("Parameter resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, resolutions)):
-        raise ValueError("not all items in resolutions are iterable")
+        raise ValueError("Not all items in parameter resolutions are iterable.")
     # Finally check length of all arrays
     for resolution in resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
-            raise ValueError("item in resolutions has length != 2")
+            raise ValueError("Item in parameter resolutions has length != 2.")
 
     # Create in-pixel resolutions array
     if isinstance(in_pixel_resolutions, tuple) or in_pixel_resolutions is None:
         in_pixel_resolutions = [in_pixel_resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(in_pixel_resolutions, Iterable):
-        raise ValueError("in_pixel_resolutions is no iterable")
+        raise ValueError("Parameter in_pixel_resolutions is not a iterable.")
     elif not in_pixel_resolutions:  # empty iterable
-        raise ValueError("in_pixel_resolutions has no items")
+        raise ValueError("Parameter in_pixel_resolutions has no items.")
     # Finally check length of all arrays
     if len(in_pixel_resolutions) != len(select_duts):  # empty iterable
-        raise ValueError("in_pixel_resolutions has the wrong length")
+        raise ValueError("Parameter in_pixel_resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, in_pixel_resolutions)):
-        raise ValueError("not all items in in_pixel_resolutions are iterable")
+        raise ValueError("Not all items in parameter in_pixel_resolutions are iterable.")
     # Finally check length of all arrays
     for resolution in in_pixel_resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
-            raise ValueError("item in in_pixel_resolutions has length != 2")
+            raise ValueError("Item in parameter in_pixel_resolutions has length != 2.")
 
     # Create extend_areas array
     if isinstance(extend_areas, tuple) or extend_areas is None:
         extend_areas = [extend_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_areas, Iterable):
-        raise ValueError("extend_areas is no iterable")
+        raise ValueError("Parameter extend_areas is not a iterable.")
     elif not extend_areas:  # empty iterable
-        raise ValueError("extend_areas has no items")
+        raise ValueError("Parameter extend_areas has no items.")
     # Finally check length of all arrays
     if len(extend_areas) != len(select_duts):  # empty iterable
-        raise ValueError("extend_areas has the wrong length")
+        raise ValueError("Parameter extend_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_areas)):
-        raise ValueError("not all items in extend_areas are iterable")
+        raise ValueError("Not all items in parameter extend_areas are iterable.")
     # Finally check length of all arrays
     for extend_area in extend_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
-            raise ValueError("item in extend_areas has length != 2")
+            raise ValueError("Item in parameter extend_areas has length != 2.")
 
     # Create extend_in_pixel_areas array
     if isinstance(extend_in_pixel_areas, tuple) or extend_in_pixel_areas is None:
         extend_in_pixel_areas = [extend_in_pixel_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_in_pixel_areas, Iterable):
-        raise ValueError("extend_in_pixel_areas is no iterable")
+        raise ValueError("Parameter extend_in_pixel_areas is not a iterable.")
     elif not extend_in_pixel_areas:  # empty iterable
-        raise ValueError("extend_in_pixel_areas has no items")
+        raise ValueError("Parameter extend_in_pixel_areas has no items.")
     # Finally check length of all arrays
     if len(extend_in_pixel_areas) != len(select_duts):  # empty iterable
-        raise ValueError("extend_in_pixel_areas has the wrong length")
+        raise ValueError("Parameter extend_in_pixel_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_in_pixel_areas)):
-        raise ValueError("not all items in extend_in_pixel_areas are iterable")
+        raise ValueError("Not all items in parameter extend_in_pixel_areas are iterable.")
     # Finally check length of all arrays
     for extend_area in extend_in_pixel_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
-            raise ValueError("item in extend_in_pixel_areas has length != 2")
+            raise ValueError("Item in parameter extend_in_pixel_areas has length != 2.")
 
     # Create plot_ranges array
     if isinstance(plot_ranges, tuple) or plot_ranges is None:
         plot_ranges = [plot_ranges] * len(select_duts)
     # Check iterable and length
     if not isinstance(plot_ranges, Iterable):
-        raise ValueError("plot_ranges is no iterable")
+        raise ValueError("Parameter plot_ranges is not a iterable.")
     elif not plot_ranges:  # empty iterable
-        raise ValueError("plot_ranges has no items")
+        raise ValueError("Parameter plot_ranges has no items.")
     # Finally check length of all arrays
     if len(plot_ranges) != len(select_duts):  # empty iterable
-        raise ValueError("plot_ranges has the wrong length")
+        raise ValueError("Parameter plot_ranges has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, plot_ranges)):
-        raise ValueError("not all items in plot_ranges are iterable")
+        raise ValueError("Not all items in parameter plot_ranges are iterable.")
     # Finally check length of all arrays
     for plot_range in plot_ranges:
         if plot_range is not None:
             if len(plot_range) != 2:  # check the length of the items
-                raise ValueError("item in plot_ranges has length != 2")
+                raise ValueError("Item in parameter plot_ranges has length != 2.")
             for plot_range_direction in plot_range:
                 if len(plot_range_direction) != 2:  # check the length of the items
-                    raise ValueError("item in plot_ranges is not 2-tuple of 2-tuples")
+                    raise ValueError("Item in parameter plot_ranges is not 2-tuple of 2-tuples.")
 
     # Create efficiency_regions array
     if isinstance(efficiency_regions, tuple) or efficiency_regions is None:
         efficiency_regions = [efficiency_regions] * len(select_duts)
     # Check iterable and length
-    if not isinstance(efficiency_regions, Iterable):
-        raise ValueError("efficiency_regions is no iterable")
+    if not isinstance(efficiency_regions, list):
+        raise ValueError("Parameter efficiency_regions is not a list.")
     elif not efficiency_regions:  # empty iterable
-        raise ValueError("efficiency_regions has no items")
+        raise ValueError("Parameter efficiency_regions has no items.")
     # Finally check length of all arrays
     if len(efficiency_regions) != len(select_duts):  # empty iterable
-        raise ValueError("efficiency_regions has the wrong length")
+        raise ValueError("Parameter efficiency_regions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, efficiency_regions)):
-        raise ValueError("not all items in efficiency_regions are iterable")
+        raise ValueError("Not all items in parameter efficiency_regions are iterable.")
     # Finally check length of all arrays
     for regions in efficiency_regions:
         if regions is not None:
             for region in regions:
                 if len(region) != 2:  # check the length of the items
-                    raise ValueError("item in efficiency_regions has length != 2")
+                    raise ValueError("Item in parameter efficiency_regions has length != 2.")
                 for region_direction in region:
                     if len(region_direction) != 2:  # check the length of the items
-                        raise ValueError("item in efficiency_regions is not list of tuples of 2-tuples")
+                        raise ValueError("Item in parameter efficiency_regions is not list of 2-tuples of 2-tuples.")
+
+    # Create efficiency_region_names array
+    if efficiency_region_names is None:
+        efficiency_region_names = [None] * len(select_duts)  # expand to select_duts
+    # Check iterable and length
+    if not isinstance(efficiency_region_names, list):
+        raise ValueError("Parameter efficiency_region_names is not a list.")
+    elif not efficiency_region_names:  # empty iterable
+        raise ValueError("Parameter efficiency_region_names has no items.")
+    # Finally check length of all arrays
+    if len(efficiency_region_names) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter efficiency_region_names has the wrong length.")
+    # Finally check length of all arrays
+    for index, (region_name, regions) in enumerate(zip(efficiency_region_names, efficiency_regions)):
+        if regions and region_name is None:
+            efficiency_region_names[index] = [None] * len(regions)  # expand to item in select_duts
+        if regions and len(efficiency_region_names[index]) != len(regions):
+            raise ValueError("Item in parameter efficiency_region_names has wrong length.")
 
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
         cut_distances = [cut_distances] * len(select_duts)
     # Check iterable and length
     if not isinstance(cut_distances, Iterable):
-        raise ValueError("cut_distances is no iterable")
+        raise ValueError("Parameter cut_distances is not a iterable.")
     elif not cut_distances:  # empty iterable
-        raise ValueError("cut_distances has no items")
+        raise ValueError("Parameter cut_distances has no items.")
     # Finally check length of all arrays
     if len(cut_distances) != len(select_duts):  # empty iterable
-        raise ValueError("cut_distances has the wrong length")
+        raise ValueError("Parameter cut_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, cut_distances)):
-        raise ValueError("not all items in cut_distances are iterable")
+        raise ValueError("Not all items in parameter cut_distances are iterable.")
     # Finally check length of all arrays
     for distance in cut_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in cut_distances has length != 2")
+            raise ValueError("Item in parameter cut_distances has length != 2.")
 
     if output_efficiency_file is None:
         output_efficiency_file = os.path.splitext(input_tracks_file)[0] + '_efficiency.h5'
@@ -813,6 +835,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 if plot_range is None:
                     plot_range = [dut_hist_x_extent, dut_hist_y_extent]
                 efficiency_regions_dut = efficiency_regions[index]
+                efficiency_regions_names_dut = efficiency_region_names[index]
                 if efficiency_regions_dut is not None:
                     extend_in_pixel_area = extend_in_pixel_areas[index]
                     # Calculate in-pixel histogram properties (bins size and number of bins)
@@ -830,6 +853,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_1d_frame_hist = []
                     efficiency_regions_count_1d_cluster_size_hist = []
                     efficiency_regions_count_1d_cluster_shape_hist = []
+                    efficiency_regions_count_1d_total_angle_hist = []
+                    efficiency_regions_count_1d_total_angle_hist_edges = []
+                    efficiency_regions_count_1d_alpha_angle_hist = []
+                    efficiency_regions_count_1d_alpha_angle_hist_edges = []
+                    efficiency_regions_count_1d_beta_angle_hist = []
+                    efficiency_regions_count_1d_beta_angle_hist_edges = []
                     efficiency_regions_count_tracks_pixel_hist = []
                     efficiency_regions_count_tracks_with_hit_pixel_hist = []
                     efficiency_regions_stat_pixel_efficiency_hist = []
@@ -839,6 +868,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency_regions_count_1d_charge_hist.append(None)
                         efficiency_regions_count_1d_frame_hist.append(None)
                         efficiency_regions_count_1d_cluster_size_hist.append(None)
+                        efficiency_regions_count_1d_total_angle_hist.append(None)
+                        efficiency_regions_count_1d_total_angle_hist_edges.append(None)
+                        efficiency_regions_count_1d_alpha_angle_hist.append(None)
+                        efficiency_regions_count_1d_alpha_angle_hist_edges.append(None)
+                        efficiency_regions_count_1d_beta_angle_hist.append(None)
+                        efficiency_regions_count_1d_beta_angle_hist_edges.append(None)
                         efficiency_regions_count_1d_cluster_shape_hist.append(None)
                         efficiency_regions_count_tracks_pixel_hist.append(None)
                         efficiency_regions_count_tracks_with_hit_pixel_hist.append(None)
@@ -895,6 +930,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_1d_charge_hist = None
                     efficiency_regions_count_1d_frame_hist = None
                     efficiency_regions_count_1d_cluster_size_hist = None
+                    efficiency_regions_count_1d_total_angle_hist = None
+                    efficiency_regions_count_1d_total_angle_hist_edges = None
+                    efficiency_regions_count_1d_alpha_angle_hist = None
+                    efficiency_regions_count_1d_alpha_angle_hist_edges = None
+                    efficiency_regions_count_1d_beta_angle_hist = None
+                    efficiency_regions_count_1d_beta_angle_hist_edges = None
                     efficiency_regions_count_1d_cluster_shape_hist = None
                     efficiency_regions_count_tracks_pixel_hist = None
                     efficiency_regions_count_tracks_with_hit_pixel_hist = None
@@ -952,6 +993,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     y_residuals = hit_y_local - intersection_y_local
                     distance_local = np.sqrt(np.square(x_residuals) + np.square(y_residuals))
                     select_finite_distance = np.isfinite(distance_local)
+
+                    # Calculate track angles in column and row direction (local coordinate system)
+                    track_slopes_local = np.column_stack([
+                        tracks_chunk['slope_x'],
+                        tracks_chunk['slope_y'],
+                        tracks_chunk['slope_z']])
+                    total_angles_local, alpha_angles_local, beta_angles_local = get_angles(
+                        slopes=track_slopes_local,
+                        xz_plane_normal=np.array([0.0, 1.0, 0.0]),
+                        yz_plane_normal=np.array([1.0, 0.0, 0.0]),
+                        dut_plane_normal=np.array([0.0, 0.0, 1.0]))
 
                     cut_distance = cut_distances[index]
                     if cut_distance is None:
@@ -1070,10 +1122,43 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 else:
                                     efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size)
                                 efficiency_regions_count_1d_cluster_size_hist[region_index] += efficiency_region_count_1d_cluster_size_hist_tmp
-                            if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
-                                efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                            if efficiency_regions_count_1d_total_angle_hist[region_index] is None:
+                                local_total_mean = np.nanmean(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_total_std = np.nanstd(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_total_angle_hist[region_index], efficiency_regions_count_1d_total_angle_hist_edges[region_index] = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
                             else:
-                                efficiency_regions_count_1d_cluster_shape_hist[region_index] += np.histogram(a=cluster_size[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                                efficiency_region_count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_total_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_total_angle_hist_tmp.size > efficiency_regions_count_1d_total_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_total_angle_hist[region_index].resize(efficiency_region_count_1d_total_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_total_angle_hist_tmp.resize(efficiency_regions_count_1d_total_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_total_angle_hist[region_index] += efficiency_region_count_1d_total_angle_hist_tmp
+                            if efficiency_regions_count_1d_alpha_angle_hist[region_index] is None:
+                                local_alpha_mean = np.nanmean(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_alpha_std = np.nanstd(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_alpha_angle_hist[region_index], efficiency_regions_count_1d_alpha_angle_hist_edges[region_index] = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
+                            else:
+                                efficiency_region_count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_alpha_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_alpha_angle_hist_tmp.size > efficiency_regions_count_1d_alpha_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_alpha_angle_hist[region_index].resize(efficiency_region_count_1d_alpha_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_alpha_angle_hist_tmp.resize(efficiency_regions_count_1d_alpha_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_alpha_angle_hist[region_index] += efficiency_region_count_1d_alpha_angle_hist_tmp
+                            if efficiency_regions_count_1d_beta_angle_hist[region_index] is None:
+                                local_beta_mean = np.nanmean(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                local_beta_std = np.nanstd(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
+                                efficiency_regions_count_1d_beta_angle_hist[region_index], efficiency_regions_count_1d_beta_angle_hist_edges[region_index] = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
+                            else:
+                                efficiency_region_count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_beta_angle_hist_edges[region_index])[0]
+                                if efficiency_region_count_1d_beta_angle_hist_tmp.size > efficiency_regions_count_1d_beta_angle_hist[region_index].size:
+                                    efficiency_regions_count_1d_beta_angle_hist[region_index].resize(efficiency_region_count_1d_beta_angle_hist_tmp.size)
+                                else:
+                                    efficiency_region_count_1d_beta_angle_hist_tmp.resize(efficiency_regions_count_1d_beta_angle_hist[region_index].size)
+                                efficiency_regions_count_1d_beta_angle_hist[region_index] += efficiency_region_count_1d_beta_angle_hist_tmp
+                            if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
+                            else:
+                                efficiency_regions_count_1d_cluster_shape_hist[region_index] += np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
                             # Pixel tracks
                             _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local[select_valid_tracks_efficiency_region], intersection_y_local[select_valid_tracks_efficiency_region])))
                             if efficiency_regions_count_tracks_pixel_hist[region_index] is None:
@@ -1169,6 +1254,27 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # 2D mean cluster size
                         stat_2d_cluster_size_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=cluster_size[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                         stat_2d_cluster_size_hist = np.nan_to_num(stat_2d_cluster_size_hist)
+                        # 1D total track angle
+                        local_total_mean = np.nanmean(total_angles_local[select_valid_hit])
+                        local_total_std = np.nanstd(total_angles_local[select_valid_hit])
+                        count_1d_total_angle_hist, count_1d_total_angle_hist_edges = np.histogram(total_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
+                        # 2D mean total angle
+                        stat_2d_total_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=total_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_total_angle_hist = np.nan_to_num(stat_2d_total_angle_hist)
+                        # 1D alpha track angle
+                        local_alpha_mean = np.nanmean(alpha_angles_local[select_valid_hit])
+                        local_alpha_std = np.nanstd(alpha_angles_local[select_valid_hit])
+                        count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges = np.histogram(alpha_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
+                        # 2D mean alpha track angle
+                        stat_2d_alpha_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=alpha_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_alpha_angle_hist = np.nan_to_num(stat_2d_alpha_angle_hist)
+                        # 1D beta track angle
+                        local_beta_mean = np.nanmean(beta_angles_local[select_valid_hit])
+                        local_beta_std = np.nanstd(beta_angles_local[select_valid_hit])
+                        count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges = np.histogram(beta_angles_local[select_valid_hit], bins=n_bins_track_angle, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
+                        # 2D mean beta track angle
+                        stat_2d_beta_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_beta_angle_hist = np.nan_to_num(stat_2d_beta_angle_hist)
                     else:
                         count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                         # 2D hits
@@ -1213,6 +1319,39 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_2d_cluster_size_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit & select_small_cluster_sizes], y=intersection_y_local[select_valid_hit & select_small_cluster_sizes], values=cluster_size[select_valid_hit & select_small_cluster_sizes], statistic='mean', bins=hist_2d_edges)
                         stat_2d_cluster_size_hist_tmp = np.nan_to_num(stat_2d_cluster_size_hist_tmp)
                         stat_2d_cluster_size_hist, _ = np.ma.average(a=np.stack([stat_2d_cluster_size_hist, stat_2d_cluster_size_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D total track anlge
+                        count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_hit], bins=count_1d_total_angle_hist_edges)[0]
+                        if count_1d_total_angle_hist_tmp.size > count_1d_total_angle_hist.size:
+                            count_1d_total_angle_hist.resize(count_1d_total_angle_hist_tmp.size)
+                        else:
+                            count_1d_total_angle_hist_tmp.resize(count_1d_total_angle_hist.size)
+                        count_1d_total_angle_hist += count_1d_total_angle_hist_tmp
+                        # 2D total track angle
+                        stat_2d_total_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=total_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_total_angle_hist_tmp = np.nan_to_num(stat_2d_total_angle_hist_tmp)
+                        stat_2d_total_angle_hist, count_2d_total_angle_hist = np.ma.average(a=np.stack([stat_2d_total_angle_hist, stat_2d_total_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D alpha track angle
+                        count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_hit], bins=count_1d_alpha_angle_hist_edges)[0]
+                        if count_1d_alpha_angle_hist_tmp.size > count_1d_alpha_angle_hist.size:
+                            count_1d_alpha_angle_hist.resize(count_1d_alpha_angle_hist_tmp.size)
+                        else:
+                            count_1d_alpha_angle_hist_tmp.resize(count_1d_alpha_angle_hist.size)
+                        count_1d_alpha_angle_hist += count_1d_alpha_angle_hist_tmp
+                        # 2D alpha track angle
+                        stat_2d_alpha_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=alpha_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_alpha_angle_hist_tmp = np.nan_to_num(stat_2d_alpha_angle_hist_tmp)
+                        stat_2d_alpha_angle_hist, count_2d_alpha_angle_hist = np.ma.average(a=np.stack([stat_2d_alpha_angle_hist, stat_2d_alpha_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                        # 1D beta track angle
+                        count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_hit], bins=count_1d_beta_angle_hist_edges)[0]
+                        if count_1d_beta_angle_hist_tmp.size > count_1d_beta_angle_hist.size:
+                            count_1d_beta_angle_hist.resize(count_1d_beta_angle_hist_tmp.size)
+                        else:
+                            count_1d_beta_angle_hist_tmp.resize(count_1d_beta_angle_hist.size)
+                        count_1d_beta_angle_hist += count_1d_beta_angle_hist_tmp
+                        # 2D beta track angle
+                        stat_2d_beta_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
+                        stat_2d_beta_angle_hist_tmp = np.nan_to_num(stat_2d_beta_angle_hist_tmp)
+                        stat_2d_beta_angle_hist, count_2d_beta_angle_hist = np.ma.average(a=np.stack([stat_2d_beta_angle_hist, stat_2d_beta_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                         # updated last:
                         # 2D tracks with valid hit
                         count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
@@ -1266,6 +1405,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 stat_2d_charge_hist = np.ma.array(stat_2d_charge_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_frame_hist = np.ma.array(stat_2d_frame_hist, mask=count_tracks_2d_hist < minimum_track_density)
                 stat_2d_cluster_size_hist = np.ma.array(stat_2d_cluster_size_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_total_angle_hist = np.ma.array(stat_2d_total_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_alpha_angle_hist = np.ma.array(stat_2d_alpha_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
+                stat_2d_beta_angle_hist = np.ma.array(stat_2d_beta_angle_hist, mask=count_tracks_2d_hist < minimum_track_density)
 
                 if efficiency_regions_dut is not None:
                     efficiency_regions_mask = []
@@ -1368,13 +1510,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 logging.info('Efficiency = %.2f (+%.2f / %.2f)%%' % (eff * 100.0, eff_err_pl * 100.0, eff_err_min * 100.0))
                 if efficiency_regions_dut is not None:
                     for region_index, efficiency in enumerate(efficiency_regions_efficiency):
-                        logging.info('Efficiency for region %d = %.2f%%' % (region_index + 1, efficiency * 100.0))
+                        logging.info('Efficiency for region %d%s= %.2f%%' % (region_index + 1, (" (" + efficiency_regions_names_dut[region_index] + ")") if efficiency_regions_names_dut[region_index] else "", efficiency * 100.0))
                         # resize so that all histograms have the same size
                         if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
                             efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
                         if count_1d_frame_hist.size > efficiency_regions_count_1d_frame_hist[region_index].size:
                             efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size)
-                        logging.info('Mean charge for region %d = %.2f' % (region_index + 1, analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))))
+                        mean_charge = analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))
+                        logging.info('Mean charge for region %d%s = %.2f' % (region_index + 1, (" (" + efficiency_regions_names_dut[region_index] + ")") if efficiency_regions_names_dut[region_index] else "", mean_charge))
 
                 if not np.any(stat_2d_efficiency_hist):
                     raise RuntimeError('All efficiencies for DUT%d are zero, consider changing cut values!', actual_dut_index)
@@ -1393,6 +1536,15 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     count_1d_frame_hist=count_1d_frame_hist,
                     stat_2d_frame_hist=stat_2d_frame_hist,
                     stat_2d_cluster_size_hist=stat_2d_cluster_size_hist,
+                    count_1d_total_angle_hist=count_1d_total_angle_hist,
+                    count_1d_total_angle_hist_edges=count_1d_total_angle_hist_edges,
+                    stat_2d_total_angle_hist=stat_2d_total_angle_hist,
+                    count_1d_alpha_angle_hist=count_1d_alpha_angle_hist,
+                    count_1d_alpha_angle_hist_edges=count_1d_alpha_angle_hist_edges,
+                    stat_2d_alpha_angle_hist=stat_2d_alpha_angle_hist,
+                    count_1d_beta_angle_hist=count_1d_beta_angle_hist,
+                    count_1d_beta_angle_hist_edges=count_1d_beta_angle_hist_edges,
+                    stat_2d_beta_angle_hist=stat_2d_beta_angle_hist,
                     stat_2d_efficiency_hist=stat_2d_efficiency_hist,
                     stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                     count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
@@ -1402,10 +1554,17 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     hist_extent=hist_extent,
                     plot_range=plot_range,
                     efficiency_regions=efficiency_regions_dut,
+                    efficiency_regions_names=efficiency_regions_names_dut,
                     efficiency_regions_efficiency=efficiency_regions_efficiency,
                     efficiency_regions_count_1d_charge_hist=efficiency_regions_count_1d_charge_hist,
                     efficiency_regions_count_1d_frame_hist=efficiency_regions_count_1d_frame_hist,
                     efficiency_regions_count_1d_cluster_size_hist=efficiency_regions_count_1d_cluster_size_hist,
+                    efficiency_regions_count_1d_total_angle_hist=efficiency_regions_count_1d_total_angle_hist,
+                    efficiency_regions_count_1d_total_angle_hist_edges=efficiency_regions_count_1d_total_angle_hist_edges,
+                    efficiency_regions_count_1d_alpha_angle_hist=efficiency_regions_count_1d_alpha_angle_hist,
+                    efficiency_regions_count_1d_alpha_angle_hist_edges=efficiency_regions_count_1d_alpha_angle_hist_edges,
+                    efficiency_regions_count_1d_beta_angle_hist=efficiency_regions_count_1d_beta_angle_hist,
+                    efficiency_regions_count_1d_beta_angle_hist_edges=efficiency_regions_count_1d_beta_angle_hist_edges,
                     efficiency_regions_count_1d_cluster_shape_hist=efficiency_regions_count_1d_cluster_shape_hist,
                     efficiency_regions_stat_pixel_efficiency_hist=efficiency_regions_stat_pixel_efficiency_hist,
                     efficiency_regions_count_in_pixel_hits_2d_hist=count_in_pixel_hits_2d_hists,
@@ -1523,6 +1682,57 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(stat_2d_frame_hist.dtype),
                     shape=stat_2d_frame_hist.shape)
                 out_stat_2d_frame_hist[:] = stat_2d_frame_hist
+
+                out_count_1d_total_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_total_angle_hist',
+                    title='count_1d_total_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_total_angle_hist.dtype),
+                    shape=count_1d_total_angle_hist.shape)
+                out_count_1d_total_angle_hist[:] = count_1d_total_angle_hist
+                out_count_1d_total_angle_hist.attrs.edges = count_1d_total_angle_hist_edges
+
+                out_stat_2d_total_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_total_angle_hist',
+                    title='stat_2d_total_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_total_angle_hist.dtype),
+                    shape=stat_2d_total_angle_hist.shape)
+                out_stat_2d_total_angle_hist[:] = stat_2d_total_angle_hist
+
+                out_count_1d_alpha_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_alpha_angle_hist',
+                    title='count_1d_alpha_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_alpha_angle_hist.dtype),
+                    shape=count_1d_alpha_angle_hist.shape)
+                out_count_1d_alpha_angle_hist[:] = count_1d_alpha_angle_hist
+                out_count_1d_alpha_angle_hist.attrs.edges = count_1d_alpha_angle_hist_edges
+
+                out_stat_2d_alpha_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_alpha_angle_hist',
+                    title='stat_2d_alpha_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_alpha_angle_hist.dtype),
+                    shape=stat_2d_alpha_angle_hist.shape)
+                out_stat_2d_alpha_angle_hist[:] = stat_2d_alpha_angle_hist
+
+                out_count_1d_beta_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_beta_angle_hist',
+                    title='count_1d_beta_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_beta_angle_hist.dtype),
+                    shape=count_1d_beta_angle_hist.shape)
+                out_count_1d_beta_angle_hist[:] = count_1d_beta_angle_hist
+                out_count_1d_beta_angle_hist.attrs.edges = count_1d_beta_angle_hist_edges
+
+                out_stat_2d_beta_angle_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_beta_angle_hist',
+                    title='stat_2d_beta_angle_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_beta_angle_hist.dtype),
+                    shape=stat_2d_beta_angle_hist.shape)
+                out_stat_2d_beta_angle_hist[:] = stat_2d_beta_angle_hist
 
                 out_stat_2d_efficiency_hist = out_file_h5.create_carray(
                     where=dut_group,
@@ -2161,7 +2371,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     fit_limit_y_local = None
 
                 correlate_n_tracks = min(correlate_n_tracks, node.nrows)
-                progress_bar = tqdm(total=1.0, ncols=80)
+                pbar = tqdm(total=1.0, ncols=80)
 
                 correlate_n_tracks_total = 0
 
@@ -2376,7 +2586,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                             ref_y_residuals_arr = np.full(y_residuals_arr.shape[0], fill_value=ref_difference_y_local_limit_xy[ref_index])
                             ref_y_residuals_earray.append(ref_y_residuals_arr)
                             ref_y_residuals_earray.flush()
-                            progress_bar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)))
+                            pbar.update(min(1.0, (((ref_index + 1) / iterate_n_ref_tracks * (curr_correlate_index - correlate_index_last) / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks) + ((correlate_index_last / node.nrows) * iterate_n_ref_tracks / correlate_n_tracks)) - pbar.n)
                         correlate_index_last = curr_correlate_index
                     correlate_n_tracks_total += iterate_n_ref_tracks
 
@@ -2385,7 +2595,7 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     correlate_start_index = curr_ref_index
                     ref_index_last = curr_ref_index
 
-                progress_bar.close()
+                pbar.close()
 
     if plot:
         plot_utils.plot_residual_correlation(input_residual_correlation_file=output_residual_correlation_file, select_duts=select_duts, pixel_size=pixel_size, output_pdf_file=None, dut_names=dut_names, chunk_size=chunk_size)

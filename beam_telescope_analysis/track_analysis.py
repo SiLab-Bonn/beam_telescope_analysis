@@ -186,7 +186,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
             total_n_tracks_stored = 0
             total_n_events_stored = 0
 
-            progress_bar = tqdm(total=total_n_tracks, ncols=80)
+            pbar = tqdm(total=total_n_tracks, ncols=80)
 
             for tracklets_data_chunk, index_chunk in analysis_utils.data_aligned_at_events(tracklets_node, chunk_size=chunk_size):
                 n_tracks_chunk = tracklets_data_chunk.shape[0]
@@ -286,9 +286,9 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                progress_bar.update(index_chunk)
+                pbar.update(tracklets_data_chunk.shape[0])
 
-            progress_bar.close()
+            pbar.close()
 
     return output_track_candidates_file
 
@@ -404,7 +404,7 @@ def _find_tracks(event_numbers, indices, z_sorted_dut_indices, event_start_index
             hit_index += 1
             continue
         actual_hit_x, actual_hit_y = x[hit_index][dut_index], y[hit_index][dut_index]
-        if np.isnan(actual_hit_x):  # x = nan is no hit
+        if np.isnan(actual_hit_x):  # x = nan is not a hit
             hit_index += 1
             continue
         # Calculate the hit distance of the actual DUT hit towards the actual reference hit
@@ -619,10 +619,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         select_duts = [select_duts]
     # Check for duplicates
     if len(select_duts) != len(set(select_duts)):
-        raise ValueError("found douplicate in select_duts")
+        raise ValueError("Found douplicate in select_duts")
     # Check if any iterable in iterable
     if any(map(lambda val: isinstance(val, Iterable), select_duts)):
-        raise ValueError("item in select_duts is iterable")
+        raise ValueError("Item in parameter select_duts is iterable")
 
     # Create track, hit selection
     if select_fit_duts is None:  # If None: use all DUTs
@@ -632,21 +632,21 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         #     select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_fit_duts, Iterable):
-        raise ValueError("select_fit_duts is no iterable")
+        raise ValueError("Parameter select_fit_duts is not a iterable")
     elif not select_fit_duts:  # empty iterable
-        raise ValueError("select_fit_duts has no items")
+        raise ValueError("Parameter select_fit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_fit_duts)):
         select_fit_duts = [select_fit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_fit_duts)):
-        raise ValueError("not all items in select_fit_duts are iterable")
+        raise ValueError("Not all items in parameter select_fit_duts are iterable")
     # Finally check length of all arrays
     if len(select_fit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_fit_duts has the wrong length")
+        raise ValueError("Parameter select_fit_duts has the wrong length")
     for index, fit_dut in enumerate(select_fit_duts):
         if len(fit_dut) < 2:  # check the length of the items
-            raise ValueError("item in select_fit_duts has length < 2")
+            raise ValueError("Item in parameter select_fit_duts has length < 2")
 #         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
 #             raise ValueError("DUT in select_fit_duts is not in select_hit_duts")
 
@@ -656,71 +656,71 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         select_hit_duts = []
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("select_hit_duts is no iterable")
+        raise ValueError("Parameter select_hit_duts is not a iterable")
     # elif not select_hit_duts:  # empty iterable
-    #     raise ValueError("select_hit_duts has no items")
+    #     raise ValueError("Parameter select_hit_duts has no items")
     # Check if only non-iterable in iterable
     if all(map(lambda val: not isinstance(val, Iterable), select_hit_duts)):
         select_hit_duts = [select_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
-        raise ValueError("not all items in select_hit_duts are iterable")
+        raise ValueError("Not all items in parameter select_hit_duts are iterable")
     # Finally check length of all arrays
     if len(select_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_hit_duts has the wrong length")
+        raise ValueError("Parameter select_hit_duts has the wrong length")
 #     for hit_dut in select_hit_duts:
 #         if len(hit_dut) < 2:  # check the length of the items
-#             raise ValueError("item in select_hit_duts has length < 2")
+#             raise ValueError("Item in parameter select_hit_duts has length < 2")
 
     # Create quality distance
     if isinstance(quality_distances, tuple) or quality_distances is None:
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
-        raise ValueError("quality_distances is no iterable")
+        raise ValueError("Parameter quality_distances is not a iterable")
     elif not quality_distances:  # empty iterable
-        raise ValueError("quality_distances has no items")
+        raise ValueError("Parameter quality_distances has no items")
     # Finally check length of all arrays
     if len(quality_distances) != n_duts:  # empty iterable
-        raise ValueError("quality_distances has the wrong length")
+        raise ValueError("Parameter quality_distances has the wrong length")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
-        raise ValueError("not all items in quality_distances are iterable")
+        raise ValueError("Not all items in parameter quality_distances are iterable")
     # Finally check length of all arrays
     for distance in quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in quality_distances has length != 2")
+            raise ValueError("Item in parameter quality_distances has length != 2")
 
     # Create reject quality distance
     if isinstance(reject_quality_distances, tuple) or reject_quality_distances is None:
         reject_quality_distances = [reject_quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(reject_quality_distances, Iterable):
-        raise ValueError("reject_quality_distances is no iterable")
+        raise ValueError("Parameter reject_quality_distances is not a iterable")
     elif not reject_quality_distances:  # empty iterable
-        raise ValueError("reject_quality_distances has no items")
+        raise ValueError("Parameter reject_quality_distances has no items")
     # Finally check length of all arrays
     if len(reject_quality_distances) != n_duts:  # empty iterable
-        raise ValueError("reject_quality_distances has the wrong length")
+        raise ValueError("Parameter reject_quality_distances has the wrong length")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, reject_quality_distances)):
-        raise ValueError("not all items in reject_quality_distances are iterable")
+        raise ValueError("Not all items in parameter reject_quality_distances are iterable")
     # Finally check length of all arrays
     for distance in reject_quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in reject_quality_distances has length != 2")
+            raise ValueError("Item in parameter reject_quality_distances has length != 2")
 
     # Check iterable and length
     if not isinstance(exclude_dut_hit, Iterable):
         exclude_dut_hit = [exclude_dut_hit] * len(select_duts)
     elif not exclude_dut_hit:  # empty iterable
-        raise ValueError("exclude_dut_hit has no items")
+        raise ValueError("Parameter exclude_dut_hit has no items")
     # Finally check length of all array
     if len(exclude_dut_hit) != len(select_duts):  # empty iterable
-        raise ValueError("exclude_dut_hit has the wrong length")
+        raise ValueError("Parameter exclude_dut_hit has the wrong length")
     # Check if only bools in iterable
     if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
-        raise ValueError("not all items in exclude_dut_hit are boolean")
+        raise ValueError("Not all items in parameter exclude_dut_hit are boolean")
 
     fitted_duts = []
     pool = Pool()
@@ -766,8 +766,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
                 if len(fit_duts) < 2 and method == "fit":
                     raise ValueError('The number of required hit DUTs is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
-                progress_bar = tqdm(total=total_n_tracks, ncols=80)
-                # progress_bar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
+                pbar = tqdm(total=total_n_tracks, ncols=80)
+                # pbar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
 
                 chunk_indices = []
                 chunk_stats = []
@@ -913,9 +913,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     total_n_events_stored_last = total_n_events_stored
                     total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    progress_bar.update(index_chunk)
-                    # progress_bar.update(min(total_n_tracks, max_tracks) if max_tracks is not None else index_chunk)
-                progress_bar.close()
+                    pbar.update(track_candidates_chunk.shape[0])
+                pbar.close()
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored
