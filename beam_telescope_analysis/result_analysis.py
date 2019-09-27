@@ -614,160 +614,160 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         resolutions = [resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(resolutions, Iterable):
-        raise ValueError("resolutions is no iterable")
+        raise ValueError("Parameter resolutions is not a iterable.")
     elif not resolutions:  # empty iterable
-        raise ValueError("resolutions has no items")
+        raise ValueError("Parameter resolutions has no items.")
     # Finally check length of all arrays
     if len(resolutions) != len(select_duts):  # empty iterable
-        raise ValueError("resolutions has the wrong length")
+        raise ValueError("Parameter resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, resolutions)):
-        raise ValueError("not all items in resolutions are iterable")
+        raise ValueError("Not all items in parameter resolutions are iterable.")
     # Finally check length of all arrays
     for resolution in resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
-            raise ValueError("item in resolutions has length != 2")
+            raise ValueError("Item in parameter resolutions has length != 2.")
 
     # Create in-pixel resolutions array
     if isinstance(in_pixel_resolutions, tuple) or in_pixel_resolutions is None:
         in_pixel_resolutions = [in_pixel_resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(in_pixel_resolutions, Iterable):
-        raise ValueError("in_pixel_resolutions is no iterable")
+        raise ValueError("Parameter in_pixel_resolutions is not a iterable.")
     elif not in_pixel_resolutions:  # empty iterable
-        raise ValueError("in_pixel_resolutions has no items")
+        raise ValueError("Parameter in_pixel_resolutions has no items.")
     # Finally check length of all arrays
     if len(in_pixel_resolutions) != len(select_duts):  # empty iterable
-        raise ValueError("in_pixel_resolutions has the wrong length")
+        raise ValueError("Parameter in_pixel_resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, in_pixel_resolutions)):
-        raise ValueError("not all items in in_pixel_resolutions are iterable")
+        raise ValueError("Not all items in parameter in_pixel_resolutions are iterable.")
     # Finally check length of all arrays
     for resolution in in_pixel_resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
-            raise ValueError("item in in_pixel_resolutions has length != 2")
+            raise ValueError("Item in parameter in_pixel_resolutions has length != 2.")
 
     # Create extend_areas array
     if isinstance(extend_areas, tuple) or extend_areas is None:
         extend_areas = [extend_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_areas, Iterable):
-        raise ValueError("extend_areas is no iterable")
+        raise ValueError("Parameter extend_areas is not a iterable.")
     elif not extend_areas:  # empty iterable
-        raise ValueError("extend_areas has no items")
+        raise ValueError("Parameter extend_areas has no items.")
     # Finally check length of all arrays
     if len(extend_areas) != len(select_duts):  # empty iterable
-        raise ValueError("extend_areas has the wrong length")
+        raise ValueError("Parameter extend_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_areas)):
-        raise ValueError("not all items in extend_areas are iterable")
+        raise ValueError("Not all items in parameter extend_areas are iterable.")
     # Finally check length of all arrays
     for extend_area in extend_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
-            raise ValueError("item in extend_areas has length != 2")
+            raise ValueError("Item in parameter extend_areas has length != 2.")
 
     # Create extend_in_pixel_areas array
     if isinstance(extend_in_pixel_areas, tuple) or extend_in_pixel_areas is None:
         extend_in_pixel_areas = [extend_in_pixel_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_in_pixel_areas, Iterable):
-        raise ValueError("extend_in_pixel_areas is no iterable")
+        raise ValueError("Parameter extend_in_pixel_areas is not a iterable.")
     elif not extend_in_pixel_areas:  # empty iterable
-        raise ValueError("extend_in_pixel_areas has no items")
+        raise ValueError("Parameter extend_in_pixel_areas has no items.")
     # Finally check length of all arrays
     if len(extend_in_pixel_areas) != len(select_duts):  # empty iterable
-        raise ValueError("extend_in_pixel_areas has the wrong length")
+        raise ValueError("Parameter extend_in_pixel_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_in_pixel_areas)):
-        raise ValueError("not all items in extend_in_pixel_areas are iterable")
+        raise ValueError("Not all items in parameter extend_in_pixel_areas are iterable.")
     # Finally check length of all arrays
     for extend_area in extend_in_pixel_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
-            raise ValueError("item in extend_in_pixel_areas has length != 2")
+            raise ValueError("Item in parameter extend_in_pixel_areas has length != 2.")
 
     # Create plot_ranges array
     if isinstance(plot_ranges, tuple) or plot_ranges is None:
         plot_ranges = [plot_ranges] * len(select_duts)
     # Check iterable and length
     if not isinstance(plot_ranges, Iterable):
-        raise ValueError("plot_ranges is no iterable")
+        raise ValueError("Parameter plot_ranges is not a iterable.")
     elif not plot_ranges:  # empty iterable
-        raise ValueError("plot_ranges has no items")
+        raise ValueError("Parameter plot_ranges has no items.")
     # Finally check length of all arrays
     if len(plot_ranges) != len(select_duts):  # empty iterable
-        raise ValueError("plot_ranges has the wrong length")
+        raise ValueError("Parameter plot_ranges has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, plot_ranges)):
-        raise ValueError("not all items in plot_ranges are iterable")
+        raise ValueError("Not all items in parameter plot_ranges are iterable.")
     # Finally check length of all arrays
     for plot_range in plot_ranges:
         if plot_range is not None:
             if len(plot_range) != 2:  # check the length of the items
-                raise ValueError("item in plot_ranges has length != 2")
+                raise ValueError("Item in parameter plot_ranges has length != 2.")
             for plot_range_direction in plot_range:
                 if len(plot_range_direction) != 2:  # check the length of the items
-                    raise ValueError("item in plot_ranges is not 2-tuple of 2-tuples")
+                    raise ValueError("Item in parameter plot_ranges is not 2-tuple of 2-tuples.")
 
     # Create efficiency_regions array
     if isinstance(efficiency_regions, tuple) or efficiency_regions is None:
         efficiency_regions = [efficiency_regions] * len(select_duts)
     # Check iterable and length
     if not isinstance(efficiency_regions, list):
-        raise ValueError("efficiency_regions is no list")
+        raise ValueError("Parameter efficiency_regions is not a list.")
     elif not efficiency_regions:  # empty iterable
-        raise ValueError("efficiency_regions has no items")
+        raise ValueError("Parameter efficiency_regions has no items.")
     # Finally check length of all arrays
     if len(efficiency_regions) != len(select_duts):  # empty iterable
-        raise ValueError("efficiency_regions has the wrong length")
+        raise ValueError("Parameter efficiency_regions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, efficiency_regions)):
-        raise ValueError("not all items in efficiency_regions are iterable")
+        raise ValueError("Not all items in parameter efficiency_regions are iterable.")
     # Finally check length of all arrays
     for regions in efficiency_regions:
         if regions is not None:
             for region in regions:
                 if len(region) != 2:  # check the length of the items
-                    raise ValueError("item in efficiency_regions has length != 2")
+                    raise ValueError("Item in parameter efficiency_regions has length != 2.")
                 for region_direction in region:
                     if len(region_direction) != 2:  # check the length of the items
-                        raise ValueError("item in efficiency_regions is not list of 2-tuples of 2-tuples")
+                        raise ValueError("Item in parameter efficiency_regions is not list of 2-tuples of 2-tuples.")
 
     # Create efficiency_region_names array
     if efficiency_region_names is None:
         efficiency_region_names = [None] * len(select_duts)  # expand to select_duts
     # Check iterable and length
     if not isinstance(efficiency_region_names, list):
-        raise ValueError("efficiency_region_names is no list")
+        raise ValueError("Parameter efficiency_region_names is not a list.")
     elif not efficiency_region_names:  # empty iterable
-        raise ValueError("efficiency_region_names has no items")
+        raise ValueError("Parameter efficiency_region_names has no items.")
     # Finally check length of all arrays
     if len(efficiency_region_names) != len(select_duts):  # empty iterable
-        raise ValueError("efficiency_region_names has the wrong length")
+        raise ValueError("Parameter efficiency_region_names has the wrong length.")
     # Finally check length of all arrays
     for index, (region_name, regions) in enumerate(zip(efficiency_region_names, efficiency_regions)):
         if regions and region_name is None:
             efficiency_region_names[index] = [None] * len(regions)  # expand to item in select_duts
         if regions and len(efficiency_region_names[index]) != len(regions):
-            raise ValueError("Item in efficiency_region_names does not have the same lenght as items in efficiency_regions")
+            raise ValueError("Item in parameter efficiency_region_names has wrong length.")
 
     # Create cut distance
     if isinstance(cut_distances, tuple) or cut_distances is None:
         cut_distances = [cut_distances] * len(select_duts)
     # Check iterable and length
     if not isinstance(cut_distances, Iterable):
-        raise ValueError("cut_distances is no iterable")
+        raise ValueError("Parameter cut_distances is not a iterable.")
     elif not cut_distances:  # empty iterable
-        raise ValueError("cut_distances has no items")
+        raise ValueError("Parameter cut_distances has no items.")
     # Finally check length of all arrays
     if len(cut_distances) != len(select_duts):  # empty iterable
-        raise ValueError("cut_distances has the wrong length")
+        raise ValueError("Parameter cut_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, cut_distances)):
-        raise ValueError("not all items in cut_distances are iterable")
+        raise ValueError("Not all items in parameter cut_distances are iterable.")
     # Finally check length of all arrays
     for distance in cut_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
-            raise ValueError("item in cut_distances has length != 2")
+            raise ValueError("Item in parameter cut_distances has length != 2.")
 
     if output_efficiency_file is None:
         output_efficiency_file = os.path.splitext(input_tracks_file)[0] + '_efficiency.h5'
