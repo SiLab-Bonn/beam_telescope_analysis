@@ -386,15 +386,15 @@ def plot_cluster_hists(telescope_configuration=None, input_cluster_file=None, in
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
         with tb.open_file(input_file, mode='r') as in_file_h5:
             for actual_dut_index in select_duts:
-                if actual_dut_index is None:  # Cluster file
+                if actual_dut_index is None:  # File containing Clusters node
                     node = in_file_h5.get_node(in_file_h5.root, 'Clusters')
                 else:
                     try:  # Track file
                         node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
-                    except Exception:
+                    except tb.NoSuchNodeError:
                         try:  # Merged file
                             node = in_file_h5.get_node(in_file_h5.root, 'MergedClusters')
-                        except Exception:  # Track candidates file
+                        except tb.NoSuchNodeError:  # Track candidates file
                             node = in_file_h5.get_node(in_file_h5.root, 'TrackCandidates')
 
                     actual_dut = telescope[actual_dut_index]
