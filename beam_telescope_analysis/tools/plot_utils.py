@@ -2170,7 +2170,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                 output_pdf.savefig(fig)
 
-                plot_shapes = [[1], [3, 5], [13, 14, 7, 11], [15]]
+                plot_shapes = [[1], [3], [5], [3, 5], [13, 14, 7, 11], [15]]
                 for shapes in plot_shapes:
                     if not np.all(np.in1d(shapes, analyze_cluster_shapes)):
                         continue
