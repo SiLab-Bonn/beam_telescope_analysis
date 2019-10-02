@@ -1,6 +1,3 @@
-include LICENSE
-include README.*
-include requirements.*
-include requirements_docs.*
+include README.* VERSION LICENSE.txt requirements.txt requirements_docs.txt
 recursive-include docs *
 recursive-include beam_telescope_analysis *

@@ -5,7 +5,6 @@ from distutils.command.build_ext import build_ext
 from Cython.Build import cythonize
 import os
 
-version = '1.0.0.dev0'
 
 copt = {'msvc': ['-Ibeam_telescope_analysis/cpp/external', '/EHsc']}  # set additional include path and EHsc exception handling for VS
 lopt = {}
@@ -33,6 +32,10 @@ cpp_extension = cythonize([
 
 author = ', Yannick Dieter, Jens Janssen, David-Leon Pohl'
 author_email = 'dieter@physik.uni-bonn.de, janssen@physik.uni-bonn.de, pohl@physik.uni-bonn.de'
+
+
+with open('VERSION') as version_file:
+    version = version_file.read().strip()
 
 # requirements for core functionality from requirements.txt
 with open('requirements.txt') as f:
