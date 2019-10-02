@@ -142,6 +142,9 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                         complevel=5,
                         fletcher32=False))
 
+                total_n_events_stored_last = None
+                # total_n_tracks_last = None
+                last_index_chunk = None
                 for data_chunk, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = data_chunk.shape[0]
 
@@ -154,8 +157,8 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                         select_n_events = int(round(max_events * (n_tracks_chunk / total_n_tracks)))
                     else:
                         # calculate correction of number of selected events
-                        correction = (total_n_tracks - index_chunk)/total_n_tracks * 1 / (((total_n_tracks-last_index_chunk)/total_n_tracks)/((max_events-total_n_events_stored_last)/max_events)) \
-                                     + (index_chunk)/total_n_tracks * 1 / (((last_index_chunk)/total_n_tracks)/((total_n_events_stored_last)/max_events))
+                        correction = (total_n_tracks - index_chunk) / total_n_tracks * 1 / (((total_n_tracks - last_index_chunk) / total_n_tracks) / ((max_events - total_n_events_stored_last) / max_events)) \
+                            + (index_chunk) / total_n_tracks * 1 / (((last_index_chunk) / total_n_tracks) / ((total_n_events_stored_last) / max_events))
                         select_n_events = int(round(max_events * (n_tracks_chunk / total_n_tracks) * correction))
                     # do not store more events than in current chunk
                     select_n_events = min(n_events_chunk, select_n_events)
@@ -173,7 +176,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                     tracks_table_out.append(data_chunk)
                     tracks_table_out.flush()
                     total_n_events_stored_last = total_n_events_stored
-                    total_n_tracks_last = total_n_tracks
+                    # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                     pbar.update(data_chunk.shape[0])
                 pbar.close()
@@ -378,6 +381,9 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 total_n_events_stored = 0
                 pbar = tqdm(total=total_n_tracks, ncols=80)
 
+                total_n_events_stored_last = None
+                # total_n_tracks_last = None
+                last_index_chunk = None
                 for tracks, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = tracks.shape[0]
                     if hit_mask != 0 or no_hit_mask != 0 or quality_mask != 0 or isolated_track_mask != 0 or isolated_hit_mask != 0:
@@ -406,9 +412,6 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
 
                     unique_events = np.unique(tracks["event_number"])
                     n_events_chunk = unique_events.shape[0]
-
-                    # print "n_events_chunk", n_events_chunk
-                    # print "n_tracks_chunk", n_tracks_chunk
                     if max_events:
                         if total_n_tracks == index_chunk:  # last chunk, adding all remaining events
                             select_n_events = max_events - total_n_events_stored
@@ -416,13 +419,12 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                             select_n_events = int(round(max_events * (n_tracks_chunk / total_n_tracks)))
                         else:
                             # calculate correction of number of selected events
-                            correction = (total_n_tracks - index_chunk)/total_n_tracks * 1 / (((total_n_tracks-last_index_chunk)/total_n_tracks)/((max_events-total_n_events_stored_last)/max_events)) \
-                                         + (index_chunk)/total_n_tracks * 1 / (((last_index_chunk)/total_n_tracks)/((total_n_events_stored_last)/max_events))
-    #                         select_n_events = np.ceil(n_events_chunk * correction)
-    #                         # calculate correction of number of selected events
-    #                         correction = 1/(((total_n_tracks-last_index_chunk)/total_n_tracks_last)/((max_events-total_n_events_stored_last)/max_events))
+                            correction = (total_n_tracks - index_chunk) / total_n_tracks * 1 / (((total_n_tracks - last_index_chunk) / total_n_tracks) / ((max_events - total_n_events_stored_last) / max_events)) \
+                                + (index_chunk) / total_n_tracks * 1 / (((last_index_chunk) / total_n_tracks) / ((total_n_events_stored_last) / max_events))
+                            # select_n_events = np.ceil(n_events_chunk * correction)
+                            # calculate correction of number of selected events
+                            # correction = 1/(((total_n_tracks-last_index_chunk)/total_n_tracks_last)/((max_events-total_n_events_stored_last)/max_events))
                             select_n_events = int(round(max_events * (n_tracks_chunk / total_n_tracks) * correction))
-                            # print "correction", correction
                         # do not store more events than in current chunk
                         select_n_events = min(n_events_chunk, select_n_events)
                         # do not store more events than given by max_events
@@ -441,13 +443,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     tracks_table_out.append(tracks)
                     tracks_table_out.flush()
                     total_n_events_stored_last = total_n_events_stored
-                    total_n_tracks_last = total_n_tracks
+                    # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                     pbar.update(tracks.shape[0])
                 pbar.close()
-                # print "***************"
-                # print "total_n_tracks_stored", total_n_tracks_stored
-                # print "total_n_events_stored", total_n_events_stored
 
     return output_tracks_file
 

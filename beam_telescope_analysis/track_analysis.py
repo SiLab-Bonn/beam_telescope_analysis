@@ -193,6 +193,9 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
 
             pbar = tqdm(total=total_n_tracks, ncols=80)
 
+            total_n_events_stored_last = None
+            # total_n_tracks_last = None
+            last_index_chunk = None
             for tracklets_data_chunk, index_chunk in analysis_utils.data_aligned_at_events(tracklets_node, chunk_size=chunk_size):
                 n_tracks_chunk = tracklets_data_chunk.shape[0]
 
@@ -227,7 +230,6 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 y_global = []
                 z_global = []
                 translation = []
-                rotation = []
                 normal = []
                 for dut_index, dut in enumerate(telescope):
                     x_global_dut, y_global_dut, z_global_dut = dut.local_to_global_position(
@@ -289,7 +291,7 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 track_candidates.append(tracklets_data_chunk)
                 track_candidates.flush()
                 total_n_events_stored_last = total_n_events_stored
-                total_n_tracks_last = total_n_tracks
+                # total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
                 pbar.update(tracklets_data_chunk.shape[0])
 
@@ -811,6 +813,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 chunk_indices = []
                 chunk_stats = []
                 dut_stats = []
+
+                total_n_events_stored_last = None
+                # total_n_tracks_last = None
+                last_index_chunk = None
                 for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=chunk_size):
                     chunk_indices.append(index_chunk)
                     # if max_tracks is not None and total_n_tracks >= max_tracks:
@@ -965,13 +971,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
                     # total_n_tracks += n_good_tracks
                     total_n_events_stored_last = total_n_events_stored
-                    total_n_tracks_last = total_n_tracks
+                    # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                     pbar.update(track_candidates_chunk.shape[0])
                 pbar.close()
-                # print "***************"
-                # print "total_n_tracks_stored", total_n_tracks_stored
-                # print "total_n_events_stored", total_n_events_stored
                 fitted_duts.extend(actual_fit_duts)
 
                 plot_utils.plot_fit_tracks_statistics(
