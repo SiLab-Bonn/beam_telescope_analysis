@@ -20,6 +20,7 @@ from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import plot_utils
 from beam_telescope_analysis.tools import geometry_utils
 from beam_telescope_analysis.tools import analysis_utils
+from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
 def calculate_residuals(telescope_configuration, input_tracks_file, select_duts, output_residuals_file=None, nbins_per_pixel=None, npixels_per_bin=None, use_limits=True, plot=True, chunk_size=1000000):
@@ -557,6 +558,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
     return output_residuals_file
 
 
+@save_arguments
 def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
@@ -1833,6 +1835,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
 
     if output_pdf is not None:
         output_pdf.close()
+
+    return output_efficiency_file
 
 
 def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bin_size, output_purity_file=None, minimum_hit_density=10, cut_distance=None, local_x_range=None, local_y_range=None, plot=True, chunk_size=1000000):
