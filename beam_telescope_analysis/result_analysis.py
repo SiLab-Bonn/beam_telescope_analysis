@@ -23,6 +23,7 @@ from beam_telescope_analysis.tools import analysis_utils
 from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
+@save_arguments
 def calculate_residuals(telescope_configuration, input_tracks_file, select_duts, output_residuals_file=None, nbins_per_pixel=None, npixels_per_bin=None, use_limits=True, plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates residuals for selected DUTs in col, row direction.
 
@@ -2220,6 +2221,7 @@ def calculate_purity(telescope_configuration, input_tracks_file, select_duts, bi
     return purities, pure_hits, total_hits, purities_sensor_mean
 
 
+@save_arguments
 def histogram_track_angle(telescope_configuration, input_tracks_file, select_duts, output_track_angle_file=None, n_bins=100, plot=True, chunk_size=1000000):
     '''Calculates and histograms the track angle of the fitted tracks for selected DUTs.
 

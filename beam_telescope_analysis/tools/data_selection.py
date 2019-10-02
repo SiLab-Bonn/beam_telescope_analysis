@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import analysis_utils
+from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
 def combine_files(input_files, output_file=None, names=None, event_number_offsets=None, chunk_size=1000000):
@@ -104,6 +105,7 @@ def combine_files(input_files, output_file=None, names=None, event_number_offset
     return applied_event_number_offsets
 
 
+@save_arguments
 def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
     ''' Reducing the size of a file to a given number of events.
 
@@ -176,7 +178,10 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                     pbar.update(data_chunk.shape[0])
                 pbar.close()
 
+    return output_file
 
+
+@save_arguments
 def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, query=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_isolated_track_duts=None, select_isolated_hit_duts=None, chunk_size=1000000):
     ''' Selecting tracks that are matching the conditions and query strings.
 
@@ -443,6 +448,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 # print "***************"
                 # print "total_n_tracks_stored", total_n_tracks_stored
                 # print "total_n_events_stored", total_n_events_stored
+
+    return output_tracks_file
 
 
 def table_where(arr, query_str):

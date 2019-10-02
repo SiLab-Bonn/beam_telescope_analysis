@@ -19,6 +19,7 @@ from beam_telescope_analysis.telescope.telescope import Telescope
 from beam_telescope_analysis.tools import smc
 from beam_telescope_analysis.tools import analysis_utils, plot_utils
 from beam_telescope_analysis.tools.plot_utils import plot_masked_pixels, plot_cluster_hists
+from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
 def convert(telescope_configuration, input_hit_files, output_hit_files=None, select_duts=None, index_to_local=True, chunk_size=1000000):
@@ -492,6 +493,7 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
     return output_files
 
 
+@save_arguments
 def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_mask_file=None, iterations=None, threshold=10.0, filter_size=3, plot=True, chunk_size=1000000):
     '''Generating pixel mask from the hit table.
     The pixel masking is an iterative process to identify and suppress any noisy pixel (cluster).
@@ -734,6 +736,7 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
     return output_files
 
 
+@save_arguments
 def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=None, max_hit_charge=None, charge_correction=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, charge_weighted_clustering=False, plot=True, chunk_size=1000000):
     '''Clusters the hits in the data file containing the hit table.
 
@@ -1187,6 +1190,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     return output_cluster_file
 
 
+@save_arguments
 def correlate(telescope_configuration, input_files, output_correlation_file=None, resolution=(100.0, 100.0), select_duts=None, select_reference_duts=0, plot=True, chunk_size=100000):
     '''"Calculates the correlation histograms from the hit/cluster indices.
     The 2D correlation array of pairs of two different devices are created on event basis.
@@ -1474,6 +1478,7 @@ def _correlate_position(ref, dut, ref_use_clusters, ref_use_positions, ref_data,
     return start_index, x_correlation, y_correlation
 
 
+@save_arguments
 def merge_cluster_data(telescope_configuration, input_cluster_files, output_merged_file=None, chunk_size=1000000):
     '''Takes the cluster from all cluster files and merges them into one big table aligned at a common event number.
 

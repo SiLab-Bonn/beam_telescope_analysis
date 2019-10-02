@@ -21,12 +21,14 @@ from beam_telescope_analysis.tools import geometry_utils
 from beam_telescope_analysis.tools import data_selection
 from beam_telescope_analysis.track_analysis import find_tracks, fit_tracks, line_fit_3d
 from beam_telescope_analysis.result_analysis import calculate_residuals, histogram_track_angle, get_angles
+from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
 default_alignment_parameters = ["translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma"]
 default_cluster_shapes = [1, 3, 5, 13, 14, 7, 11, 15]
 
 
+@save_arguments
 def apply_alignment(telescope_configuration, input_file, output_file=None, local_to_global=True, align_to_beam=False, chunk_size=1000000):
     '''Convert local to global coordinates and vice versa.
 
