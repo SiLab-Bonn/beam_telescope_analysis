@@ -1205,7 +1205,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     mesh_alpha = 0.5
 
     fig = Figure()
-    text = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name.title())
+    text = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name)
     fig.text(0.5, 0.5, text, transform=fig.transFigure, size=24, ha="center")
     output_pdf.savefig(fig)
 
@@ -1755,7 +1755,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
 
             for region_index in range(len(efficiency_regions)):
                 fig = Figure()
-                text = 'Region %d%s' % (region_index + 1, (":\n" + efficiency_regions_names[region_index].title()) if efficiency_regions_names[region_index] else "")
+                text = 'Region %d%s' % (region_index + 1, (":\n" + efficiency_regions_names[region_index]) if efficiency_regions_names[region_index] else "")
                 fig.text(0.5, 0.5, text, transform=fig.transFigure, size=24, ha="center")
                 output_pdf.savefig(fig)
 
