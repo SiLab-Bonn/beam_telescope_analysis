@@ -1178,7 +1178,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, analyze_cluster_shapes, mask_zero=True, output_pdf=None):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiency, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, efficiency_regions_analyze_cluster_shapes, mask_zero=True, output_pdf=None):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -2154,15 +2154,15 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
                 z_min = -0.5
-                z_max = len(analyze_cluster_shapes) - 0.5
+                z_max = len(efficiency_regions_analyze_cluster_shapes) - 0.5
                 set1_cmap = cm.get_cmap("Set1", 9)
                 new_colors = set1_cmap(np.linspace(0, 1, 9))
-                new_cmap = colors.ListedColormap(new_colors[1:len(analyze_cluster_shapes) + 1], name="cluster_colormap")
+                new_cmap = colors.ListedColormap(new_colors[1:len(efficiency_regions_analyze_cluster_shapes) + 1], name="cluster_colormap")
                 new_cmap.set_over('k')
                 title = 'Region %d%s: Most probable cluster shape\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
                 _, cbar = plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=new_cmap, aspect=1.0)
-                cbar.set_ticks(range(len(analyze_cluster_shapes)))
-                cbar.set_ticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes])
+                cbar.set_ticks(range(len(efficiency_regions_analyze_cluster_shapes)))
+                cbar.set_ticklabels([cluster_shape_strings[i] for i in efficiency_regions_analyze_cluster_shapes])
                 cbar.set_label("cluster shape")
                 cbar.ax.tick_params(length=0)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
@@ -2170,13 +2170,13 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                 output_pdf.savefig(fig)
 
-                plot_shapes = [[1], [3], [5], [3, 5], [13, 14, 7, 11], [15]]
-                for shapes in plot_shapes:
-                    if not np.all(np.in1d(shapes, analyze_cluster_shapes)):
+                plot_cluster_shapes = [[1], [3], [5], [3, 5], [13, 14, 7, 11], [15]]
+                for shapes in plot_cluster_shapes:
+                    if not np.all(np.in1d(shapes, efficiency_regions_analyze_cluster_shapes)):
                         continue
                     count_in_pixel_cluster_shape_2d_hist_tmp = np.zeros_like(efficiency_regions_count_in_pixel_cluster_shape_2d_hist[region_index][:, :, 0])
                     for shape in shapes:
-                        count_in_pixel_cluster_shape_2d_hist_tmp += efficiency_regions_count_in_pixel_cluster_shape_2d_hist[region_index][:, :, np.where(shape == np.array(analyze_cluster_shapes))[0][0]]
+                        count_in_pixel_cluster_shape_2d_hist_tmp += efficiency_regions_count_in_pixel_cluster_shape_2d_hist[region_index][:, :, np.where(shape == np.array(efficiency_regions_analyze_cluster_shapes))[0][0]]
                     count_in_pixel_cluster_shape_2d_hist_masked_tmp = np.ma.array(count_in_pixel_cluster_shape_2d_hist_tmp, mask=(count_in_pixel_cluster_shape_2d_hist_tmp == 0))
                     count_in_pixel_cluster_shape_2d_hist_masked_tmp /= efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index]
 

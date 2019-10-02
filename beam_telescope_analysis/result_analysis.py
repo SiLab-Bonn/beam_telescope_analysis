@@ -805,7 +805,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 extend_area = extend_areas[index]
 
                 # select cluster shapes for analysis
-                analyze_cluster_shapes = [1, 3, 5, 13, 14, 7, 11, 15]
+                efficiency_regions_analyze_cluster_shapes = [1, 3, 5, 13, 14, 7, 11, 15]
 
                 # DUT size
                 dut_x_extent = actual_dut.x_extent(global_position=False)
@@ -890,7 +890,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     hist_in_pixel_x_edges = np.linspace(0.0, dut_in_pixel_hist_x_size, hist_in_pixel_x_n_bins + 1, endpoint=True)
                     hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
                     hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
-                    hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(analyze_cluster_shapes) + 1)]
+                    hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(efficiency_regions_analyze_cluster_shapes) + 1)]
                     in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
                     in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
                     # generate in-pixel hists for each region
@@ -925,7 +925,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # 2D in-pixel mean cluster size
                         stat_in_pixel_cluster_size_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins), dtype=np.float64))
                         # 2D in-pixel cluster shape
-                        count_in_pixel_cluster_shape_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(analyze_cluster_shapes)), dtype=np.float64))
+                        count_in_pixel_cluster_shape_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(efficiency_regions_analyze_cluster_shapes)), dtype=np.float64))
                 else:
                     efficiency_regions_efficiency = None
                     efficiency_regions_stat = None
@@ -1023,7 +1023,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         select_valid_hit[select_finite_distance] &= (np.abs(y_residuals[select_finite_distance]) <= cut_distance[1])
                     # select cluser shapes with cluster size <=4
                     select_small_cluster_sizes = np.zeros_like(select_valid_hit)
-                    for cluster_shape_value in analyze_cluster_shapes:
+                    for cluster_shape_value in efficiency_regions_analyze_cluster_shapes:
                         select_small_cluster_sizes |= cluster_shape_value == cluster_shape_value
                     if efficiency_regions_dut is not None:
                         # for in-pixel statistics
@@ -1043,7 +1043,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             hist_in_pixel_y_edges = np.linspace(0.0, dut_in_pixel_hist_y_size, hist_in_pixel_y_n_bins + 1, endpoint=True)
                         if resize_in_pixel_hist:
                             hist_in_pixel_2d_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges]
-                            hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(analyze_cluster_shapes) + 1)]
+                            hist_in_pixel_cluster_shape_edges = [hist_in_pixel_x_edges, hist_in_pixel_y_edges, range(len(efficiency_regions_analyze_cluster_shapes) + 1)]
                             in_pixel_hist_extent = [0.0, dut_in_pixel_hist_x_size, 0.0, dut_in_pixel_hist_y_size]
                             in_pixel_plot_range = [[0.0, dut_in_pixel_hist_x_size], [0.0, dut_in_pixel_hist_y_size]]
                             for region_index, region in enumerate(efficiency_regions_dut):
@@ -1086,7 +1086,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 stat_in_pixel_cluster_size_2d_hists[region_index][:stat_in_pixel_cluster_size_2d_hist_tmp.shape[0], :stat_in_pixel_cluster_size_2d_hist_tmp.shape[1]] += stat_in_pixel_cluster_size_2d_hist_tmp
                                 # 2D in-pixel cluster shape
                                 count_in_pixel_cluster_shape_2d_hist_tmp = count_in_pixel_cluster_shape_2d_hists[region_index]
-                                count_in_pixel_cluster_shape_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(analyze_cluster_shapes)), dtype=np.float64)
+                                count_in_pixel_cluster_shape_2d_hists[region_index] = np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(efficiency_regions_analyze_cluster_shapes)), dtype=np.float64)
                                 count_in_pixel_cluster_shape_2d_hists[region_index][:count_in_pixel_cluster_shape_2d_hist_tmp.shape[0], :count_in_pixel_cluster_shape_2d_hist_tmp.shape[1], :] += count_in_pixel_cluster_shape_2d_hist_tmp
 
                         for region_index, region in enumerate(efficiency_regions_dut):
@@ -1206,7 +1206,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_in_pixel_cluster_size_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_cluster_size_2d_hists[region_index], stat_in_pixel_cluster_size_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 2D in-pixel cluster shape
                             cluster_shape_mod_tmp = cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes].copy()
-                            for i, cluster_shape_value in enumerate(analyze_cluster_shapes):
+                            for i, cluster_shape_value in enumerate(efficiency_regions_analyze_cluster_shapes):
                                 cluster_shape_mod_tmp[cluster_shape_mod_tmp == cluster_shape_value] = i
                             count_in_pixel_cluster_shape_2d_hists[region_index] += stats.binned_statistic_dd(sample=[in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes], in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit & select_small_cluster_sizes], cluster_shape_mod_tmp], values=None, statistic='count', bins=hist_in_pixel_cluster_shape_edges)[0]
                             # updated last:
@@ -1583,7 +1583,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_stat_in_pixel_cluster_shape_2d_hist=stat_in_pixel_cluster_shape_2d_hists,
                     efficiency_regions_in_pixel_hist_extent=in_pixel_hist_extent,
                     efficiency_regions_in_pixel_plot_range=in_pixel_plot_range,
-                    analyze_cluster_shapes=analyze_cluster_shapes,
+                    efficiency_regions_analyze_cluster_shapes=efficiency_regions_analyze_cluster_shapes,
                     mask_zero=True,
                     output_pdf=output_pdf)
 
