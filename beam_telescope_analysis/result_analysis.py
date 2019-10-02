@@ -1587,7 +1587,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     mask_zero=True,
                     output_pdf=output_pdf)
 
-                dut_group = out_file_h5.create_group(out_file_h5.root, 'DUT%d' % actual_dut_index)
+                dut_group = out_file_h5.create_group("/", 'DUT%d' % actual_dut_index)
 
                 out_hist_2d_x_edges = out_file_h5.create_carray(
                     where=dut_group,
@@ -1685,6 +1685,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     shape=stat_2d_frame_hist.shape)
                 out_stat_2d_frame_hist[:] = stat_2d_frame_hist
 
+                out_stat_2d_cluster_size_hist = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='stat_2d_cluster_size_hist',
+                    title='stat_2d_cluster_size_hist for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(stat_2d_cluster_size_hist.dtype),
+                    shape=stat_2d_cluster_size_hist.shape)
+                out_stat_2d_cluster_size_hist[:] = stat_2d_cluster_size_hist
+
                 out_count_1d_total_angle_hist = out_file_h5.create_carray(
                     where=dut_group,
                     name='count_1d_total_angle_hist',
@@ -1692,7 +1700,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(count_1d_total_angle_hist.dtype),
                     shape=count_1d_total_angle_hist.shape)
                 out_count_1d_total_angle_hist[:] = count_1d_total_angle_hist
-                out_count_1d_total_angle_hist.attrs.edges = count_1d_total_angle_hist_edges
+
+                out_count_1d_total_angle_hist_edges = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_total_angle_hist_edges',
+                    title='count_1d_total_angle_hist_edges for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_total_angle_hist_edges.dtype),
+                    shape=count_1d_total_angle_hist_edges.shape)
+                out_count_1d_total_angle_hist_edges[:] = count_1d_total_angle_hist_edges
 
                 out_stat_2d_total_angle_hist = out_file_h5.create_carray(
                     where=dut_group,
@@ -1709,7 +1724,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(count_1d_alpha_angle_hist.dtype),
                     shape=count_1d_alpha_angle_hist.shape)
                 out_count_1d_alpha_angle_hist[:] = count_1d_alpha_angle_hist
-                out_count_1d_alpha_angle_hist.attrs.edges = count_1d_alpha_angle_hist_edges
+
+                out_count_1d_alpha_angle_hist_edges = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_alpha_angle_hist_edges',
+                    title='count_1d_alpha_angle_hist_edges for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_alpha_angle_hist_edges.dtype),
+                    shape=count_1d_alpha_angle_hist_edges.shape)
+                out_count_1d_alpha_angle_hist_edges[:] = count_1d_alpha_angle_hist_edges
 
                 out_stat_2d_alpha_angle_hist = out_file_h5.create_carray(
                     where=dut_group,
@@ -1726,7 +1748,14 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     atom=tb.Atom.from_dtype(count_1d_beta_angle_hist.dtype),
                     shape=count_1d_beta_angle_hist.shape)
                 out_count_1d_beta_angle_hist[:] = count_1d_beta_angle_hist
-                out_count_1d_beta_angle_hist.attrs.edges = count_1d_beta_angle_hist_edges
+
+                out_count_1d_beta_angle_hist_edges = out_file_h5.create_carray(
+                    where=dut_group,
+                    name='count_1d_beta_angle_hist_edges',
+                    title='count_1d_beta_angle_hist_edges for DUT%d' % actual_dut_index,
+                    atom=tb.Atom.from_dtype(count_1d_beta_angle_hist_edges.dtype),
+                    shape=count_1d_beta_angle_hist_edges.shape)
+                out_count_1d_beta_angle_hist_edges[:] = count_1d_beta_angle_hist_edges
 
                 out_stat_2d_beta_angle_hist = out_file_h5.create_carray(
                     where=dut_group,
@@ -1760,43 +1789,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     shape=stat_2d_efficiency_hist.mask.shape)
                 out_stat_2d_efficiency_hist_mask[:] = stat_2d_efficiency_hist.mask
 
-                if efficiency_regions_dut:
-                    efficiency_regions_count_1d_charge_hist = np.array(efficiency_regions_count_1d_charge_hist)
-                    out_efficiency_regions_count_1d_charge_hist = out_file_h5.create_carray(
-                        where=dut_group,
-                        name='efficiency_regions_count_1d_charge_hist',
-                        title='efficiency_regions_count_1d_charge_hist for DUT%d' % actual_dut_index,
-                        atom=tb.Atom.from_dtype(efficiency_regions_count_1d_charge_hist.dtype),
-                        shape=efficiency_regions_count_1d_charge_hist.shape)
-                    out_efficiency_regions_count_1d_charge_hist[:] = efficiency_regions_count_1d_charge_hist
-
-                    efficiency_regions_stat_pixel_efficiency_hist = np.array(efficiency_regions_stat_pixel_efficiency_hist)
-                    out_efficiency_regions_stat_pixel_efficiency_hist = out_file_h5.create_carray(
-                        where=dut_group,
-                        name='efficiency_regions_stat_pixel_efficiency_hist',
-                        title='efficiency_regions_stat_pixel_efficiency_hist for DUT%d' % actual_dut_index,
-                        atom=tb.Atom.from_dtype(efficiency_regions_stat_pixel_efficiency_hist.dtype),
-                        shape=efficiency_regions_stat_pixel_efficiency_hist.shape)
-                    out_efficiency_regions_stat_pixel_efficiency_hist[:] = efficiency_regions_stat_pixel_efficiency_hist
-
-                    efficiency_regions_stat_in_pixel_efficiency_2d_hist = np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist)
-                    out_efficiency_regions_stat_in_pixel_efficiency_2d_hist = out_file_h5.create_carray(
-                        where=dut_group,
-                        name='efficiency_regions_stat_in_pixel_efficiency_2d_hist',
-                        title='efficiency_regions_stat_in_pixel_efficiency_2d_hist for DUT%d' % actual_dut_index,
-                        atom=tb.Atom.from_dtype(efficiency_regions_stat_in_pixel_efficiency_2d_hist.dtype),
-                        shape=efficiency_regions_stat_in_pixel_efficiency_2d_hist.shape)
-                    out_efficiency_regions_stat_in_pixel_efficiency_2d_hist[:] = efficiency_regions_stat_in_pixel_efficiency_2d_hist
-
-                    efficiency_regions_stat_in_pixel_charge_2d_hist = np.array(stat_in_pixel_charge_2d_hists)
-                    out_efficiency_regions_stat_in_pixel_charge_2d_hist = out_file_h5.create_carray(
-                        where=dut_group,
-                        name='efficiency_regions_stat_in_pixel_charge_2d_hist',
-                        title='efficiency_regions_stat_in_pixel_charge_2d_hist for DUT%d' % actual_dut_index,
-                        atom=tb.Atom.from_dtype(efficiency_regions_stat_in_pixel_charge_2d_hist.dtype),
-                        shape=efficiency_regions_stat_in_pixel_charge_2d_hist.shape)
-                    out_efficiency_regions_stat_in_pixel_charge_2d_hist[:] = efficiency_regions_stat_in_pixel_charge_2d_hist
-
                 if in_cluster_file_h5:
                     out_count_pixel_hits_2d_hist = out_file_h5.create_carray(
                         where=dut_group,
@@ -1810,20 +1802,198 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             fletcher32=False))
                     out_count_pixel_hits_2d_hist[:] = count_pixel_hits_2d_hist
 
-                # Store parameters used for efficiency calculation
-                dut_group._v_attrs.resolution = resolution
-                dut_group._v_attrs.extend_area = extend_area
-                dut_group._v_attrs.plot_range = plot_range
-                dut_group._v_attrs.minimum_track_density = minimum_track_density
-                dut_group._v_attrs.cut_distance = cut_distance
-                dut_group._v_attrs.dut_extent = dut_extent
-                dut_group._v_attrs.hist_extent = hist_extent
-                dut_group._v_attrs.efficiency = (eff, eff_err_pl, eff_err_min)
-                dut_group._v_attrs.efficiency_regions = efficiency_regions_dut
                 if efficiency_regions_dut:
-                    dut_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency
-                    dut_group._v_attrs.efficiency_regions_in_pixel_hist_extent = in_pixel_hist_extent
-                    dut_group._v_attrs.efficiency_regions_in_pixel_plot_range = in_pixel_plot_range
+                    for actual_region_index, _ in enumerate(efficiency_regions_dut):
+                        region_group = out_file_h5.create_group("/DUT%d" % actual_dut_index, 'Region_%d' % actual_region_index)
+
+                        region_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency[actual_region_index]
+                        region_group._v_attrs.efficiency_regions_in_pixel_hist_extent = in_pixel_hist_extent[actual_region_index]
+                        region_group._v_attrs.efficiency_regions_in_pixel_plot_range = in_pixel_plot_range
+                        region_group._v_attrs.efficiency_regions_analyze_cluster_shapes = efficiency_regions_analyze_cluster_shapes
+
+                        out_efficiency_regions_count_1d_charge_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_charge_hist',
+                            title='efficiency_regions_count_1d_charge_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_charge_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_charge_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_charge_hist[:] = efficiency_regions_count_1d_charge_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_frame_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_frame_hist',
+                            title='efficiency_regions_count_1d_frame_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_frame_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_frame_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_frame_hist[:] = efficiency_regions_count_1d_frame_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_cluster_size_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_cluster_size_hist',
+                            title='efficiency_regions_count_1d_cluster_size_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_cluster_size_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_cluster_size_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_cluster_size_hist[:] = efficiency_regions_count_1d_cluster_size_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_total_angle_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_total_angle_hist',
+                            title='efficiency_regions_count_1d_total_angle_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_total_angle_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_total_angle_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_total_angle_hist[:] = efficiency_regions_count_1d_total_angle_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_total_angle_hist_edges = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_total_angle_hist_edges',
+                            title='efficiency_regions_count_1d_total_angle_hist_edges for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_total_angle_hist_edges[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_total_angle_hist_edges[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_total_angle_hist_edges[:] = efficiency_regions_count_1d_total_angle_hist_edges[actual_region_index]
+
+                        out_efficiency_regions_count_1d_alpha_angle_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_alpha_angle_hist',
+                            title='efficiency_regions_count_1d_alpha_angle_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_alpha_angle_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_alpha_angle_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_alpha_angle_hist[:] = efficiency_regions_count_1d_alpha_angle_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_alpha_angle_hist_edges = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_alpha_angle_hist_edges',
+                            title='efficiency_regions_count_1d_alpha_angle_hist_edges for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_alpha_angle_hist_edges[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_alpha_angle_hist_edges[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_alpha_angle_hist_edges[:] = efficiency_regions_count_1d_alpha_angle_hist_edges[actual_region_index]
+
+                        out_efficiency_regions_count_1d_beta_angle_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_beta_angle_hist',
+                            title='efficiency_regions_count_1d_beta_angle_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_beta_angle_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_beta_angle_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_beta_angle_hist[:] = efficiency_regions_count_1d_beta_angle_hist[actual_region_index]
+
+                        out_efficiency_regions_count_1d_beta_angle_hist_edges = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_beta_angle_hist_edges',
+                            title='efficiency_regions_count_1d_beta_angle_hist_edges for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_beta_angle_hist_edges[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_beta_angle_hist_edges[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_beta_angle_hist_edges[:] = efficiency_regions_count_1d_beta_angle_hist_edges[actual_region_index]
+
+                        out_efficiency_regions_count_1d_cluster_shape_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_count_1d_cluster_shape_hist',
+                            title='efficiency_regions_count_1d_cluster_shape_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_count_1d_cluster_shape_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_count_1d_cluster_shape_hist[actual_region_index].shape)
+                        out_efficiency_regions_count_1d_cluster_shape_hist[:] = efficiency_regions_count_1d_cluster_shape_hist[actual_region_index]
+
+                        out_efficiency_regions_stat_pixel_efficiency_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_stat_pixel_efficiency_hist',
+                            title='efficiency_regions_stat_pixel_efficiency_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_stat_pixel_efficiency_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_stat_pixel_efficiency_hist[actual_region_index].shape)
+                        out_efficiency_regions_stat_pixel_efficiency_hist[:] = efficiency_regions_stat_pixel_efficiency_hist[actual_region_index]
+
+                        out_count_in_pixel_hits_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='count_in_pixel_hits_2d_hists',
+                            title='count_in_pixel_hits_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(count_in_pixel_hits_2d_hists[actual_region_index].dtype),
+                            shape=count_in_pixel_hits_2d_hists[actual_region_index].shape)
+                        out_count_in_pixel_hits_2d_hists[:] = count_in_pixel_hits_2d_hists[actual_region_index]
+
+                        out_count_in_pixel_tracks_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='count_in_pixel_tracks_2d_hists',
+                            title='count_in_pixel_tracks_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(count_in_pixel_tracks_2d_hists[actual_region_index].dtype),
+                            shape=count_in_pixel_tracks_2d_hists[actual_region_index].shape)
+                        out_count_in_pixel_tracks_2d_hists[:] = count_in_pixel_tracks_2d_hists[actual_region_index]
+
+                        out_count_in_pixel_tracks_with_hit_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='count_in_pixel_tracks_with_hit_2d_hists',
+                            title='count_in_pixel_tracks_with_hit_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(count_in_pixel_tracks_with_hit_2d_hists[actual_region_index].dtype),
+                            shape=count_in_pixel_tracks_with_hit_2d_hists[actual_region_index].shape)
+                        out_count_in_pixel_tracks_with_hit_2d_hists[:] = count_in_pixel_tracks_with_hit_2d_hists[actual_region_index]
+
+                        out_efficiency_regions_stat_in_pixel_efficiency_2d_hist = out_file_h5.create_carray(
+                            where=region_group,
+                            name='efficiency_regions_stat_in_pixel_efficiency_2d_hist',
+                            title='efficiency_regions_stat_in_pixel_efficiency_2d_hist for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(efficiency_regions_stat_in_pixel_efficiency_2d_hist[actual_region_index].dtype),
+                            shape=efficiency_regions_stat_in_pixel_efficiency_2d_hist[actual_region_index].shape)
+                        out_efficiency_regions_stat_in_pixel_efficiency_2d_hist[:] = efficiency_regions_stat_in_pixel_efficiency_2d_hist[actual_region_index]
+
+                        out_stat_in_pixel_x_residuals_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_x_residuals_2d_hists',
+                            title='stat_in_pixel_x_residuals_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_x_residuals_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_x_residuals_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_x_residuals_2d_hists[:] = stat_in_pixel_x_residuals_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_y_residuals_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_y_residuals_2d_hists',
+                            title='stat_in_pixel_y_residuals_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_y_residuals_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_y_residuals_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_y_residuals_2d_hists[:] = stat_in_pixel_y_residuals_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_residuals_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_residuals_2d_hists',
+                            title='stat_in_pixel_residuals_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_residuals_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_residuals_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_residuals_2d_hists[:] = stat_in_pixel_residuals_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_charge_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_charge_2d_hists',
+                            title='stat_in_pixel_charge_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_charge_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_charge_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_charge_2d_hists[:] = stat_in_pixel_charge_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_frame_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_frame_2d_hists',
+                            title='stat_in_pixel_frame_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_frame_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_frame_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_frame_2d_hists[:] = stat_in_pixel_frame_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_cluster_size_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_cluster_size_2d_hists',
+                            title='stat_in_pixel_cluster_size_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_cluster_size_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_cluster_size_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_cluster_size_2d_hists[:] = stat_in_pixel_cluster_size_2d_hists[actual_region_index]
+
+                        out_count_in_pixel_cluster_shape_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='count_in_pixel_cluster_shape_2d_hists',
+                            title='count_in_pixel_cluster_shape_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(count_in_pixel_cluster_shape_2d_hists[actual_region_index].dtype),
+                            shape=count_in_pixel_cluster_shape_2d_hists[actual_region_index].shape)
+                        out_count_in_pixel_cluster_shape_2d_hists[:] = count_in_pixel_cluster_shape_2d_hists[actual_region_index]
+
+                        out_stat_in_pixel_cluster_shape_2d_hists = out_file_h5.create_carray(
+                            where=region_group,
+                            name='stat_in_pixel_cluster_shape_2d_hists',
+                            title='stat_in_pixel_cluster_shape_2d_hists for DUT%d' % actual_dut_index,
+                            atom=tb.Atom.from_dtype(stat_in_pixel_cluster_shape_2d_hists[actual_region_index].dtype),
+                            shape=stat_in_pixel_cluster_shape_2d_hists[actual_region_index].shape)
+                        out_stat_in_pixel_cluster_shape_2d_hists[:] = stat_in_pixel_cluster_shape_2d_hists[actual_region_index]
 
                 if in_cluster_file_h5:
                     try:
