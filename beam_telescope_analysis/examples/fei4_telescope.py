@@ -108,7 +108,7 @@ def run_analysis(hit_files):
         max_iterations=[7],  # number of alignment iterations, the higher the number the more precise
         max_events=(100000),  # limit number of events to speed up alignment
         quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=True,
         plot=True)
 
@@ -129,7 +129,7 @@ def run_analysis(hit_files):
         select_hit_duts=(0, 1, 2, 3),
         exclude_dut_hit=True,
         quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -143,7 +143,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3], [0, 2, 3], [0, 1, 3], [0, 1, 2]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 10)')
+        query='(track_chi2 < 10)')
 
     # Calculate the unconstrained residuals from final tracks to check the alignment
     result_analysis.calculate_residuals(

@@ -791,7 +791,7 @@ def plot_fit_tracks_statistics(telescope, fit_duts, chunk_indices, chunk_stats, 
         if dut_stats and len(dut_stats[-1]) > actual_dut_index and dut_stats[-1][actual_dut_index]:
             for item in dut_stats:
                 curr_stats.append(item[actual_dut_index])
-        stat_labels = ["... of which the share of DUT with hit", "... of which the share of tracks with quality flag set", "... of which the share of tracks with quality flag unset due to nearby tracks", "... of which the share of tracks with quality flag unset due to nearby hits", "Share of tracks fulfilling hit requirements and quality flag set"]
+        stat_labels = ["... of which the share of DUT with hit", "   ... of which the share of tracks with quality flag set", "   ... of which the share of tracks with isolated tracks flag set", "   ... of which the share of tracks with isolated hits flag set", "Share of tracks fulfilling hit requirements and\nhave quality/isolated track/isolated hit flag set"]
         for index, stat in enumerate(zip(*curr_stats)):
             for i in range(3)[::-1]:
                 if np.all(np.less_equal(stat, 10**-i)):
@@ -852,10 +852,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_full, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_full[0], edges_full[-1]])
-                ax.set_xlabel('Track Chi2 [$\mathrm{\mu m}^2$]')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track Chi2 for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
                 fig = Figure()
@@ -866,10 +866,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_narrow, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
-                ax.set_xlabel('Track Chi2 [$\mathrm{\mu m}^2$]')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track Chi2 for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
 

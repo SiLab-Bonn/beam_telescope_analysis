@@ -177,8 +177,8 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                 pbar.close()
 
 
-def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, condition=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_no_quality_duts=None, chunk_size=1000000):
-    ''' Selecting tracks that are matching the conditions.
+def select_tracks(telescope_configuration, input_tracks_file, select_duts, output_tracks_file=None, query=None, max_events=None, select_hit_duts=None, select_no_hit_duts=None, select_quality_duts=None, select_isolated_track_duts=None, select_isolated_hit_duts=None, chunk_size=1000000):
+    ''' Selecting tracks that are matching the conditions and query strings.
 
     Parameters
     ----------
@@ -186,6 +186,32 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
         Filename of the telescope configuration file.
     input_tracks_file : string
         Filename of the input tracks file.
+    select_duts : list
+        Selecting DUTs that will be processed.
+    output_tracks_file : string
+        Filename of the output tracks file.
+    query : string or list
+        List of query strings for each slected DUT.
+        A query is a string that is processed and is used to select data from the table, e.g.,
+        "track_chi2 <= 5", where "track_chi2" is a column in the table.
+        The data in the output table contains only data with "track_chi2" smaller or equal to 5.
+    max_events : uint
+        Maximum number of radomly selected events.
+    select_hit_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the hit flag set.
+    select_no_hit_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have hit flag not set.
+    select_quality_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the quality flag set.
+        The quality flag is only evaluated for DUTs where the hit flag is set.
+    select_isolated_track_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the isolated track flag set.
+        The isolated track flag is only evaluated for DUTs where the hit flag is set.
+    select_isolated_hit_duts : list
+        List of DUTs for each slected DUT. The DUTs are required to have the isolated hit flag set.
+        The isolated hit flag is only evaluated for DUTs where the hit flag is set.
+    chunk_size : uint
+        Chunk size of the data when reading from file.
     '''
     telescope = Telescope(telescope_configuration)
     logging.info('=== Selecting tracks of %d DUTs ===' % len(select_duts))
@@ -238,6 +264,9 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     # Finally check length of all arrays
     if len(select_no_hit_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_no_hit_duts has the wrong length")
+    for index, item in enumerate(select_no_hit_duts):
+        if set(item) & set(select_hit_duts[index]):  # check for empty intersection
+            raise ValueError("DUT%d cannot have select_hit_duts and select_no_hit_duts set for the same DUTs" % (select_duts[index],))
 
     # Create select_quality_duts
     if select_quality_duts is None:  # If None, use no selection
@@ -257,57 +286,77 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     if len(select_quality_duts) != len(select_duts):  # empty iterable
         raise ValueError("select_quality_duts has the wrong length")
 
-    # Create select_no_quality_duts
-    if select_no_quality_duts is None:  # If None, use no selection
-        select_no_quality_duts = [[] for _ in select_duts]
+    # Create select_isolated_track_duts
+    if select_isolated_track_duts is None:  # If None, use no selection
+        select_isolated_track_duts = [[] for _ in select_duts]
     # Check iterable and length
-    if not isinstance(select_no_quality_duts, Iterable):
-        raise ValueError("select_no_quality_duts is no iterable")
-    elif not select_no_quality_duts:  # empty iterable
-        raise ValueError("select_no_quality_duts has no items")
+    if not isinstance(select_isolated_track_duts, Iterable):
+        raise ValueError("select_isolated_track_duts is no iterable")
+    elif not select_isolated_track_duts:  # empty iterable
+        raise ValueError("select_isolated_track_duts has no items")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_no_quality_duts)):
-        select_no_quality_duts = [select_no_quality_duts[:] for _ in select_duts]
+    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_track_duts)):
+        select_isolated_track_duts = [select_isolated_track_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_no_quality_duts)):
-        raise ValueError("not all items in select_no_quality_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_track_duts)):
+        raise ValueError("not all items in select_isolated_track_duts are iterable")
     # Finally check length of all arrays
-    if len(select_no_quality_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_no_quality_duts has the wrong length")
+    if len(select_isolated_track_duts) != len(select_duts):  # empty iterable
+        raise ValueError("select_isolated_track_duts has the wrong length")
 
-    # Create condition
-    if condition is None:  # If None, use empty strings for all DUTs
-        condition = ['' for _ in select_duts]
-    # Check if iterable
-    if isinstance(condition, str):
-        condition = [condition] * len(select_duts)
-    # Check if only strings in iterable
-    if not all(map(lambda val: isinstance(val, str), condition)):
-        raise ValueError("not all items in condition are strings")
+    # Create select_isolated_hit_duts
+    if select_isolated_hit_duts is None:  # If None, use no selection
+        select_isolated_hit_duts = [[] for _ in select_duts]
+    # Check iterable and length
+    if not isinstance(select_isolated_hit_duts, Iterable):
+        raise ValueError("select_isolated_hit_duts is no iterable")
+    elif not select_isolated_hit_duts:  # empty iterable
+        raise ValueError("select_isolated_hit_duts has no items")
+    # Check if only non-iterable in iterable
+    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_hit_duts)):
+        select_isolated_hit_duts = [select_isolated_hit_duts[:] for _ in select_duts]
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_hit_duts)):
+        raise ValueError("not all items in select_isolated_hit_duts are iterable")
     # Finally check length of all arrays
-    if len(condition) != len(select_duts):  # empty iterable
-        raise ValueError("condition has the wrong length")
+    if len(select_isolated_hit_duts) != len(select_duts):  # empty iterable
+        raise ValueError("select_isolated_hit_duts has the wrong length")
+
+    # Create query
+    if query is None:  # If None, use empty strings for all DUTs
+        query = ['' for _ in select_duts]
+    # Check if iterable
+    if isinstance(query, str):
+        query = [query] * len(select_duts)
+    # Check if only strings in iterable
+    if not all(map(lambda val: isinstance(val, str), query)):
+        raise ValueError("not all items in query are strings")
+    # Finally check length of all arrays
+    if len(query) != len(select_duts):  # empty iterable
+        raise ValueError("query has the wrong length")
 
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         with tb.open_file(output_tracks_file, mode="w") as out_file_h5:
             for index, actual_dut_index in enumerate(select_duts):
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
                 logging.info('== Selecting tracks for %s ==', telescope[actual_dut_index].name)
-
-                hit_flags = 0
+                if query[index]:
+                    logging.info('Query string: {}'.format(query[index]))
                 hit_mask = 0
                 for dut in select_hit_duts[index]:
-                    hit_flags |= (1 << dut)
                     hit_mask |= (1 << dut)
+                no_hit_mask = 0
                 for dut in select_no_hit_duts[index]:
-                    hit_mask |= (1 << dut)
-                quality_flags = 0
+                    no_hit_mask |= (1 << dut)
                 quality_mask = 0
                 for dut in select_quality_duts[index]:
-                    quality_flags |= (1 << dut)
                     quality_mask |= (1 << dut)
-                for dut in select_no_quality_duts[index]:
-                    quality_mask |= (1 << dut)
+                isolated_track_mask = 0
+                for dut in select_isolated_track_duts[index]:
+                    isolated_track_mask |= (1 << dut)
+                isolated_hit_mask = 0
+                for dut in select_isolated_hit_duts[index]:
+                    isolated_hit_mask |= (1 << dut)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,
@@ -326,16 +375,29 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
 
                 for tracks, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = tracks.shape[0]
-
-                    if hit_mask != 0 or quality_mask != 0:
+                    if hit_mask != 0 or no_hit_mask != 0 or quality_mask != 0 or isolated_track_mask != 0 or isolated_hit_mask != 0:
                         select = np.ones(n_tracks_chunk, dtype=np.bool)
                         if hit_mask != 0:
-                            select &= ((tracks['hit_flag'] & hit_mask) == hit_flags)
+                            select &= ((tracks['hit_flag'] & hit_mask) == hit_mask)
+                        if no_hit_mask != 0:
+                            select &= ((~tracks['hit_flag'] & no_hit_mask) == no_hit_mask)
                         if quality_mask != 0:
-                            select &= ((tracks['quality_flag'] & quality_mask) == quality_flags)
+                            # Require only quality if have a valid hit
+                            quality_mask_mod = quality_mask & tracks['hit_flag']
+                            quality_flags_mod = quality_mask & tracks['hit_flag']
+                            select &= ((tracks['quality_flag'] & quality_mask_mod) == quality_flags_mod)
+                        if isolated_track_mask != 0:
+                            select &= ((tracks['isolated_track_flag'] & isolated_track_mask) == isolated_track_mask)
+                        if isolated_hit_mask != 0:
+                            # Require only isolated hit if have a valid hit
+                            isolated_hit_mask_mod = isolated_hit_mask & tracks['hit_flag']
+                            isolated_hit_flags_mod = isolated_hit_mask & tracks['hit_flag']
+                            select &= ((tracks['isolated_hit_flag'] & isolated_hit_mask_mod) == isolated_hit_flags_mod)
                         tracks = tracks[select]
-                    if condition[index]:
-                        tracks = _select_rows_with_condition(tracks, condition[index])
+                    if query[index]:
+                        tracks = table_where(
+                            arr=tracks,
+                            query_str=query[index])
 
                     unique_events = np.unique(tracks["event_number"])
                     n_events_chunk = unique_events.shape[0]
@@ -383,8 +445,8 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 # print "total_n_events_stored", total_n_events_stored
 
 
-def _select_rows_with_condition(rec_array, condition):
-    for variable in set(re.findall(r'(\d*[a-zA-Z_]+\d*)', condition)):
-        exec(variable + ' = rec_array[\'' + variable + '\']')  # expose variables; not a copy, this is just a reference
+def table_where(arr, query_str):
+    for variable in set(re.findall(r'(\d*[a-zA-Z_]+\d*)', query_str)):
+        exec(variable + ' = arr[\'' + variable + '\']')  # expose variables; not a copy, this is just a reference
 
-    return rec_array[ne.evaluate(condition, casting="safe")]
+    return arr[ne.evaluate(query_str, casting="safe")]

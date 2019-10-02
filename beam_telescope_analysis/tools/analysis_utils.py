@@ -696,10 +696,6 @@ def gauss_box_erf(x, *p):
     return 0.5 * A * erf((x - mu + width * 0.5) / (np.sqrt(2) * sigma)) + 0.5 * A * erf((mu + width * 0.5 - x) / (np.sqrt(2) * sigma))
 
 
-def get_chi2(y_data, y_fit):
-    return np.square(y_data - y_fit).sum()
-
-
 def get_mean_from_histogram(counts, bin_positions):
     return np.dot(counts, np.array(bin_positions)) / np.sum(counts).astype(np.float64)
 
@@ -1039,6 +1035,18 @@ def calculate_cluster_array(cluster_shape):
             cluster_array[x, y] = 1
             cluster_shape -= val
     return cluster_array
+
+
+def number_of_set_bits(val):
+    '''Calculate the number of set bits
+
+    See:
+    - https://stackoverflow.com/questions/9829578/fast-way-of-counting-non-zero-bits-in-positive-integer
+    - https://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer#109025
+    '''
+    val = val - ((val >> 1) & 0x55555555)
+    val = (val & 0x33333333) + ((val >> 2) & 0x33333333)
+    return (((val + (val >> 4) & 0xF0F0F0F) * 0x1010101) & 0xffffffff) >> 24
 
 
 def voronoi_finite_polygons_2d(points, dut_extent=None):

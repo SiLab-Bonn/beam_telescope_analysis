@@ -146,16 +146,15 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     # DUTs which are not used for fit
     no_fit_selection = list(set(range(len(telescope))) - set(fit_selection))
 
-    offsets, slopes, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
+    offsets, slopes, chi2, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
         track_hits=measurements,
         telescope=telescope,
         select_fit_duts=fit_selection,
-        particle_mass=0.511,
         beam_energy=2500.0,
+        particle_mass=0.511,
         scattering_planes=None)
 
     # offsets = track_estimates_chunk[:, :len(telescope), :3]
-
     # slopes = track_estimates_chunk[:, :len(telescope), 3:]
 
     # interpolate hits with straight line

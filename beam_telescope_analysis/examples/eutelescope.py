@@ -158,7 +158,7 @@ def run_analysis(hit_files):
         select_fit_duts=[0, 1, 2, 3, 4, 5],
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -173,7 +173,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 500)')
+        query='(track_chi2 < 500)')
 
     # Step 4:
     # Calculate the unconstrained residuals from pre-aligned tracks to check the pre-alignment
@@ -198,7 +198,7 @@ def run_analysis(hit_files):
         max_events=(100000),
         track_chi2=15.0,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=True,
         plot=True)
 
@@ -219,7 +219,7 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -242,7 +242,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 15.0)')
+        query='(track_chi2 < 15.0)')
 
     # Calculate the unconstrained residuals from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
@@ -273,7 +273,7 @@ def run_analysis(hit_files):
                          [3, 4]],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
 
@@ -287,7 +287,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 5.0)')
+        query='(track_chi2 < 5.0)')
 
     # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
@@ -311,7 +311,7 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         exclude_dut_hit=True,
         quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        reject_quality_distances=(1000.0, 1000.0),
+        isolation_distances=(1000.0, 1000.0),
         method='kalman',
         beam_energy=5000.0,
         particle_mass=0.511,
@@ -328,7 +328,7 @@ def run_analysis(hit_files):
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
         select_no_quality_duts=None,
-        condition='(track_chi2 < 5.0)')
+        query='(track_chi2 < 5.0)')
 
     # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
     result_analysis.calculate_residuals(
