@@ -6,9 +6,6 @@ import os.path
 from multiprocessing import Pool, cpu_count
 import math
 from collections import Iterable
-import functools
-import itertools
-from itertools import combinations
 
 import tables as tb
 import numpy as np
