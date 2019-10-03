@@ -379,7 +379,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 total_n_tracks = node.shape[0]
                 total_n_tracks_stored = 0
                 total_n_events_stored = 0
-                pbar = tqdm(total=total_n_tracks, ncols=80)
+                if max_events:
+                    pbar = tqdm(total=max_events, ncols=80)
+                else:
+                    pbar = tqdm(total=total_n_tracks, ncols=80)
 
                 total_n_events_stored_last = None
                 # total_n_tracks_last = None
@@ -410,9 +413,9 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                             arr=tracks,
                             query_str=query[index])
 
-                    unique_events = np.unique(tracks["event_number"])
-                    n_events_chunk = unique_events.shape[0]
                     if max_events:
+                        unique_events = np.unique(tracks["event_number"])
+                        n_events_chunk = unique_events.shape[0]
                         if total_n_tracks == index_chunk:  # last chunk, adding all remaining events
                             select_n_events = max_events - total_n_events_stored
                         elif total_n_events_stored == 0:  # first chunk
@@ -439,13 +442,15 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                         # TODO: total_n_tracks_stored not used...
                         total_n_tracks_stored += store_n_tracks
                         tracks = tracks[selected_tracks]
+                        pbar.update(n_events_chunk)
+                    else:
+                        pbar.update(tracks.shape[0])
 
                     tracks_table_out.append(tracks)
                     tracks_table_out.flush()
                     total_n_events_stored_last = total_n_events_stored
                     # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    pbar.update(tracks.shape[0])
                 pbar.close()
 
     return output_tracks_file
