@@ -798,6 +798,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     # Check for whether local coordinates or indices are used
     with tb.open_file(input_hit_file, mode='r') as input_file_h5:
         node = input_file_h5.root.Hits
+        hits_columns = node.dtype.names
         if use_positions is None:
             if 'x' in node.dtype.names:
                 use_positions = True
@@ -1006,6 +1007,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     else:
         clusterizer.set_end_of_cluster_function(end_of_cluster_function_with_index)  # Set the new function to the clusterizer
     clusterizer.set_end_of_event_function(end_of_event_function)
+    additional_columns = list(set(hits_columns) - set(hit_dtype.names))
+    if additional_columns:
+        logging.info('Found additional column(s): %s' % ", ".join(additional_columns))
+    clusterizer._additional_columns = additional_columns
 
     # Run clusterizer on hit table in parallel on all cores
     def cluster_func(hits, clusterizer, noisy_pixels, disabled_pixels, dut, convert_to_positions, copy_hit_indices):
