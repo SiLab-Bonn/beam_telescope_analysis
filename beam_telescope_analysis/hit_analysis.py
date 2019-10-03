@@ -846,31 +846,31 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     @numba.njit(locals={'diff_col': numba.int32, 'diff_row': numba.int32, 'cluster_shape': numba.int64})
     def end_of_cluster_function_with_index(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
         hit_arr = np.zeros((15, 15), dtype=np.bool_)
-        center_col = hits[cluster_hit_indices[0]].column
-        center_row = hits[cluster_hit_indices[0]].row
+        center_col = hits[cluster_hit_indices[0]]["column"]
+        center_row = hits[cluster_hit_indices[0]]["row"]
         hit_arr[7, 7] = 1
-        min_col = hits[cluster_hit_indices[0]].column
-        max_col = hits[cluster_hit_indices[0]].column
-        min_row = hits[cluster_hit_indices[0]].row
-        max_row = hits[cluster_hit_indices[0]].row
-        min_frame = hits[cluster_hit_indices[0]].frame
+        min_col = hits[cluster_hit_indices[0]]["column"]
+        max_col = hits[cluster_hit_indices[0]]["column"]
+        min_row = hits[cluster_hit_indices[0]]["row"]
+        max_row = hits[cluster_hit_indices[0]]["row"]
+        min_frame = hits[cluster_hit_indices[0]]["frame"]
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
-            diff_col = hits[i].column - center_col
-            diff_row = hits[i].row - center_row
+            diff_col = hits[i]["column"] - center_col
+            diff_row = hits[i]["row"] - center_row
             if np.abs(diff_col) < 8 and np.abs(diff_row) < 8:
-                hit_arr[7 + hits[i].column - center_col, 7 + hits[i].row - center_row] = 1
-            if hits[i].column < min_col:
-                min_col = hits[i].column
-            if hits[i].column > max_col:
-                max_col = hits[i].column
-            if hits[i].row < min_row:
-                min_row = hits[i].row
-            if hits[i].row > max_row:
-                max_row = hits[i].row
-            if hits[i].frame < min_frame:
-                min_frame = hits[i].frame
+                hit_arr[7 + hits[i]["column"] - center_col, 7 + hits[i]["row"] - center_row] = 1
+            if hits[i]["column"] < min_col:
+                min_col = hits[i]["column"]
+            if hits[i]["column"] > max_col:
+                max_col = hits[i]["column"]
+            if hits[i]["row"] < min_row:
+                min_row = hits[i]["row"]
+            if hits[i]["row"] > max_row:
+                max_row = hits[i]["row"]
+            if hits[i]["frame"] < min_frame:
+                min_frame = hits[i]["frame"]
 
         if max_col - min_col < 8 and max_row - min_row < 8:
             # make 8x8 array
@@ -887,37 +887,37 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             # cluster is exceeding 8x8 array
             cluster_shape = -1
 
-        clusters[cluster_index].cluster_shape = cluster_shape
-        clusters[cluster_index].err_column = max_col - min_col
-        clusters[cluster_index].err_row = max_row - min_row
-        clusters[cluster_index].frame = min_frame
+        clusters[cluster_index]["cluster_shape"] = cluster_shape
+        clusters[cluster_index]["err_column"] = max_col - min_col
+        clusters[cluster_index]["err_row"] = max_row - min_row
+        clusters[cluster_index]["frame"] = min_frame
 
     @numba.njit()
     def end_of_cluster_function_with_position(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
-        min_col = hits[cluster_hit_indices[0]].column
-        max_col = hits[cluster_hit_indices[0]].column
-        min_row = hits[cluster_hit_indices[0]].row
-        max_row = hits[cluster_hit_indices[0]].row
-        min_frame = hits[cluster_hit_indices[0]].frame
+        min_col = hits[cluster_hit_indices[0]]["column"]
+        max_col = hits[cluster_hit_indices[0]]["column"]
+        min_row = hits[cluster_hit_indices[0]]["row"]
+        max_row = hits[cluster_hit_indices[0]]["row"]
+        min_frame = hits[cluster_hit_indices[0]]["frame"]
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
-            if hits[i].column < min_col:
-                min_col = hits[i].column
-            if hits[i].column > max_col:
-                max_col = hits[i].column
-            if hits[i].row < min_row:
-                min_row = hits[i].row
-            if hits[i].row > max_row:
-                max_row = hits[i].row
-            if hits[i].frame < min_frame:
-                min_frame = hits[i].frame
+            if hits[i]["column"] < min_col:
+                min_col = hits[i]["column"]
+            if hits[i]["column"] > max_col:
+                max_col = hits[i]["column"]
+            if hits[i]["row"] < min_row:
+                min_row = hits[i]["row"]
+            if hits[i]["row"] > max_row:
+                max_row = hits[i]["row"]
+            if hits[i]["frame"] < min_frame:
+                min_frame = hits[i]["frame"]
 
         # no cluster shape available
-        clusters[cluster_index].cluster_shape = -1
-        clusters[cluster_index].err_x = max_col - min_col
-        clusters[cluster_index].err_y = max_row - min_row
-        clusters[cluster_index].frame = min_frame
+        clusters[cluster_index]["cluster_shape"] = -1
+        clusters[cluster_index]["err_x"] = max_col - min_col
+        clusters[cluster_index]["err_y"] = max_row - min_row
+        clusters[cluster_index]["frame"] = min_frame
 
     # Adding number of clusters
     def end_of_event_function(hits, clusters, start_event_hit_index, stop_event_hit_index, start_event_cluster_index, stop_event_cluster_index):
