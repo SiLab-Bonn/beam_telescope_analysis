@@ -16,7 +16,7 @@ except NameError:
 
 class NameValue(tb.IsDescription):
     name = tb.StringCol(256, pos=0)
-    value = tb.StringCol(4 * 1024, pos=1)
+    value = tb.StringCol(32 * 1024, pos=1)
 
 
 def save_configuration_dict(output_file, table_name, dictionary, date_created=None, **kwargs):
