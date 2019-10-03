@@ -17,6 +17,7 @@ from beam_telescope_analysis.tools import analysis_utils
 from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
+@save_arguments
 def combine_files(input_files, output_file=None, names=None, event_number_offsets=None, chunk_size=1000000):
     ''' Combine tables from different files and merge it into one single table.
 
@@ -102,7 +103,7 @@ def combine_files(input_files, output_file=None, names=None, event_number_offset
                         last_event_numbers[table.name] = data_chunk[-1]['event_number']
                         applied_event_number_offsets[table.name].append(event_number_offset)
 
-    return applied_event_number_offsets
+    return output_file, applied_event_number_offsets
 
 
 @save_arguments

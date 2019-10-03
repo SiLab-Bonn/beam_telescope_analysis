@@ -73,6 +73,7 @@ def convert(telescope_configuration, input_hit_files, output_hit_files=None, sel
     return output_files
 
 
+@save_arguments
 def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_local=True, chunk_size=1000000):
     '''Convert index to local coordinates and vice versa.
 
@@ -232,6 +233,7 @@ def check(telescope_configuration, input_hit_files, output_check_files=None, sel
     return output_files
 
 
+@save_arguments
 def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resolution=None, plot=True, chunk_size=1000000):
     '''Checks the hit table to have proper data.
 

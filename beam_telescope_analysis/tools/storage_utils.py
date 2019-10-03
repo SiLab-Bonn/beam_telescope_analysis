@@ -1,5 +1,6 @@
 import logging
 import time
+import os
 from functools import wraps
 
 import tables as tb
@@ -71,14 +72,19 @@ def save_arguments(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         curr_time = time.time()
-        output_file = func(*args, **kwargs)
+        ret_val = func(*args, **kwargs)
         func_name = func.func_name
-        if isinstance(output_file, basestring):
+        output_file = None
+        if isinstance(ret_val, basestring):
+            output_file = ret_val
+        elif isinstance(ret_val, (list, tuple)) and isinstance(ret_val[0], basestring):  # allow multiple return values
+            output_file = ret_val[0]
+        if output_file and os.path.isfile(output_file):
             all_parameters = func.func_code.co_varnames[:func.func_code.co_argcount]
             all_kwargs = dict(zip(all_parameters, args))
             all_kwargs.update(kwargs)
             save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, date_created=curr_time, mode="a")
         else:
-            logging.warning("Value returned by \"%s()\" is not a string. Arguments were not saved." % func_name)
+            logging.warning("Value returned by \"%s()\" is not a valid file. Function arguments were not saved." % func_name)
         return output_file
     return wrapper
