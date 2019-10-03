@@ -210,12 +210,15 @@ class SMC(object):
                 break
             while len(self.res_deque) >= (self.n_cores + 1) and not self.force_stop.wait(0.01):
                 pass
-            res = apply_async(
-                pool=self.pool,
-                # fun=self._work,
-                data=data,
-                func=self.func,
-                func_kwargs=self.func_kwargs)
+            if self.n_cores == 1:
+                res = self.func(data, **self.func_kwargs)
+            else:
+                res = apply_async(
+                    pool=self.pool,
+                    # fun=self._work,
+                    data=data,
+                    func=self.func,
+                    func_kwargs=self.func_kwargs)
             self.res_deque.append(res)
         self.res_deque.append(None)
 
@@ -240,10 +243,13 @@ class SMC(object):
                     continue
                 if res is None:
                     break
-            try:
-                res_data = res.get(timeout=0.01)
-            except TimeoutError:
-                continue
+            if self.n_cores == 1:
+                res_data = res
+            else:
+                try:
+                    res_data = res.get(timeout=0.01)
+                except TimeoutError:
+                    continue
             res = None
             if not isinstance(res_data, (list, tuple)):
                 res_data = (res_data,)
