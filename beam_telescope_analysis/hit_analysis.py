@@ -857,8 +857,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         for i in cluster_hit_indices[1:]:
             if i < 0:  # Not used indeces = -1
                 break
-            diff_col = hits[i]["column"] - center_col
-            diff_row = hits[i]["row"] - center_row
+            diff_col = np.int32(hits[i]["column"]) - center_col
+            diff_row = np.int32(hits[i]["row"]) - center_row
             if np.abs(diff_col) < 8 and np.abs(diff_row) < 8:
                 hit_arr[7 + hits[i]["column"] - center_col, 7 + hits[i]["row"] - center_row] = 1
             if hits[i]["column"] < min_col:
