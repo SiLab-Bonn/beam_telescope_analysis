@@ -22,6 +22,7 @@ from beam_telescope_analysis.tools.plot_utils import plot_masked_pixels, plot_cl
 from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
+@save_arguments
 def convert(telescope_configuration, input_hit_files, output_hit_files=None, select_duts=None, index_to_local=True, chunk_size=1000000):
     '''"Converting hit files. Wrapper for convert_coordinates(). For detailed description of the parameters see convert_coordinates().
 
@@ -166,6 +167,7 @@ def convert_coordinates(dut, input_hit_file, output_hit_file=None, index_to_loca
     return output_file
 
 
+@save_arguments
 def check(telescope_configuration, input_hit_files, output_check_files=None, select_duts=None, event_ranges=1, resolutions=None, plot=True, chunk_size=1000000):
     '''"Checking hit files. Wrapper for check_file(). For detailed description of the parameters see check_file().
 
@@ -410,6 +412,7 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
     return output_check_file
 
 
+@save_arguments
 def mask(telescope_configuration, input_hit_files, output_mask_files=None, select_duts=None, pixel_mask_names="NoisyPixelMask", iterations=None, thresholds=10.0, filter_sizes=3, plot=True, chunk_size=1000000):
     '''"Masking noisy pixels.
     Wrapper for mask_pixels(). For detailed description of the parameters see mask_pixels().
@@ -604,6 +607,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     return output_mask_file
 
 
+@save_arguments
 def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=None, max_hit_charges=None, charge_corrections=None, charge_weighted_clustering=False, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
     '''Clustering hits. Wrapper for cluster_hits(). For detailed description of the parameters see cluster_hits().
 

@@ -74,17 +74,23 @@ def save_arguments(func):
         curr_time = time.time()
         ret_val = func(*args, **kwargs)
         func_name = func.func_name
-        output_file = None
-        if isinstance(ret_val, basestring):
-            output_file = ret_val
-        elif isinstance(ret_val, (list, tuple)) and isinstance(ret_val[0], basestring):  # allow multiple return values
-            output_file = ret_val[0]
-        if output_file and os.path.isfile(output_file):
-            all_parameters = func.func_code.co_varnames[:func.func_code.co_argcount]
-            all_kwargs = dict(zip(all_parameters, args))
-            all_kwargs.update(kwargs)
-            save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, date_created=curr_time, mode="a")
+        output_files = None
+        if isinstance(ret_val, basestring) and os.path.isfile(ret_val):
+            output_files = (ret_val,)
+        elif isinstance(ret_val, (list, tuple)):  # allow multiple return values
+            if all(map(lambda item: isinstance(item, basestring), ret_val)) and all(map(os.path.isfile, ret_val)):  # all return values are files
+                output_files = ret_val
+            elif isinstance(ret_val[0], basestring) and os.path.isfile(ret_val[0]):  # first item is file
+                output_files = (ret_val[0],)
+            elif isinstance(ret_val[0], (list, tuple)) and all(map(lambda item: isinstance(item, basestring), ret_val[0])) and all(map(os.path.isfile, ret_val[0])):  # first item is list of files
+                output_files = ret_val[0]
+        if output_files:
+            for output_file in output_files:
+                all_parameters = func.func_code.co_varnames[:func.func_code.co_argcount]
+                all_kwargs = dict(zip(all_parameters, args))
+                all_kwargs.update(kwargs)
+                save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, date_created=curr_time, mode="a")
         else:
-            logging.warning("Value returned by \"%s()\" is not a valid file. Function arguments were not saved." % func_name)
-        return output_file
+            logging.warning("Invalid value(s) returned by \"%s()\": function arguments were not saved." % func_name)
+        return ret_val
     return wrapper
