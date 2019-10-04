@@ -905,15 +905,15 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         # reqire hits in each DUT that will be aligned
         actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
         actual_quality_duts = actual_hit_duts
-        # fit_quality_distances = np.zeros_like(quality_distances)
-        # for index, item in enumerate(quality_distances):
-        #     if index in align_duts:
-        #         fit_quality_distances[index, 0] = np.linspace(item[0] * max_iterations, item[0], max_iterations)[iteration_step]
-        #         fit_quality_distances[index, 1] = np.linspace(item[1] * max_iterations, item[1], max_iterations)[iteration_step]
-        #     else:
-        #         fit_quality_distances[index, 0] = item[0]
-        #         fit_quality_distances[index, 1] = item[1]
-        # fit_quality_distances = fit_quality_distances.tolist()
+        fit_quality_distances = np.zeros_like(quality_distances)
+        for index, item in enumerate(quality_distances):
+            if index in align_duts:
+                fit_quality_distances[index, 0] = np.linspace(item[0] * 1.08447**max_iterations, item[0], max_iterations)[iteration_step]
+                fit_quality_distances[index, 1] = np.linspace(item[1] * 1.08447**max_iterations, item[1], max_iterations)[iteration_step]
+            else:
+                fit_quality_distances[index, 0] = item[0]
+                fit_quality_distances[index, 1] = item[1]
+        fit_quality_distances = fit_quality_distances.tolist()
         if iteration_step > 0:
             logging.info('= Alignment step 1 - iteration %d: Finding tracks for %d DUTs =', iteration_step, len(align_duts))
             # remove temporary file
