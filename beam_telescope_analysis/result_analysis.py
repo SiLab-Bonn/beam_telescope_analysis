@@ -1233,15 +1233,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 # updated last:
                                 # 2D in-pixel tracks with valid hit
                                 count_in_pixel_tracks_with_hit_2d_hists[region_index] += count_in_pixel_tracks_with_hit_2d_hist_tmp
-                            if np.any(select_valid_tracks_efficiency_region & select_valid_hit_tdc):
-                                # 2D in-pixel tdc charge
-                                stat_in_pixel_tdc_charge_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit_tdc], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit_tdc], values=tdc_charge[select_valid_tracks_efficiency_region & select_valid_hit_tdc], statistic='mean', bins=hist_in_pixel_2d_edges)
-                                stat_in_pixel_tdc_charge_2d_hist_tmp = np.nan_to_num(stat_in_pixel_tdc_charge_2d_hist_tmp)
-                                stat_in_pixel_tdc_charge_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_tdc_charge_2d_hists[region_index], stat_in_pixel_tdc_charge_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
-                                # 2D in-pixel tdc dist
-                                stat_in_pixel_tdc_dist_2d_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit_tdc], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit_tdc], values=tdc_dist[select_valid_tracks_efficiency_region & select_valid_hit_tdc], statistic='mean', bins=hist_in_pixel_2d_edges)
-                                stat_in_pixel_tdc_dist_2d_hist_tmp = np.nan_to_num(stat_in_pixel_tdc_dist_2d_hist_tmp)
-                                stat_in_pixel_tdc_dist_2d_hists[region_index], _ = np.ma.average(a=np.stack([stat_in_pixel_tdc_dist_2d_hists[region_index], stat_in_pixel_tdc_dist_2d_hist_tmp]), axis=0, weights=np.stack([count_in_pixel_tracks_with_hit_2d_hists[region_index], count_in_pixel_tracks_with_hit_2d_hist_tmp]), returned=True)
 
                     # Histograms for per-pixel efficiency
                     # Pixel tracks
@@ -1309,21 +1300,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # 2D mean beta track angle
                             stat_2d_beta_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                             stat_2d_beta_angle_hist = np.nan_to_num(stat_2d_beta_angle_hist)
-                        if np.any(select_valid_hit_tdc):  # Check for valid hits
-                            # 2D hits (considered for TDC analysis)
-                            count_hits_2d_hist_tdc_sel, _, _, _ = stats.binned_statistic_2d(x=hit_x_local[select_valid_hit_tdc], y=hit_y_local[select_valid_hit_tdc], values=None, statistic='count', bins=hist_2d_edges)
-                            # 2D tdc charge
-                            stat_2d_tdc_charge_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc], y=intersection_y_local[select_valid_hit_tdc], values=tdc_charge[select_valid_hit_tdc], statistic='mean', bins=hist_2d_edges)
-                            stat_2d_tdc_charge_hist = np.nan_to_num(stat_2d_tdc_charge_hist)
-                            # 1D tdc charge
-                            # count_1d_tdc_charge_hist = np.bincount(tdc_charge[select_valid_hit_tdc].astype(np.int64))
-                            count_1d_tdc_charge_hist, count_1d_tdc_charge_hist_edges = np.histogram(tdc_charge[select_valid_hit_tdc], bins=tdc_charge_bins)
-                            # 2D tdc dist
-                            stat_2d_tdc_dist_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc], y=intersection_y_local[select_valid_hit_tdc], values=tdc_dist[select_valid_hit_tdc], statistic='mean', bins=hist_2d_edges)
-                            stat_2d_tdc_dist_hist = np.nan_to_num(stat_2d_tdc_dist_hist)
-                            # count_2d_frame_hist = count_tracks_with_hit_2d_hist_tmp
-                            # 1D tdc dist
-                            count_1d_tdc_dist_hist = np.bincount(tdc_dist[select_valid_hit_tdc])
                     else:
                         # 2D tracks
                         count_tracks_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
@@ -1406,35 +1382,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # 2D tracks with valid hit
                             count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
                         count_tracks_2d_hist += count_tracks_2d_hist_tmp
-                        if np.any(select_valid_hit_tdc):  # Check for valid hits
-                            # 2D hits (considered for TDC analysis)
-                            count_hits_2d_hist_tdc_sel += stats.binned_statistic_2d(x=hit_x_local[select_valid_hit_tdc], y=hit_y_local[select_valid_hit_tdc], values=None, statistic='count', bins=hist_2d_edges)[0]
-                            # 2D tdc charge
-                            stat_2d_tdc_charge_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc], y=intersection_y_local[select_valid_hit_tdc], values=tdc_charge[select_valid_hit_tdc], statistic='mean', bins=hist_2d_edges)
-                            stat_2d_tdc_charge_hist_tmp = np.nan_to_num(stat_2d_tdc_charge_hist_tmp)
-                            stat_2d_tdc_charge_hist, _ = np.ma.average(a=np.stack([stat_2d_tdc_charge_hist, stat_2d_tdc_charge_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
-                            # 1D  tdc charge
-                            # count_1d_tdc_charge_hist_tmp = np.bincount(tdc_charge[select_valid_hit_tdc].astype(np.int64))
-                            count_1d_tdc_charge_hist_tmp = np.histogram(tdc_charge[select_valid_hit_tdc], bins=count_1d_tdc_charge_hist_edges)[0]
-                            if count_1d_tdc_charge_hist_tmp.size > count_1d_tdc_charge_hist.size:
-                                count_1d_tdc_charge_hist.resize(count_1d_tdc_charge_hist_tmp.size)
-                            else:
-                                count_1d_tdc_charge_hist_tmp.resize(count_1d_tdc_charge_hist.size)
-                            count_1d_tdc_charge_hist += count_1d_tdc_charge_hist_tmp
-                            # 2D tdc dist
-                            stat_2d_tdc_dist_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc], y=intersection_y_local[select_valid_hit_tdc], values=tdc_dist[select_valid_hit_tdc], statistic='mean', bins=hist_2d_edges)
-                            stat_2d_tdc_dist_hist_tmp = np.nan_to_num(stat_2d_tdc_dist_hist_tmp)
-                            stat_2d_tdc_dist_hist, count_2d_tdc_dist_hist = np.ma.average(a=np.stack([stat_2d_tdc_dist_hist, stat_2d_tdc_dist_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
-                            # 1D tdc dist
-                            count_1d_tdc_dist_hist_tmp = np.bincount(tdc_dist[select_valid_hit_tdc])
-                            if count_1d_tdc_dist_hist_tmp.size > count_1d_tdc_dist_hist.size:
-                                count_1d_tdc_dist_hist.resize(count_1d_tdc_dist_hist_tmp.size)
-                            else:
-                                count_1d_tdc_dist_hist_tmp.resize(count_1d_tdc_dist_hist.size)
-                            count_1d_tdc_dist_hist += count_1d_tdc_dist_hist_tmp
-                        # Chunk stats
-                        # count_tracks_with_hit_2d_hist_chunk = count_tracks_with_hit_2d_hist_tmp
-                        # count_tracks_2d_hist_chunk = count_tracks_2d_hist_tmp
 
                     if in_cluster_file_h5:
                         # get 2D indices (without overflow bins)
