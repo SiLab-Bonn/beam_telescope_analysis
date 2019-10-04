@@ -1808,7 +1808,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         region_group = out_file_h5.create_group("/DUT%d" % actual_dut_index, 'Region_%d' % actual_region_index)
 
                         region_group._v_attrs.efficiency_regions_efficiency = efficiency_regions_efficiency[actual_region_index]
-                        region_group._v_attrs.efficiency_regions_in_pixel_hist_extent = in_pixel_hist_extent[actual_region_index]
+                        region_group._v_attrs.efficiency_regions_in_pixel_hist_extent = in_pixel_hist_extent
                         region_group._v_attrs.efficiency_regions_in_pixel_plot_range = in_pixel_plot_range
                         region_group._v_attrs.efficiency_regions_analyze_cluster_shapes = efficiency_regions_analyze_cluster_shapes
 
