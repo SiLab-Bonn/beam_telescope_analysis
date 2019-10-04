@@ -1424,7 +1424,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.full_like(efficiency_regions_count_tracks_pixel_hist[region_index], fill_value=np.nan, dtype=np.float64)
                         efficiency_regions_stat_pixel_efficiency_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0] = efficiency_regions_count_tracks_with_hit_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) / efficiency_regions_count_tracks_pixel_hist[region_index][efficiency_regions_count_tracks_pixel_hist[region_index] != 0].astype(np.float64) * 100.0
                         efficiency_regions_stat_pixel_efficiency_hist[region_index] = np.ma.array(efficiency_regions_stat_pixel_efficiency_hist[region_index], mask=efficiency_regions_count_tracks_pixel_hist[region_index] < minimum_track_density)
-                        # print region_index, np.where(np.isfinite(efficiency_regions_stat_pixel_efficiency_hist[region_index]))
 
                         # Calculate mask
                         efficiency_regions_mask.append(count_in_pixel_tracks_2d_hists[region_index] < minimum_track_density)
