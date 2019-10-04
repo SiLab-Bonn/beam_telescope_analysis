@@ -1202,7 +1202,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
 
 
 @save_arguments
-def correlate(telescope_configuration, input_files, output_correlation_file=None, resolution=(100.0, 100.0), select_duts=None, select_reference_duts=0, plot=True, chunk_size=100000):
+def correlate(telescope_configuration, input_files, output_correlation_file=None, resolution=(100.0, 100.0), select_duts=None, select_reference_duts=0, plot=True, chunk_size=1000000):
     '''"Calculates the correlation histograms from the hit/cluster indices.
     The 2D correlation array of pairs of two different devices are created on event basis.
     All permutations are considered (all hits/clusters of the first device are correlated with all hits/clusters of the second device).
