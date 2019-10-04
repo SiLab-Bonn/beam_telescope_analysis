@@ -979,6 +979,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 else:
                     count_pixel_hits_2d_hist = None
 
+
+                pbar = tqdm(total=node.shape[0], ncols=80)
                 initialize = True
                 start_index_cluster_hits = 0
                 for tracks_chunk, _ in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
@@ -1394,6 +1396,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             ravel_indices = np.ravel_multi_index((actual_bin_center_col_row_pair[hits_select, 0], actual_bin_center_col_row_pair[hits_select, 1], actual_col_index[hits_select], actual_row_index[hits_select]), dims=count_pixel_hits_2d_hist.shape)
                             unique_indices, unique_indices_count = np.unique(ravel_indices, return_counts=True)
                             count_pixel_hits_2d_hist.reshape(-1)[unique_indices] += unique_indices_count
+
+                    pbar.update(tracks_chunk.shape[0])
+                pbar.close()
 
                 if np.all(count_tracks_2d_hist == 0):
                     logging.warning('No tracks found for DUT%d, cannot calculate efficiency.', actual_dut_index)
