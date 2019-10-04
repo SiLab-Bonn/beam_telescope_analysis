@@ -128,10 +128,6 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
         with tb.open_file(output_file, mode="w") as out_file_h5:
             for node in in_file_h5.root:
                 logging.info('Reducing events for node %s', node.name)
-                total_n_tracks = node.shape[0]
-                total_n_tracks_stored = 0
-                total_n_events_stored = 0
-                pbar = tqdm(total=total_n_tracks, ncols=80)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,
@@ -142,6 +138,11 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                         complib='blosc',
                         complevel=5,
                         fletcher32=False))
+
+                total_n_tracks = node.shape[0]
+                total_n_tracks_stored = 0
+                total_n_events_stored = 0
+                pbar = tqdm(total=max_events, ncols=80)
 
                 total_n_events_stored_last = None
                 # total_n_tracks_last = None
@@ -179,7 +180,7 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
                     total_n_events_stored_last = total_n_events_stored
                     # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    pbar.update(data_chunk.shape[0])
+                    pbar.update(n_events_chunk)
                 pbar.close()
 
     return output_file
@@ -451,7 +452,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                         tracks = tracks[selected_tracks]
                         pbar.update(n_events_chunk)
                     else:
-                        pbar.update(tracks.shape[0])
+                        pbar.update(n_tracks_chunk)
 
                     tracks_table_out.append(tracks)
                     tracks_table_out.flush()

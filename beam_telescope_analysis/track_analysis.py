@@ -187,8 +187,10 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
             total_n_tracks = tracklets_node.shape[0]
             total_n_tracks_stored = 0
             total_n_events_stored = 0
-
-            pbar = tqdm(total=total_n_tracks, ncols=80)
+            if max_events:
+                pbar = tqdm(total=max_events, ncols=80)
+            else:
+                pbar = tqdm(total=total_n_tracks, ncols=80)
 
             total_n_events_stored_last = None
             # total_n_tracks_last = None
@@ -290,8 +292,10 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 # total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                pbar.update(tracklets_data_chunk.shape[0])
-
+                if max_events:
+                    pbar.update(n_events_chunk)
+                else:
+                    pbar.update(n_tracks_chunk)
             pbar.close()
 
     return output_track_candidates_file
@@ -772,10 +776,6 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     except tb.NodeError:  # Table does not exist, thus create new
                         pass
 
-                total_n_tracks = in_file_h5.root.TrackCandidates.shape[0]
-                total_n_tracks_stored = 0
-                total_n_events_stored = 0
-
                 # select hit DUTs based on input parameters
                 # hit DUTs are always enforced
                 hit_duts = select_hit_duts[fit_dut_index]
@@ -804,12 +804,18 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 if select_align_duts is not None and select_align_duts:
                     logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
 
-                pbar = tqdm(total=total_n_tracks, ncols=80)
-                # pbar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
-
                 chunk_indices = []
                 chunk_stats = []
                 dut_stats = []
+
+                total_n_tracks = in_file_h5.root.TrackCandidates.shape[0]
+                total_n_tracks_stored = 0
+                total_n_events_stored = 0
+                if max_events:
+                    pbar = tqdm(total=max_events, ncols=80)
+                else:
+                    pbar = tqdm(total=total_n_tracks, ncols=80)
+                # pbar = tqdm(total=max_tracks if max_tracks is not None else in_file_h5.root.TrackCandidates.shape[0], ncols=80)
 
                 total_n_events_stored_last = None
                 # total_n_tracks_last = None
@@ -970,7 +976,10 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     total_n_events_stored_last = total_n_events_stored
                     # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
-                    pbar.update(track_candidates_chunk.shape[0])
+                    if max_events:
+                        pbar.update(n_events_chunk)
+                    else:
+                        pbar.update(n_tracks_chunk)
                 pbar.close()
                 fitted_duts.extend(actual_fit_duts)
 
