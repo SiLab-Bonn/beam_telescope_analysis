@@ -850,8 +850,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     if in_pixel_resolution[1] is None:
                         in_pixel_resolution[1] = min(resolution[1], actual_dut.pixel_size[1] / 10.0)
                     # generate hists for each region
-                    efficiency_regions_counts_tracks_with_dut_hit = []
-                    efficiency_regions_counts_tracks = []
                     efficiency_regions_efficiency = []
                     efficiency_regions_efficiency_chunk = []
                     efficiency_regions_stat = []
@@ -870,8 +868,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_stat_pixel_efficiency_hist = []
                     efficiency_regions_chunk_stats = []
                     for region in efficiency_regions_dut:
-                        efficiency_regions_counts_tracks_with_dut_hit.append(0.0)
-                        efficiency_regions_counts_tracks.append(0.0)
                         efficiency_regions_efficiency.append(0.0)
                         efficiency_regions_efficiency_chunk.append(0.0)
                         efficiency_regions_stat.append(0)
@@ -936,8 +932,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         # 2D in-pixel cluster shape
                         count_in_pixel_cluster_shape_2d_hists.append(np.zeros(shape=(hist_in_pixel_x_n_bins, hist_in_pixel_y_n_bins, len(efficiency_regions_analyze_cluster_shapes)), dtype=np.float64))
                 else:
-                    efficiency_regions_counts_tracks_with_dut_hit = None
-                    efficiency_regions_counts_tracks = None
                     efficiency_regions_efficiency = None
                     efficiency_regions_efficiency_chunk = None
                     efficiency_regions_stat = None
@@ -1109,12 +1103,11 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             select_valid_tracks_efficiency_region &= intersection_x_local < max(region[0])
                             select_valid_tracks_efficiency_region &= intersection_y_local > min(region[1])
                             select_valid_tracks_efficiency_region &= intersection_y_local < max(region[1])
-                            efficiency_regions_counts_tracks_with_dut_hit_tmp = np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])
-                            efficiency_regions_counts_tracks_tmp = np.count_nonzero(select_valid_tracks_efficiency_region)
-                            efficiency_regions_counts_tracks_with_dut_hit[region_index] += efficiency_regions_counts_tracks_with_dut_hit_tmp
-                            efficiency_regions_counts_tracks[region_index] += efficiency_regions_counts_tracks_tmp
-                            efficiency_regions_efficiency[region_index] = efficiency_regions_counts_tracks_with_dut_hit[region_index] / efficiency_regions_counts_tracks[region_index]
-                            efficiency_regions_efficiency_chunk[region_index] = efficiency_regions_counts_tracks_with_dut_hit_tmp / efficiency_regions_counts_tracks_tmp
+                            # Moving average
+                            efficiency_regions_efficiency[region_index] = (efficiency_regions_efficiency[region_index] * efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])) / (efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region))
+                            efficiency_regions_stat[region_index] = efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region)
+                            # Per chunk
+                            efficiency_regions_efficiency_chunk[region_index] = np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region]) / np.count_nonzero(select_valid_tracks_efficiency_region)
                             if efficiency_regions_count_1d_charge_hist[region_index] is None:
                                 efficiency_regions_count_1d_charge_hist[region_index] = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int64))
                             else:
