@@ -1661,7 +1661,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         # for pixel_index, pixel in enumerate(pixel_center_data):
         #     bin_center_data_indices = np.where(pixel_center_col_row_pair_index == pixel_index)[0]
         #     bin_center_data_positions = bin_center_col_row_pair_dut[bin_center_data_indices]
-        #     # print bin_center_data_positions
         #     # select = bin_center_data_positions[:, 0] >= min(dut_extent[:2]) & bin_center_data_positions[:, 0] <= max(dut_extent[:2])
         #     # select &= bin_center_data_positions[:, 1] >= min(dut_extent[2:]) & bin_center_data_positions[:, 1] <= max(dut_extent[2:])
         #     x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
