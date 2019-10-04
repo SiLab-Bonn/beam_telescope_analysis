@@ -988,6 +988,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 initialize = True
                 start_index_cluster_hits = 0
                 chunk_indices = []
+                efficiency_chunks = []
                 for tracks_chunk, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     # Transform the hits and track intersections into the local coordinate system
                     # Coordinates in global coordinate system (x, y, z)
@@ -1238,6 +1239,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         initialize = False
                         # 2D tracks
                         count_tracks_2d_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)
+                        # Per chunk
+                        count_tracks_2d_hist_chunk = count_tracks_2d_hist
                         if np.any(select_valid_hit):  # Check for valid hits
                             # 2D hits
                             count_hits_2d_hist, _, _, _ = stats.binned_statistic_2d(x=hit_x_local[select_valid_hit], y=hit_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)
@@ -1291,9 +1294,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # 2D mean beta track angle
                             stat_2d_beta_angle_hist, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                             stat_2d_beta_angle_hist = np.nan_to_num(stat_2d_beta_angle_hist)
+                            # Per chunk
+                            count_tracks_with_hit_2d_hist_chunk = count_tracks_with_hit_2d_hist
                     else:
                         # 2D tracks
                         count_tracks_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local, y=intersection_y_local, values=None, statistic='count', bins=hist_2d_edges)[0]
+                        # Per chunk
+                        count_tracks_2d_hist_chunk = count_tracks_2d_hist_tmp
                         if np.any(select_valid_hit):  # Check for valid hits
                             count_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
                             # 2D hits
@@ -1369,6 +1376,8 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_2d_beta_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
                             stat_2d_beta_angle_hist_tmp = np.nan_to_num(stat_2d_beta_angle_hist_tmp)
                             stat_2d_beta_angle_hist, count_2d_beta_angle_hist = np.ma.average(a=np.stack([stat_2d_beta_angle_hist, stat_2d_beta_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
+                            # Per chunk
+                            count_tracks_with_hit_2d_hist_chunk = count_tracks_with_hit_2d_hist_tmp
                             # updated last:
                             # 2D tracks with valid hit
                             count_tracks_with_hit_2d_hist += count_tracks_with_hit_2d_hist_tmp
@@ -1414,16 +1423,18 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         logging.warning('No tracks found for DUT%d, cannot calculate efficiency.', actual_dut_index)
                         continue
 
-                    # if np.any(select_valid_hit):
-                    #     # Calculate mean efficiency without any binning per chunk
-                    #     eff_chunk, _, _ = analysis_utils.get_mean_efficiency(
-                    #         array_pass=count_tracks_with_hit_2d_hist_chunk,
-                    #         array_total=count_tracks_2d_hist_chunk)
-                    # else:
-                    #     eff_chunk = 0.0
+                    # Global efficiency per chunk
+                    if np.any(select_valid_hit):
+                        # Calculate mean efficiency without any binning per chunk
+                        eff_chunk, eff_chunk_err_min, eff_chunk_err_max = analysis_utils.get_mean_efficiency(
+                            array_pass=count_tracks_with_hit_2d_hist_chunk,
+                            array_total=count_tracks_2d_hist_chunk)
+                    else:
+                        eff_chunk, eff_chunk_err_min, eff_chunk_err_max = 0.0, 0.0, 0.0
 
                     # Append chunk stats
                     chunk_indices.append(index_chunk)
+                    efficiency_chunks.append(eff_chunk)
                     if efficiency_regions_dut is not None:
                         for region_index, region in enumerate(efficiency_regions_dut):
                             efficiency_regions_efficiencies_chunks[region_index].append(efficiency_regions_efficiencies_chunk[region_index])
@@ -1582,6 +1593,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     stat_pixel_efficiency_hist=stat_pixel_efficiency_hist,
                     count_pixel_hits_2d_hist=count_pixel_hits_2d_hist,
                     efficiency=[eff, eff_err_pl, eff_err_min],
+                    efficiency_chunks=efficiency_chunks,
                     actual_dut_index=actual_dut_index,
                     dut_extent=dut_extent,
                     hist_extent=hist_extent,
