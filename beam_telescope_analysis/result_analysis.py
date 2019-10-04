@@ -949,7 +949,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     column=pixel_indices[:, 0] + 1,
                     row=pixel_indices[:, 1] + 1)
                 pixel_center_data = np.column_stack((local_x, local_y))
-                points, regions, ridge_vertices, vertices = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_data, dut_extent=dut_extent)
+                points, _, _, _ = analysis_utils.voronoi_finite_polygons_2d(points=pixel_center_data, dut_extent=dut_extent)
                 # pixel_center_data is a subset of points
                 # points includes additional image points
                 pixel_center_extended_kd_tree = cKDTree(points)
@@ -978,7 +978,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         raise RuntimeError("Invalid shape of histogram")
                 else:
                     count_pixel_hits_2d_hist = None
-
 
                 pbar = tqdm(total=node.shape[0], ncols=80)
                 initialize = True
