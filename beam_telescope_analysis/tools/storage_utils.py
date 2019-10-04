@@ -20,7 +20,7 @@ class NameValue(tb.IsDescription):
     value = tb.StringCol(32 * 1024, pos=1)
 
 
-def save_configuration_dict(output_file, table_name, dictionary, date_created=None, **kwargs):
+def save_configuration_dict(output_file, table_name, dictionary, group_name="configuration", date_created=None, **kwargs):
     '''Stores any configuration dictionary to HDF5 file.
 
     Parameters
@@ -36,15 +36,15 @@ def save_configuration_dict(output_file, table_name, dictionary, date_created=No
     '''
     def save_conf():
         try:
-            h5_file.remove_node(h5_file.root.configuration, name=table_name)
+            h5_file.remove_node(where="/%s" % group_name, name=table_name)
         except tb.NodeError:
             pass
         try:
-            configuration_group = h5_file.create_group(h5_file.root, "configuration")
+            configuration_group = h5_file.create_group(where="/", name=group_name)
         except tb.NodeError:
             configuration_group = h5_file.root.configuration
 
-        scan_param_table = h5_file.create_table(configuration_group, name=table_name, description=NameValue, title=table_name)
+        scan_param_table = h5_file.create_table(where=configuration_group, name=table_name, description=NameValue, title=table_name)
         row_scan_param = scan_param_table.row
         for key, value in dictionary.items():
             row_scan_param['name'] = key
@@ -89,7 +89,7 @@ def save_arguments(func):
                 all_parameters = func.func_code.co_varnames[:func.func_code.co_argcount]
                 all_kwargs = dict(zip(all_parameters, args))
                 all_kwargs.update(kwargs)
-                save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, date_created=curr_time, mode="a")
+                save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, group_name="arguments", date_created=curr_time, mode="a")
         else:
             logging.warning("Invalid value(s) returned by \"%s()\": function arguments were not saved." % func_name)
         return ret_val
