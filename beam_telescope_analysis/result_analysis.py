@@ -1395,9 +1395,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             unique_indices, unique_indices_count = np.unique(ravel_indices, return_counts=True)
                             count_pixel_hits_2d_hist.reshape(-1)[unique_indices] += unique_indices_count
 
-                    if np.all(count_tracks_2d_hist == 0):
-                        logging.warning('No tracks on DUT%d, cannot calculate efficiency.', actual_dut_index)
-                        continue
+                if np.all(count_tracks_2d_hist == 0):
+                    logging.warning('No tracks found for DUT%d, cannot calculate efficiency.', actual_dut_index)
+                    continue
 
                 # Calculate efficiency
                 stat_2d_efficiency_hist = np.full_like(count_tracks_2d_hist, fill_value=np.nan, dtype=np.float64)
