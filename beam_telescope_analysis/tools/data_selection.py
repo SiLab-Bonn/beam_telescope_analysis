@@ -231,105 +231,106 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
     # Check select_duts
     # Check for value errors
     if not isinstance(select_duts, Iterable):
-        raise ValueError("select_duts is no iterable")
+        raise ValueError("Parameter select_duts is not an iterable.")
     elif not select_duts:  # empty iterable
-        raise ValueError("select_duts has no items")
+        raise ValueError("Parameter select_duts has no items.")
     # Check if only non-iterable in iterable
     if not all(map(lambda val: isinstance(val, (int,)), select_duts)):
-        raise ValueError("not all items in select_duts are integer")
+        raise ValueError("Not all items in parameter select_duts are integer.")
 
     # Create select_hit_duts
     if select_hit_duts is None:  # If None, use no selection
         select_hit_duts = [[] for _ in select_duts]
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("select_hit_duts is no iterable")
+        raise ValueError("Parameter select_hit_duts is not an iterable.")
     elif not select_hit_duts:  # empty iterable
-        raise ValueError("select_hit_duts has no items")
+        raise ValueError("Parameter select_hit_duts has no items.")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_hit_duts)):
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_hit_duts)):
         select_hit_duts = [select_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
-        raise ValueError("not all items in select_hit_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, select_hit_duts)):
+        raise ValueError("Not all items in parameter select_hit_duts are iterable or None.")
     # Finally check length of all arrays
     if len(select_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_hit_duts has the wrong length")
+        raise ValueError("Parameter select_hit_duts has the wrong length.")
 
     # Create select_no_hit_duts
     if select_no_hit_duts is None:  # If None, use no selection
         select_no_hit_duts = [[] for _ in select_duts]
     # Check iterable and length
     if not isinstance(select_no_hit_duts, Iterable):
-        raise ValueError("select_no_hit_duts is no iterable")
+        raise ValueError("Parameter select_no_hit_duts is not an iterable.")
     elif not select_no_hit_duts:  # empty iterable
-        raise ValueError("select_no_hit_duts has no items")
+        raise ValueError("Parameter select_no_hit_duts has no items.")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_no_hit_duts)):
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_no_hit_duts)):
         select_no_hit_duts = [select_no_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_no_hit_duts)):
-        raise ValueError("not all items in select_no_hit_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, select_no_hit_duts)):
+        raise ValueError("Not all items in parameter select_no_hit_duts are iterable or None.")
     # Finally check length of all arrays
     if len(select_no_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_no_hit_duts has the wrong length")
+        raise ValueError("Parameter select_no_hit_duts has the wrong length.")
     for index, item in enumerate(select_no_hit_duts):
-        if set(item) & set(select_hit_duts[index]):  # check for empty intersection
-            raise ValueError("DUT%d cannot have select_hit_duts and select_no_hit_duts set for the same DUTs" % (select_duts[index],))
+        if item is not None and select_hit_duts[index] is not None:
+            if set(item) & set(select_hit_duts[index]):  # check for empty intersection
+                raise ValueError("DUT%d cannot have select_hit_duts and select_no_hit_duts set for the same DUTs." % (select_duts[index],))
 
     # Create select_quality_duts
     if select_quality_duts is None:  # If None, use no selection
         select_quality_duts = [[] for _ in select_duts]
     # Check iterable and length
     if not isinstance(select_quality_duts, Iterable):
-        raise ValueError("select_quality_duts is no iterable")
+        raise ValueError("Parameter select_quality_duts is not an iterable.")
     elif not select_quality_duts:  # empty iterable
-        raise ValueError("select_quality_duts has no items")
+        raise ValueError("Parameter select_quality_duts has no items.")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_quality_duts)):
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_quality_duts)):
         select_quality_duts = [select_quality_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_quality_duts)):
-        raise ValueError("not all items in select_quality_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, select_quality_duts)):
+        raise ValueError("Not all items in parameter select_quality_duts are iterable or None.")
     # Finally check length of all arrays
     if len(select_quality_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_quality_duts has the wrong length")
+        raise ValueError("Parameter select_quality_duts has the wrong length.")
 
     # Create select_isolated_track_duts
     if select_isolated_track_duts is None:  # If None, use no selection
         select_isolated_track_duts = [[] for _ in select_duts]
     # Check iterable and length
     if not isinstance(select_isolated_track_duts, Iterable):
-        raise ValueError("select_isolated_track_duts is no iterable")
+        raise ValueError("Parameter select_isolated_track_duts is not an iterable.")
     elif not select_isolated_track_duts:  # empty iterable
-        raise ValueError("select_isolated_track_duts has no items")
+        raise ValueError("Parameter select_isolated_track_duts has no items.")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_track_duts)):
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_isolated_track_duts)):
         select_isolated_track_duts = [select_isolated_track_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_track_duts)):
-        raise ValueError("not all items in select_isolated_track_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, select_isolated_track_duts)):
+        raise ValueError("Not all items in parameter select_isolated_track_duts are iterable or None.")
     # Finally check length of all arrays
     if len(select_isolated_track_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_isolated_track_duts has the wrong length")
+        raise ValueError("Parameter select_isolated_track_duts has the wrong length.")
 
     # Create select_isolated_hit_duts
     if select_isolated_hit_duts is None:  # If None, use no selection
         select_isolated_hit_duts = [[] for _ in select_duts]
     # Check iterable and length
     if not isinstance(select_isolated_hit_duts, Iterable):
-        raise ValueError("select_isolated_hit_duts is no iterable")
+        raise ValueError("Parameter select_isolated_hit_duts is not an iterable.")
     elif not select_isolated_hit_duts:  # empty iterable
-        raise ValueError("select_isolated_hit_duts has no items")
+        raise ValueError("Parameter select_isolated_hit_duts has no items.")
     # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable), select_isolated_hit_duts)):
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_isolated_hit_duts)):
         select_isolated_hit_duts = [select_isolated_hit_duts[:] for _ in select_duts]
     # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_isolated_hit_duts)):
-        raise ValueError("not all items in select_isolated_hit_duts are iterable")
+    if not all(map(lambda val: isinstance(val, Iterable) or val is None, select_isolated_hit_duts)):
+        raise ValueError("Not all items in parameter select_isolated_hit_duts are iterable or None.")
     # Finally check length of all arrays
     if len(select_isolated_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("select_isolated_hit_duts has the wrong length")
+        raise ValueError("Parameter select_isolated_hit_duts has the wrong length.")
 
     # Create query
     if query is None:  # If None, use empty strings for all DUTs
@@ -339,10 +340,10 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
         query = [query] * len(select_duts)
     # Check if only strings in iterable
     if not all(map(lambda val: isinstance(val, str), query)):
-        raise ValueError("not all items in query are strings")
+        raise ValueError("Not all items in parameter query are strings.")
     # Finally check length of all arrays
     if len(query) != len(select_duts):  # empty iterable
-        raise ValueError("query has the wrong length")
+        raise ValueError("Parameter query has the wrong length.")
 
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         with tb.open_file(output_tracks_file, mode="w") as out_file_h5:
@@ -352,20 +353,25 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 if query[index]:
                     logging.info('Query string: {}'.format(query[index]))
                 hit_mask = 0
-                for dut in select_hit_duts[index]:
-                    hit_mask |= (1 << dut)
+                if select_hit_duts[index]:
+                    for dut in select_hit_duts[index]:
+                        hit_mask |= (1 << dut)
                 no_hit_mask = 0
-                for dut in select_no_hit_duts[index]:
-                    no_hit_mask |= (1 << dut)
+                if select_no_hit_duts[index]:
+                    for dut in select_no_hit_duts[index]:
+                        no_hit_mask |= (1 << dut)
                 quality_mask = 0
-                for dut in select_quality_duts[index]:
-                    quality_mask |= (1 << dut)
+                if select_quality_duts[index]:
+                    for dut in select_quality_duts[index]:
+                        quality_mask |= (1 << dut)
                 isolated_track_mask = 0
-                for dut in select_isolated_track_duts[index]:
-                    isolated_track_mask |= (1 << dut)
+                if select_isolated_track_duts[index]:
+                    for dut in select_isolated_track_duts[index]:
+                        isolated_track_mask |= (1 << dut)
                 isolated_hit_mask = 0
-                for dut in select_isolated_hit_duts[index]:
-                    isolated_hit_mask |= (1 << dut)
+                if select_isolated_hit_duts[index]:
+                    for dut in select_isolated_hit_duts[index]:
+                        isolated_hit_mask |= (1 << dut)
 
                 tracks_table_out = out_file_h5.create_table(
                     where=out_file_h5.root,

@@ -626,7 +626,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         select_duts = list(range(n_duts))
     # Check for value errors
     if not isinstance(select_duts, Iterable):
-        raise ValueError("Parameter select_duts is not a iterable.")
+        raise ValueError("Parameter select_duts is not an iterable.")
     elif not select_duts:  # empty iterable
         raise ValueError("Parameter select_duts has no items.")
     # Check if only non-iterable in iterable
@@ -650,7 +650,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         alignment_parameters = [[None] * len(duts) for duts in select_duts]
     # Check for value errors
     if not isinstance(alignment_parameters, Iterable):
-        raise ValueError("Parameter alignment_parameters is not a iterable.")
+        raise ValueError("Parameter alignment_parameters is not an iterable.")
     elif not alignment_parameters:  # empty iterable
         raise ValueError("Parameter alignment_parameters has no items.")
     # Finally check length of all arrays
@@ -670,7 +670,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             select_hit_duts.append(duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("Parameter select_hit_duts is not a iterable.")
+        raise ValueError("Parameter select_hit_duts is not an iterable.")
     elif not select_hit_duts:  # empty iterable
         raise ValueError("Parameter select_hit_duts has no items.")
     # Check if only non-iterable in iterable
@@ -694,7 +694,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
             select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_fit_duts, Iterable):
-        raise ValueError("Parameter select_fit_duts is not a iterable.")
+        raise ValueError("Parameter select_fit_duts is not an iterable.")
     elif not select_fit_duts:  # empty iterable
         raise ValueError("Parameter select_fit_duts has no items.")
     # Check if only non-iterable in iterable
@@ -728,7 +728,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     for index, chi2 in enumerate(track_chi2):
         # Check iterable and length
         if not isinstance(chi2, Iterable):
-            raise ValueError("Item in parameter track_chi2 is not a iterable.")
+            raise ValueError("Item in parameter track_chi2 is not an iterable.")
         if len(chi2) != len(select_duts[index]):  # empty iterable
             raise ValueError("Item in parameter track_chi2 has the wrong length.")
 
@@ -737,7 +737,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         cluster_shapes = [cluster_shapes] * len(select_duts)
     # Check iterable and length
     if not isinstance(cluster_shapes, Iterable):
-        raise ValueError("Parameter cluster_shapes is not a iterable.")
+        raise ValueError("Parameter cluster_shapes is not an iterable.")
     # elif not cluster_shapes:  # empty iterable
     #     raise ValueError("Parameter cluster_shapes has no items.")
     # Check if only non-iterable in iterable
@@ -761,7 +761,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     for index, shapes in enumerate(cluster_shapes):
         # Check iterable and length
         if not isinstance(shapes, Iterable):
-            raise ValueError("Item in parameter cluster_shapes is not a iterable.")
+            raise ValueError("Item in parameter cluster_shapes is not an iterable.")
         elif not shapes:  # empty iterable
             raise ValueError("Item in parameter cluster_shapes has no items.")
         # Check if only iterable in iterable
@@ -775,7 +775,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
-        raise ValueError("Parameter quality_distances is not a iterable.")
+        raise ValueError("Parameter quality_distances is not an iterable.")
     elif not quality_distances:  # empty iterable
         raise ValueError("Parameter quality_distances has no items.")
     # Finally check length of all arrays
@@ -1178,14 +1178,14 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
     if select_alignment_parameters is None:
         select_alignment_parameters = [default_alignment_parameters] * len(select_duts)
     if len(select_duts) != len(select_alignment_parameters):
-        raise ValueError("select_alignment_parameters has the wrong length")
+        raise ValueError("Parameter select_alignment_parameters has the wrong length.")
     for index, actual_alignment_parameters in enumerate(select_alignment_parameters):
         if actual_alignment_parameters is None:
             select_alignment_parameters[index] = default_alignment_parameters
         else:
             non_valid_paramters = set(actual_alignment_parameters) - set(default_alignment_parameters)
             if non_valid_paramters:
-                raise ValueError("found invalid values in select_alignment_parameters: %s" % ", ".join(non_valid_paramters))
+                raise ValueError("Found invalid values in parameter select_alignment_parameters: %s." % ", ".join(non_valid_paramters))
 
     with tb.open_file(input_tracks_file, mode='r') as in_file_h5:
         for index, actual_dut_index in enumerate(select_duts):

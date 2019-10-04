@@ -2195,7 +2195,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                     output_pdf.savefig(fig)
 
     else:
-        logging.warning('Cannot create stat_2d_efficiency_hist plots, all pixels are masked')
+        logging.warning('Cannot create efficiency plots: all pixels are masked.')
 
 
 def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actual_dut_index, minimum_hit_density, hist_extent, cut_distance, mask_zero=True, output_pdf=None):
@@ -2259,7 +2259,7 @@ def purity_plots(telescope, pure_hit_hist, hit_hist, purity, purity_sensor, actu
         output_pdf.savefig(fig)
 
     else:
-        logging.warning('Cannot create purity plots, since all pixels are masked')
+        logging.warning('Cannot create purity plots: all pixels are masked')
 
 
 def plot_track_angle(input_track_angle_file, select_duts, output_pdf_file=None, dut_names=None):

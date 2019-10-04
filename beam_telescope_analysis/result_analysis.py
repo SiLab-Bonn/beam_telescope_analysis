@@ -617,7 +617,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         resolutions = [resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(resolutions, Iterable):
-        raise ValueError("Parameter resolutions is not a iterable.")
+        raise ValueError("Parameter resolutions is not an iterable.")
     elif not resolutions:  # empty iterable
         raise ValueError("Parameter resolutions has no items.")
     # Finally check length of all arrays
@@ -625,7 +625,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, resolutions)):
-        raise ValueError("Not all items in parameter resolutions are iterable.")
+        raise ValueError("Not all items in parameter resolutions are iterable or None.")
     # Finally check length of all arrays
     for resolution in resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
@@ -636,7 +636,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         in_pixel_resolutions = [in_pixel_resolutions] * len(select_duts)
     # Check iterable and length
     if not isinstance(in_pixel_resolutions, Iterable):
-        raise ValueError("Parameter in_pixel_resolutions is not a iterable.")
+        raise ValueError("Parameter in_pixel_resolutions is not an iterable.")
     elif not in_pixel_resolutions:  # empty iterable
         raise ValueError("Parameter in_pixel_resolutions has no items.")
     # Finally check length of all arrays
@@ -644,7 +644,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter in_pixel_resolutions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, in_pixel_resolutions)):
-        raise ValueError("Not all items in parameter in_pixel_resolutions are iterable.")
+        raise ValueError("Not all items in parameter in_pixel_resolutions are iterable or None.")
     # Finally check length of all arrays
     for resolution in in_pixel_resolutions:
         if resolution is not None and len(resolution) != 2:  # check the length of the items
@@ -655,7 +655,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         extend_areas = [extend_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_areas, Iterable):
-        raise ValueError("Parameter extend_areas is not a iterable.")
+        raise ValueError("Parameter extend_areas is not an iterable.")
     elif not extend_areas:  # empty iterable
         raise ValueError("Parameter extend_areas has no items.")
     # Finally check length of all arrays
@@ -663,7 +663,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter extend_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_areas)):
-        raise ValueError("Not all items in parameter extend_areas are iterable.")
+        raise ValueError("Not all items in parameter extend_areas are iterable or None.")
     # Finally check length of all arrays
     for extend_area in extend_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
@@ -674,7 +674,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         extend_in_pixel_areas = [extend_in_pixel_areas] * len(select_duts)
     # Check iterable and length
     if not isinstance(extend_in_pixel_areas, Iterable):
-        raise ValueError("Parameter extend_in_pixel_areas is not a iterable.")
+        raise ValueError("Parameter extend_in_pixel_areas is not an iterable.")
     elif not extend_in_pixel_areas:  # empty iterable
         raise ValueError("Parameter extend_in_pixel_areas has no items.")
     # Finally check length of all arrays
@@ -682,7 +682,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter extend_in_pixel_areas has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, extend_in_pixel_areas)):
-        raise ValueError("Not all items in parameter extend_in_pixel_areas are iterable.")
+        raise ValueError("Not all items in parameter extend_in_pixel_areas are iterable or None.")
     # Finally check length of all arrays
     for extend_area in extend_in_pixel_areas:
         if extend_area is not None and len(extend_area) != 2:  # check the length of the items
@@ -693,7 +693,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         plot_ranges = [plot_ranges] * len(select_duts)
     # Check iterable and length
     if not isinstance(plot_ranges, Iterable):
-        raise ValueError("Parameter plot_ranges is not a iterable.")
+        raise ValueError("Parameter plot_ranges is not an iterable.")
     elif not plot_ranges:  # empty iterable
         raise ValueError("Parameter plot_ranges has no items.")
     # Finally check length of all arrays
@@ -701,7 +701,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter plot_ranges has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, plot_ranges)):
-        raise ValueError("Not all items in parameter plot_ranges are iterable.")
+        raise ValueError("Not all items in parameter plot_ranges are iterable or None.")
     # Finally check length of all arrays
     for plot_range in plot_ranges:
         if plot_range is not None:
@@ -724,7 +724,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter efficiency_regions has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, efficiency_regions)):
-        raise ValueError("Not all items in parameter efficiency_regions are iterable.")
+        raise ValueError("Not all items in parameter efficiency_regions are iterable or None.")
     # Finally check length of all arrays
     for regions in efficiency_regions:
         if regions is not None:
@@ -758,7 +758,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         cut_distances = [cut_distances] * len(select_duts)
     # Check iterable and length
     if not isinstance(cut_distances, Iterable):
-        raise ValueError("Parameter cut_distances is not a iterable.")
+        raise ValueError("Parameter cut_distances is not an iterable.")
     elif not cut_distances:  # empty iterable
         raise ValueError("Parameter cut_distances has no items.")
     # Finally check length of all arrays
@@ -766,7 +766,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         raise ValueError("Parameter cut_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, cut_distances)):
-        raise ValueError("Not all items in parameter cut_distances are iterable.")
+        raise ValueError("Not all items in parameter cut_distances are iterable or None.")
     # Finally check length of all arrays
     for distance in cut_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items

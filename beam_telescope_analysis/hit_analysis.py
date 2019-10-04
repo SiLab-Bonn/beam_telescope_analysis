@@ -539,7 +539,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     logging.info('== Masking pixels of %s (%s) ==', dut.name, input_hit_file)
 
     if pixel_mask_name not in ["DisabledPixelMask", "NoisyPixelMask"]:
-        raise ValueError("'%s' is not a valid pixel mask name." % pixel_mask_name)
+        raise ValueError("Invalid argument for parameter pixel_mask_name: '%s' is not a valid pixel mask name." % pixel_mask_name)
 
     if output_mask_file is None:
         output_mask_file = os.path.splitext(input_hit_file)[0] + '_mask.h5'

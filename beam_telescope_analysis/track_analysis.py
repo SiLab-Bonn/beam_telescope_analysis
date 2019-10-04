@@ -640,7 +640,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         #     select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
     # Check iterable and length
     if not isinstance(select_fit_duts, Iterable):
-        raise ValueError("Parameter select_fit_duts is not a iterable.")
+        raise ValueError("Parameter select_fit_duts is not an iterable.")
     elif not select_fit_duts:  # empty iterable
         raise ValueError("Parameter select_fit_duts has no items.")
     # Check if only non-iterable in iterable
@@ -666,7 +666,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         select_hit_duts = []
     # Check iterable and length
     if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("Parameter select_hit_duts is not a iterable.")
+        raise ValueError("Parameter select_hit_duts is not an iterable.")
     # elif not select_hit_duts:  # empty iterable
     #     raise ValueError("Parameter select_hit_duts has no items.")
     # Check if only non-iterable in iterable
@@ -688,7 +688,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         quality_distances = [quality_distances] * n_duts
     # Check iterable and length
     if not isinstance(quality_distances, Iterable):
-        raise ValueError("Parameter quality_distances is not a iterable.")
+        raise ValueError("Parameter quality_distances is not an iterable.")
     elif not quality_distances:  # empty iterable
         raise ValueError("Parameter quality_distances has no items.")
     # Finally check length of all arrays
@@ -696,7 +696,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         raise ValueError("Parameter quality_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
-        raise ValueError("Not all items in parameter quality_distances are iterable.")
+        raise ValueError("Not all items in parameter quality_distances are iterable or None.")
     # Finally check length of all arrays
     for distance in quality_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
@@ -707,7 +707,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         isolation_distances = [isolation_distances] * n_duts
     # Check iterable and length
     if not isinstance(isolation_distances, Iterable):
-        raise ValueError("Parameter isolation_distances is not a iterable.")
+        raise ValueError("Parameter isolation_distances is not an iterable.")
     elif not isolation_distances:  # empty iterable
         raise ValueError("Parameter isolation_distances has no items.")
     # Finally check length of all arrays
@@ -715,7 +715,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         raise ValueError("Parameter isolation_distances has the wrong length.")
     # Check if only iterable in iterable
     if not all(map(lambda val: isinstance(val, Iterable) or val is None, isolation_distances)):
-        raise ValueError("Not all items in parameter isolation_distances are iterable.")
+        raise ValueError("Not all items in parameter isolation_distances are iterable or None.")
     # Finally check length of all arrays
     for distance in isolation_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
@@ -738,7 +738,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         min_track_hits = [min_track_hits] * len(select_duts)
     # Finally check length of all arrays
     if len(min_track_hits) != len(select_duts):  # empty iterable
-        raise ValueError("min_track_hits has the wrong length")
+        raise ValueError("Parameter min_track_hits has the wrong length.")
 
     fitted_duts = []
     pool = Pool()
