@@ -1109,8 +1109,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             select_valid_tracks_efficiency_region &= intersection_x_local < max(region[0])
                             select_valid_tracks_efficiency_region &= intersection_y_local > min(region[1])
                             select_valid_tracks_efficiency_region &= intersection_y_local < max(region[1])
-                            # efficiency_regions_efficiency[region_index] = (efficiency_regions_efficiency[region_index] * efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])) / (efficiency_regions_stat[region_index] + np.count_nonzero(select_valid_tracks_efficiency_region))
-                            # efficiency_regions_stat[region_index] = efficiency_regions_stat[region_index] + select_valid_tracks_efficiency_region.shape[0]
                             efficiency_regions_counts_tracks_with_dut_hit_tmp = np.count_nonzero(select_valid_hit[select_valid_tracks_efficiency_region])
                             efficiency_regions_counts_tracks_tmp = np.count_nonzero(select_valid_tracks_efficiency_region)
                             efficiency_regions_counts_tracks_with_dut_hit[region_index] += efficiency_regions_counts_tracks_with_dut_hit_tmp
@@ -1197,7 +1195,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # for in-pixel statistics
                             # 2D in-pixel tracks
                             count_in_pixel_tracks_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
-                            if np.any(select_valid_tracks_efficiency_region & select_valid_hit):
+                            if np.any(select_valid_tracks_efficiency_region & select_valid_hit):  # Check for valid hits
                                 count_in_pixel_tracks_with_hit_2d_hist_tmp = stats.binned_statistic_2d(x=in_pixel_intersection_x_local[select_valid_tracks_efficiency_region & select_valid_hit], y=in_pixel_intersection_y_local[select_valid_tracks_efficiency_region & select_valid_hit], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
                                 # 2D in-pixel hits
                                 count_in_pixel_hits_2d_hists[region_index] += stats.binned_statistic_2d(x=in_pixel_hit_x_local[select_valid_tracks_efficiency_region], y=in_pixel_hit_y_local[select_valid_tracks_efficiency_region], values=None, statistic='count', bins=hist_in_pixel_2d_edges)[0]
@@ -1524,7 +1522,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         stat_in_pixel_frame_2d_hists[region_index] = np.ma.array(stat_in_pixel_frame_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_cluster_size_2d_hists[region_index] = np.ma.array(stat_in_pixel_cluster_size_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
                         stat_in_pixel_cluster_shape_2d_hists[region_index] = np.ma.array(stat_in_pixel_cluster_shape_2d_hists[region_index], mask=efficiency_regions_mask[region_index])
-
                 else:
                     count_in_pixel_hits_2d_hists = None
                     count_in_pixel_tracks_2d_hists = None
