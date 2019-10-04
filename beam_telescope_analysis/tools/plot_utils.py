@@ -538,7 +538,7 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, dut_names=No
                 data = node[:]
 
                 if np.all(data <= 0):
-                    logging.warning('All correlation entries for %s are zero, do not create plots', str(node.name))
+                    logging.warning('Cannot create correlation plots: all entries from %s are zero' % str(node.name))
                     continue
 
                 fig = Figure()
@@ -611,7 +611,7 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                 data = node[:]
 
                 if np.all(data <= 0):
-                    logging.warning('All correlation entries for %s are zero, do not create plots', str(node.name))
+                    logging.warning('Cannot create check plots: all entries from %s are zero' % str(node.name))
                     continue
 
                 fig = Figure()
@@ -1133,17 +1133,20 @@ def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False
     fig : matplotlib.figure.Figure instance
         Figure for the plot
     '''
-    if show_points:
-        ax.plot(points[:, 0], points[:, 1], linestyle='None', markersize=point_size, alpha=point_alpha, marker=point_marker, color=point_color)
     ridge_vertices = np.array(ridge_vertices)
     select = np.all(ridge_vertices >= 0, axis=1)
-    ax.add_collection(
-        LineCollection(
-            segments=vertices[ridge_vertices[select]],
-            colors=line_color,
-            linewidth=line_width,
-            alpha=line_alpha,
-            linestyle=line_style))
+    if np.count_nonzero(select) > 10**6 or points.shape[0] > 10**5:
+        logging.warning("Omitting voronoi mesh: too many vertices and/or points.")
+    else:
+        if show_points:
+            ax.plot(points[:, 0], points[:, 1], linestyle='None', markersize=point_size, alpha=point_alpha, marker=point_marker, color=point_color)
+        ax.add_collection(
+            LineCollection(
+                segments=vertices[ridge_vertices[select]],
+                colors=line_color,
+                linewidth=line_width,
+                alpha=line_alpha,
+                linestyle=line_style))
     return ax.figure
 
 
@@ -1259,119 +1262,44 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.set_ylim(plot_range[1])
     output_pdf.savefig(fig)
 
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    bin_indices = np.indices(stat_2d_efficiency_hist.shape).reshape(2, -1).T
-    x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
-    y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
-    y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
-    select_bins = np.zeros(x_meshgrid.shape, dtype=np.bool)
-    # reduce number of arrows
-    select_bins[::4, ::4] = 1
-    # speed up plotting
-    select_bins &= x_meshgrid >= min(plot_range[0])
-    select_bins &= x_meshgrid <= max(plot_range[0])
-    select_bins &= y_meshgrid >= min(plot_range[1])
-    select_bins &= y_meshgrid <= max(plot_range[1])
-    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-    ax.quiver(x_meshgrid[select_bins], y_meshgrid[select_bins], np.nan_to_num(stat_2d_x_residuals_hist[select_bins]), np.nan_to_num(stat_2d_y_residuals_hist[select_bins]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
-    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
-    ax.add_patch(rect)
-    ax.set_title('Residuals\nfor %s' % actual_dut.name)
-    ax.set_xlabel("column [$\mathrm{\mu}$m]")
-    ax.set_ylabel("row [$\mathrm{\mu}$m]")
-    ax.set_xlim(plot_range[0])
-    ax.set_ylim(plot_range[1])
-    output_pdf.savefig(fig)
+    if pixel_center_data.shape[0] > 10**5:
+        logging.warning("Omitting plots: too many pixels")
+    else:
+        fig = Figure()
+        _ = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        bin_indices = np.indices(stat_2d_efficiency_hist.shape).reshape(2, -1).T
+        x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
+        y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
+        y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
+        select_bins = np.zeros(x_meshgrid.shape, dtype=np.bool)
+        # reduce number of arrows
+        select_bins[::4, ::4] = 1
+        # speed up plotting
+        select_bins &= x_meshgrid >= min(plot_range[0])
+        select_bins &= x_meshgrid <= max(plot_range[0])
+        select_bins &= y_meshgrid >= min(plot_range[1])
+        select_bins &= y_meshgrid <= max(plot_range[1])
+        _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+        ax.quiver(x_meshgrid[select_bins], y_meshgrid[select_bins], np.nan_to_num(stat_2d_x_residuals_hist[select_bins]), np.nan_to_num(stat_2d_y_residuals_hist[select_bins]), angles='xy', scale_units='xy', scale=1.0, pivot='tail', minshaft=2.0, width=0.001)
+        rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+        ax.add_patch(rect)
+        ax.set_title('Residuals\nfor %s' % actual_dut.name)
+        ax.set_xlabel("column [$\mathrm{\mu}$m]")
+        ax.set_ylabel("row [$\mathrm{\mu}$m]")
+        ax.set_xlim(plot_range[0])
+        ax.set_ylim(plot_range[1])
+        output_pdf.savefig(fig)
 
-    select_bins = (count_tracks_with_hit_2d_hist > 0)
-    residual_vectors_x = x_meshgrid[select_bins] + stat_2d_x_residuals_hist[select_bins]
-    residual_vectors_y = y_meshgrid[select_bins] + stat_2d_y_residuals_hist[select_bins]
-    residual_vectors = np.column_stack((np.ravel(residual_vectors_x), np.ravel(residual_vectors_y)))
-    bin_center_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
-    bin_indices_sel = bin_indices[np.ravel(select_bins)]
-    pixel_center_kd_tree = cKDTree(pixel_center_data)
-    _, residual_to_pixel_center_sel = pixel_center_kd_tree.query(residual_vectors)
-    _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
-    color_indices = np.linspace(0.0, 1.0, num=100)
-    cmap = cm.get_cmap('tab20')
-    cmap.set_bad('w')
-    rgb_colors = np.array([cmap(color) for color in color_indices])
-    valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
-    num_colors = len(valid_color_indices)
-    # select and reorder colors
-    color_indices = color_indices[valid_color_indices]
-    color_indices[::2] = np.roll(color_indices[::2], int(num_colors / 4))
-    rgb_colors = rgb_colors[valid_color_indices]
-    rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
-    color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
-    count_index_array = np.zeros(shape=pixel_center_data.shape[0], dtype=np.uint16)
-    effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.int32, fill_value=-1)
-    color_index = 0
-    # x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
-    # y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
-    for pixel_index, pixel_position in enumerate(pixel_center_data):
-        res_center_col_row_pair_data_indices = np.where(residual_to_pixel_center_sel == pixel_index)[0]
-        # res_center_col_row_pair_data_positions = bin_center_data_sel[res_center_col_row_pair_data_indices]
-        actual_bin_col_row_indices = bin_indices_sel[res_center_col_row_pair_data_indices]
-        bin_center_data_indices = np.where(bin_center_to_pixel_center_sel == pixel_index)[0]
-        count_index_array[pixel_index] = np.count_nonzero(bin_center_data_indices)
-        # bin_center_data_positions = bin_center_data_sel[bin_center_data_indices]
-        # index_0_pixel = np.array((bin_center_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
-        # index_1_pixel = np.array((bin_center_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-        actual_pixel_bin_indices = bin_indices_sel[bin_center_data_indices]
-        other_pixel_indices = effective_pixels_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
-        other_colors = color_index_array[other_pixel_indices]
-        # change color if same color is already occurring inside pixel region
-        num_repeats = 0
-        while color_index % num_colors in other_colors and num_repeats < num_colors - 1:
-            color_index += 1
-            num_repeats += 1
-        # index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
-        # index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
-        color_index_array[pixel_index] = color_index % num_colors
-        effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = pixel_index
-        color_index += 1
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    for pixel_index, pixel_position in enumerate(pixel_center_data):
-        if count_index_array[pixel_index]:
-            ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
-    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-    effective_color_2d = color_indices[color_index_array[effective_pixels_2d]]
-    effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
-    plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations\nfor %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
-    rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
-    ax.add_patch(rect)
-    ax.set_xlabel("column [$\mathrm{\mu}$m]")
-    ax.set_ylabel("row [$\mathrm{\mu}$m]")
-    ax.set_xlim(plot_range[0])
-    ax.set_ylim(plot_range[1])
-    output_pdf.savefig(fig)
-
-    if count_pixel_hits_2d_hist is not None:
-        x_resolution = np.diff(hist_2d_edges[0])[0]
-        y_resolution = np.diff(hist_2d_edges[1])[0]
-        pixel_sizes = np.full(pixel_center_data.shape[0], dtype=np.float64, fill_value=np.nan)
-        select_bins = np.sum(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1], -1), axis=2) != 0
-        # different from
-        # select_bins = count_tracks_with_hit_2d_hist[:].astype(np.int64) != 0
-        # due to hits outside the relative pixel index array
+        select_bins = (count_tracks_with_hit_2d_hist > 0)
+        residual_vectors_x = x_meshgrid[select_bins] + stat_2d_x_residuals_hist[select_bins]
+        residual_vectors_y = y_meshgrid[select_bins] + stat_2d_y_residuals_hist[select_bins]
+        residual_vectors = np.column_stack((np.ravel(residual_vectors_x), np.ravel(residual_vectors_y)))
         bin_center_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
         bin_indices_sel = bin_indices[np.ravel(select_bins)]
+        pixel_center_kd_tree = cKDTree(pixel_center_data)
+        _, residual_to_pixel_center_sel = pixel_center_kd_tree.query(residual_vectors)
         _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
-        max_pixel_index_hist = np.column_stack(np.unravel_index(np.argmax(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0] * count_pixel_hits_2d_hist.shape[1], -1), axis=1), dims=count_pixel_hits_2d_hist.shape[2:]))
-        max_pixel_index_hist[np.ravel(select_bins), 0] -= int(count_pixel_hits_2d_hist.shape[2] / 2)
-        max_pixel_index_hist[np.ravel(select_bins), 1] -= int(count_pixel_hits_2d_hist.shape[3] / 2)
-        pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
-        bin_center_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
-        _, bin_center_to_pixel_center = pixel_center_kd_tree.query(bin_center_data)
-        max_hits_pixel_col_row = pixel_indices[bin_center_to_pixel_center] + max_pixel_index_hist
-        max_hits_pixel_index = np.ravel_multi_index(max_hits_pixel_col_row.T, dims=(actual_dut.n_columns, actual_dut.n_rows))
-        # generate array with pixel index of the pixel with the most hits for each bin
-        max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
         color_indices = np.linspace(0.0, 1.0, num=100)
         cmap = cm.get_cmap('tab20')
         cmap.set_bad('w')
@@ -1387,15 +1315,17 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         count_index_array = np.zeros(shape=pixel_center_data.shape[0], dtype=np.uint16)
         effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.int32, fill_value=-1)
         color_index = 0
+        # x_res = (hist_2d_edges[0][1] - hist_2d_edges[0][0])
+        # y_res = (hist_2d_edges[1][1] - hist_2d_edges[1][0])
         for pixel_index, pixel_position in enumerate(pixel_center_data):
-            actual_bin_indices_sel = np.where((max_hits_pixel_index_sel == pixel_index))[0]
-            actual_bin_col_row_indices = bin_indices_sel[actual_bin_indices_sel]
-            # alternative:
-            # actual_bin_indices = np.where((max_hits_pixel_index == pixel_index) & select_bins.reshape(-1))[0]
-            # actual_bin_col_row_indices = np.column_stack(np.unravel_index(actual_bin_indices, dims=count_pixel_hits_2d_hist.shape[:2]))
-            pixel_sizes[pixel_index] = actual_bin_col_row_indices.shape[0] * x_resolution * y_resolution
+            res_center_col_row_pair_data_indices = np.where(residual_to_pixel_center_sel == pixel_index)[0]
+            # res_center_col_row_pair_data_positions = bin_center_data_sel[res_center_col_row_pair_data_indices]
+            actual_bin_col_row_indices = bin_indices_sel[res_center_col_row_pair_data_indices]
             bin_center_data_indices = np.where(bin_center_to_pixel_center_sel == pixel_index)[0]
             count_index_array[pixel_index] = np.count_nonzero(bin_center_data_indices)
+            # bin_center_data_positions = bin_center_data_sel[bin_center_data_indices]
+            # index_0_pixel = np.array((bin_center_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+            # index_1_pixel = np.array((bin_center_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
             actual_pixel_bin_indices = bin_indices_sel[bin_center_data_indices]
             other_pixel_indices = effective_pixels_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
             other_colors = color_index_array[other_pixel_indices]
@@ -1404,6 +1334,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             while color_index % num_colors in other_colors and num_repeats < num_colors - 1:
                 color_index += 1
                 num_repeats += 1
+            # index_0 = np.array((res_center_col_row_pair_data_positions[:, 0] - hist_2d_edges[0][0] - x_res / 2) / x_res, dtype=np.int)
+            # index_1 = np.array((res_center_col_row_pair_data_positions[:, 1] - hist_2d_edges[1][0] - y_res / 2) / y_res, dtype=np.int)
             color_index_array[pixel_index] = color_index % num_colors
             effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = pixel_index
             color_index += 1
@@ -1414,7 +1346,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             if count_index_array[pixel_index]:
                 ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
         _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-        effective_color_2d = colors[color_index_array[effective_pixels_2d]]
+        effective_color_2d = color_indices[color_index_array[effective_pixels_2d]]
         effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
         plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations\nfor %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
@@ -1425,25 +1357,99 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         ax.set_ylim(plot_range[1])
         output_pdf.savefig(fig)
 
-        fig = Figure()
-        _ = FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-        max_region_size = 0
-        for region in regions:
-            max_region_size = max(max_region_size, len(region))
-        region_array = np.zeros((len(regions), max_region_size), dtype=np.int32)
-        for region_index, region in enumerate(regions):
-            region_array[region_index] = region + [region[-1]] * (max_region_size - len(region))
-        pixel_vertices = vertices[region_array]
-        calculated_pixel_sizes = beam_telescope_analysis.tools.analysis_utils.polygon_area_multi(pixel_vertices[:, :, 0], pixel_vertices[:, :, 1])
-        _, bin_edges, _ = ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=100, range=(0, np.ceil(max(np.max(pixel_sizes[np.isfinite(pixel_sizes)]), np.max(calculated_pixel_sizes)))), alpha=0.5, label='Measured pixel size')
-        ax.hist(calculated_pixel_sizes[np.isfinite(pixel_sizes)], bins=bin_edges, alpha=0.5, label='Calculated pixel size')
-        ax.set_yscale('log')
-        ax.set_title('Effective pixel sizes\nfor %s' % actual_dut.name)
-        ax.set_xlabel("Pixel size [$\mathrm{\mu}$m$^2$]")
-        ax.set_ylabel("#")
-        ax.legend()
-        output_pdf.savefig(fig)
+        if count_pixel_hits_2d_hist is not None:
+            x_resolution = np.diff(hist_2d_edges[0])[0]
+            y_resolution = np.diff(hist_2d_edges[1])[0]
+            pixel_sizes = np.full(pixel_center_data.shape[0], dtype=np.float64, fill_value=np.nan)
+            select_bins = np.sum(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0], count_pixel_hits_2d_hist.shape[1], -1), axis=2) != 0
+            # different from
+            # select_bins = count_tracks_with_hit_2d_hist[:].astype(np.int64) != 0
+            # due to hits outside the relative pixel index array
+            bin_center_data_sel = np.column_stack((np.ravel(x_meshgrid[select_bins]), np.ravel(y_meshgrid[select_bins])))
+            bin_indices_sel = bin_indices[np.ravel(select_bins)]
+            _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
+            max_pixel_index_hist = np.column_stack(np.unravel_index(np.argmax(count_pixel_hits_2d_hist.reshape(count_pixel_hits_2d_hist.shape[0] * count_pixel_hits_2d_hist.shape[1], -1), axis=1), dims=count_pixel_hits_2d_hist.shape[2:]))
+            max_pixel_index_hist[np.ravel(select_bins), 0] -= int(count_pixel_hits_2d_hist.shape[2] / 2)
+            max_pixel_index_hist[np.ravel(select_bins), 1] -= int(count_pixel_hits_2d_hist.shape[3] / 2)
+            pixel_indices = np.indices((actual_dut.n_columns, actual_dut.n_rows)).reshape(2, -1).T
+            bin_center_data = np.column_stack((np.ravel(x_meshgrid), np.ravel(y_meshgrid)))
+            _, bin_center_to_pixel_center = pixel_center_kd_tree.query(bin_center_data)
+            max_hits_pixel_col_row = pixel_indices[bin_center_to_pixel_center] + max_pixel_index_hist
+            max_hits_pixel_index = np.ravel_multi_index(max_hits_pixel_col_row.T, dims=(actual_dut.n_columns, actual_dut.n_rows))
+            # generate array with pixel index of the pixel with the most hits for each bin
+            max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
+            color_indices = np.linspace(0.0, 1.0, num=100)
+            cmap = cm.get_cmap('tab20')
+            cmap.set_bad('w')
+            rgb_colors = np.array([cmap(color) for color in color_indices])
+            valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
+            num_colors = len(valid_color_indices)
+            # select and reorder colors
+            color_indices = color_indices[valid_color_indices]
+            color_indices[::2] = np.roll(color_indices[::2], int(num_colors / 4))
+            rgb_colors = rgb_colors[valid_color_indices]
+            rgb_colors[::2, :] = np.roll(rgb_colors[::2, :], int(num_colors / 4), axis=0)
+            color_index_array = np.full(shape=pixel_center_data.shape[0], dtype=np.int8, fill_value=-1)
+            count_index_array = np.zeros(shape=pixel_center_data.shape[0], dtype=np.uint16)
+            effective_pixels_2d = np.full(shape=stat_2d_efficiency_hist.shape, dtype=np.int32, fill_value=-1)
+            color_index = 0
+            for pixel_index, pixel_position in enumerate(pixel_center_data):
+                actual_bin_indices_sel = np.where((max_hits_pixel_index_sel == pixel_index))[0]
+                actual_bin_col_row_indices = bin_indices_sel[actual_bin_indices_sel]
+                # alternative:
+                # actual_bin_indices = np.where((max_hits_pixel_index == pixel_index) & select_bins.reshape(-1))[0]
+                # actual_bin_col_row_indices = np.column_stack(np.unravel_index(actual_bin_indices, dims=count_pixel_hits_2d_hist.shape[:2]))
+                pixel_sizes[pixel_index] = actual_bin_col_row_indices.shape[0] * x_resolution * y_resolution
+                bin_center_data_indices = np.where(bin_center_to_pixel_center_sel == pixel_index)[0]
+                count_index_array[pixel_index] = np.count_nonzero(bin_center_data_indices)
+                actual_pixel_bin_indices = bin_indices_sel[bin_center_data_indices]
+                other_pixel_indices = effective_pixels_2d[actual_pixel_bin_indices[:, 0], actual_pixel_bin_indices[:, 1]]
+                other_colors = color_index_array[other_pixel_indices]
+                # change color if same color is already occurring inside pixel region
+                num_repeats = 0
+                while color_index % num_colors in other_colors and num_repeats < num_colors - 1:
+                    color_index += 1
+                    num_repeats += 1
+                color_index_array[pixel_index] = color_index % num_colors
+                effective_pixels_2d[actual_bin_col_row_indices[:, 0], actual_bin_col_row_indices[:, 1]] = pixel_index
+                color_index += 1
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            for pixel_index, pixel_position in enumerate(pixel_center_data):
+                if count_index_array[pixel_index]:
+                    ax.plot(pixel_position[0], pixel_position[1], markersize=1.0, marker='o', alpha=1.0, color=rgb_colors[color_index_array[pixel_index]], markeredgecolor='k', markeredgewidth=0.1)
+            _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, points=pixel_center_data, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+            effective_color_2d = colors[color_index_array[effective_pixels_2d]]
+            effective_color_2d = np.ma.masked_where(effective_pixels_2d == -1, effective_color_2d)
+            plot_2d_pixel_hist(fig, ax, effective_color_2d.T, hist_extent, title='Effective pixel locations\nfor %s' % actual_dut.name, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=1.0, cmap=cmap, show_colorbar=False)
+            rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
+            ax.add_patch(rect)
+            ax.set_xlabel("column [$\mathrm{\mu}$m]")
+            ax.set_ylabel("row [$\mathrm{\mu}$m]")
+            ax.set_xlim(plot_range[0])
+            ax.set_ylim(plot_range[1])
+            output_pdf.savefig(fig)
+
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            max_region_size = 0
+            for region in regions:
+                max_region_size = max(max_region_size, len(region))
+            region_array = np.zeros((len(regions), max_region_size), dtype=np.int32)
+            for region_index, region in enumerate(regions):
+                region_array[region_index] = region + [region[-1]] * (max_region_size - len(region))
+            pixel_vertices = vertices[region_array]
+            calculated_pixel_sizes = beam_telescope_analysis.tools.analysis_utils.polygon_area_multi(pixel_vertices[:, :, 0], pixel_vertices[:, :, 1])
+            _, bin_edges, _ = ax.hist(pixel_sizes[np.isfinite(pixel_sizes)], bins=100, range=(0, np.ceil(max(np.max(pixel_sizes[np.isfinite(pixel_sizes)]), np.max(calculated_pixel_sizes)))), alpha=0.5, label='Measured pixel size')
+            ax.hist(calculated_pixel_sizes[np.isfinite(pixel_sizes)], bins=bin_edges, alpha=0.5, label='Calculated pixel size')
+            ax.set_yscale('log')
+            ax.set_title('Effective pixel sizes\nfor %s' % actual_dut.name)
+            ax.set_xlabel("Pixel size [$\mathrm{\mu}$m$^2$]")
+            ax.set_ylabel("#")
+            ax.legend()
+            output_pdf.savefig(fig)
 
     fig = Figure()
     _ = FigureCanvas(fig)
