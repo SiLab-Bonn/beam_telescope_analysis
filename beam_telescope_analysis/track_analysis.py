@@ -767,7 +767,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                          min_track_hits[curr_fit_dut_index] == min_track_hits[fit_dut_index])):
                         actual_fit_duts.append(curr_fit_dut)
                 # continue with fitting
-                logging.info('= Fit tracks for %s =', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
+                logging.info('== Fit tracks for %s ==', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
                 # remove existing nodes
                 for dut_index in actual_fit_duts:
                     try:  # Check if table already exists, then append data
