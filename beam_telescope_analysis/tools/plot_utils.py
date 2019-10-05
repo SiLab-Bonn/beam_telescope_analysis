@@ -1135,7 +1135,7 @@ def voronoi_plot_2d(ax, ridge_vertices, vertices, points=None, show_points=False
     '''
     ridge_vertices = np.array(ridge_vertices)
     select = np.all(ridge_vertices >= 0, axis=1)
-    if np.count_nonzero(select) > 10**6 or points.shape[0] > 10**5:
+    if np.count_nonzero(select) > 10**6 or (points is not None and points.shape[0] > 10**5):
         logging.warning("Omitting voronoi mesh: too many vertices and/or points.")
     else:
         if show_points:
