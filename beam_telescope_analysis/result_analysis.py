@@ -793,7 +793,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 actual_dut = telescope[actual_dut_index]
                 node = in_file_h5.get_node(in_file_h5.root, 'Tracks_DUT%d' % actual_dut_index)
 
-                logging.info('= Calculating efficiency for %s =', actual_dut.name)
+                logging.info('== Calculating efficiency for %s ==', actual_dut.name)
 
                 # Calculate histogram properties (bins size and number of bins)
                 resolution = resolutions[index]
