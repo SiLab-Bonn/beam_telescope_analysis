@@ -13,6 +13,7 @@ from tqdm import tqdm
 from contextlib2 import ExitStack
 
 from pyBAR_mimosa26_interpreter import data_interpreter
+from pyBAR_mimosa26_interpreter import raw_data_interpreter
 
 from beam_telescope_analysis.hit_analysis import default_hits_dtype
 
@@ -20,7 +21,7 @@ from beam_telescope_analysis.hit_analysis import default_hits_dtype
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 
-def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2, timing_offset=None):
+def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2, analyze_m26_header_ids=None, timing_offset=None):
     ''' Process and format raw data.
 
     Parameters
@@ -31,23 +32,32 @@ def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2, tim
         Filenames of the output interpreted and formatted data files.
     trigger_data_format : int
         Trigger/TLU FSM data mode.
+    analyze_m26_header_ids : list
+        List of Mimosa26 header IDs that will be interpreted.
+        If None, the value defaults to the global value pyBAR_mimosa26_interpreter.raw_data_interpreter.DEFAULT_PYMOSA_M26_HEADER_IDS.
+    timing_offset : int
+        Timing offset for the pyBAR_mimosa26_interpreter. The value has impact on the start of frame to trigger word alignment.
 
     Returns
     -------
     output_filenames : list of strings
         Filenames of the output interpreted and formatted data files.
     '''
+    if analyze_m26_header_ids is None:
+        analyze_m26_header_ids = raw_data_interpreter.DEFAULT_PYMOSA_M26_HEADER_IDS
+    else:
+        analyze_m26_header_ids = analyze_m26_header_ids
     analyzed_data_file = os.path.splitext(raw_data_file)[0] + '_interpreted.h5'
     with data_interpreter.DataInterpreter(raw_data_file=raw_data_file, analyzed_data_file=analyzed_data_file, trigger_data_format=trigger_data_format, timing_offset=timing_offset, create_pdf=True) as mimosa_data_interpreter:
         mimosa_data_interpreter.create_occupancy_hist = True
         mimosa_data_interpreter.create_error_hist = True
         mimosa_data_interpreter.create_hit_table = True
         mimosa_data_interpreter.interpret_word_table()  # interpret raw data
-    output_filenames = format_hit_table(input_filename=analyzed_data_file, output_filenames=output_filenames)
+    output_filenames = format_hit_table(input_filename=analyzed_data_file, output_filenames=output_filenames, analyze_m26_header_ids=analyze_m26_header_ids)
     return output_filenames
 
 
-def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
+def format_hit_table(input_filename, output_filenames=None, analyze_m26_header_ids=None, chunk_size=1000000):
     ''' Selects and renames important columns for test beam analysis and stores them into a new file.
 
     Parameters
@@ -57,6 +67,9 @@ def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
     output_filenames : list
         Filenames of the output interpreted and formatted data files.
         If None, the filenames will be generated.
+    analyze_m26_header_ids : list
+        List of Mimosa26 header IDs that will be interpreted.
+        If None, the value defaults to the global value pyBAR_mimosa26_interpreter.raw_data_interpreter.DEFAULT_PYMOSA_M26_HEADER_IDS.
     chunk_size : uint
         Chunk size of the data when reading from file.
 
@@ -65,11 +78,15 @@ def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
     output_filenames : list
         Filenames of the output interpreted and formatted data files.
     '''
-    if output_filenames is None:
-        output_filenames = [(os.path.splitext(input_filename)[0] + '_formatted_telescope' + str(plane + 1) + '.h5') for plane in range(6)]
+    if analyze_m26_header_ids is None:
+        analyze_m26_header_ids = raw_data_interpreter.DEFAULT_PYMOSA_M26_HEADER_IDS
     else:
-        if len(output_filenames) != 6:
-            raise ValueError('Output filenames must be a list of length 6')
+        analyze_m26_header_ids = analyze_m26_header_ids
+    if output_filenames is None:
+        output_filenames = [(os.path.splitext(input_filename)[0] + '_formatted_telescope' + str(plane_header_id) + '.h5') for plane_header_id in analyze_m26_header_ids]
+    else:
+        if len(output_filenames) != len(analyze_m26_header_ids):
+            raise ValueError('Output filenames must be a list of length %d.' % len(analyze_m26_header_ids))
     with tb.open_file(filename=input_filename, mode='r') as in_file_h5:
         last_event_number = np.zeros(shape=1, dtype=np.int64)
         input_hits_table = in_file_h5.root.Hits
@@ -93,8 +110,9 @@ def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
                 if np.any(np.diff(np.concatenate((last_event_number, hits_chunk['event_number']))) < 0):
                     raise RuntimeError('The event number does not increase.')
                 last_event_number = hits_chunk['event_number'][-1:]
-                for plane, output_hits_table in enumerate(output_hits_tables):
-                    selected_hits = (hits_chunk['plane'] == plane)
+                for plane_index, output_hits_table in enumerate(output_hits_tables):
+                    plane_header_id = analyze_m26_header_ids[plane_index]
+                    selected_hits = (hits_chunk['plane'] == plane_header_id)
                     hits_data_formatted = np.zeros(shape=np.count_nonzero(selected_hits), dtype=default_hits_dtype)
                     # Format data for testbeam analysis
                     hits_data_formatted['event_number'] = hits_chunk[selected_hits]['event_number']
