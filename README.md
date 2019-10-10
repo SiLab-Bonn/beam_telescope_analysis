@@ -86,10 +86,10 @@ A single file must be provided for each detector (i.e., telescope plane, timing 
 
 Each input data file must contain a data table with the node name `Hits`.
 The hit data table must at least contain the following columns:
-- `event_number` (int): unique event number (increasing) for all events accross all detectors; starting from 0
-- `column` (int): pixel column index; starting from 1
-- `row` (int): pixel row index; starting from 1
-- `frame` (int): timing bin (only applicable to some detectors, can be used for cluster building); if not available, set to 0.
+- `event_number` (long): unique event number (positive and monotonic increasing) for all events accross all detectors; starting from 0
+- `column` (ushort): pixel column index; starting from 1
+- `row` (ushort): pixel row index; starting from 1
+- `frame` (ushort): timing bin (only applicable to some detectors, can be used for cluster building); if not available, set to 0.
 - `charge` (float): charge seen by the detector (only applicable to some detectors, can be used for charge weighted clustering); if not available, set to 0.
 
 Additional columns can be provided.

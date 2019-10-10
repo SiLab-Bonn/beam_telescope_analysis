@@ -26,6 +26,7 @@ from tqdm import tqdm
 import pylandau
 
 from beam_telescope_analysis.tools import geometry_utils
+from beam_telescope_analysis.hit_analysis import default_hits_dtype
 
 
 logging.basicConfig(
@@ -442,8 +443,7 @@ class SimulateData(object):
         self.digitization_pixel_discretization = True
 
         # Internals
-        self._hit_dtype = np.dtype([('event_number', np.int64), ('frame', np.uint32), (
-            'column', np.uint16), ('row', np.uint16), ('charge', np.uint16)])
+        self._hit_dtype = default_hits_dtype
 
     def reset(self):
         ''' Reset to init configuration '''

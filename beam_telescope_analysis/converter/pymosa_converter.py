@@ -14,15 +14,10 @@ from contextlib2 import ExitStack
 
 from pyBAR_mimosa26_interpreter import data_interpreter
 
+from beam_telescope_analysis.hit_analysis import default_hits_dtype
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
-
-beam_telescope_analysis_dtype = np.dtype([
-    ('event_number', np.int64),
-    ('frame', np.uint8),
-    ('column', np.uint16),
-    ('row', np.uint16),
-    ('charge', np.uint16)])
 
 
 def process_dut(raw_data_file, output_filenames=None, trigger_data_format=2, timing_offset=None):
@@ -85,7 +80,7 @@ def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
                 output_hits_table = out_file_h5.create_table(
                     where=out_file_h5.root,
                     name='Hits',
-                    description=beam_telescope_analysis_dtype,
+                    description=default_hits_dtype,
                     title='Hits for test beam analysis',
                     filters=tb.Filters(
                         complib='blosc',
@@ -100,7 +95,7 @@ def format_hit_table(input_filename, output_filenames=None, chunk_size=1000000):
                 last_event_number = hits_chunk['event_number'][-1:]
                 for plane, output_hits_table in enumerate(output_hits_tables):
                     selected_hits = (hits_chunk['plane'] == plane)
-                    hits_data_formatted = np.zeros(shape=np.count_nonzero(selected_hits), dtype=beam_telescope_analysis_dtype)
+                    hits_data_formatted = np.zeros(shape=np.count_nonzero(selected_hits), dtype=default_hits_dtype)
                     # Format data for testbeam analysis
                     hits_data_formatted['event_number'] = hits_chunk[selected_hits]['event_number']
                     hits_data_formatted['frame'] = 0

@@ -22,6 +22,16 @@ from beam_telescope_analysis.tools.plot_utils import plot_masked_pixels, plot_cl
 from beam_telescope_analysis.tools.storage_utils import save_arguments
 
 
+default_hits_descr = [
+    ('event_number', '<i8'),
+    ('frame', '<u2'),
+    ('column', '<u2'),
+    ('row', '<u2'),
+    ('charge', '<f4')]
+
+default_hits_dtype = np.dtype(default_hits_descr)
+
+
 @save_arguments
 def convert(telescope_configuration, input_hit_files, output_hit_files=None, select_duts=None, index_to_local=True, chunk_size=1000000):
     '''"Converting hit files. Wrapper for convert_coordinates(). For detailed description of the parameters see convert_coordinates().
@@ -932,7 +942,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             clusters[i]['n_cluster'] = hits["n_cluster"][start_event_hit_index]
 
     if use_positions:
-        hit_dtype = np.dtype([
+        cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
             ('x', '<f8'),
             ('y', '<f8'),
@@ -942,7 +952,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
             ('n_cluster', '<u4')])
-        hit_fields = {
+        cluster_hit_fields = {
             'x': 'column',
             'y': 'row'}
         cluster_fields = {
@@ -962,7 +972,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('mean_x', '<f8'),
             ('mean_y', '<f8')])
     else:
-        hit_dtype = np.dtype([
+        cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
             ('column', '<u2'),
             ('row', '<u2'),
@@ -972,7 +982,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
             ('n_cluster', '<u4')])
-        hit_fields = None
+        cluster_hit_fields = None
         cluster_fields = {
             'cluster_ID': 'ID'}
         cluster_dtype = np.dtype([
@@ -987,8 +997,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('mean_row', '<f8')])
 
     clusterizer = HitClusterizer(
-        hit_fields=hit_fields,
-        hit_dtype=hit_dtype,
+        hit_fields=cluster_hit_fields,
+        hit_dtype=cluster_hit_dtype,
         cluster_fields=cluster_fields,
         cluster_dtype=cluster_dtype,
         min_hit_charge=min_hit_charge,
@@ -1013,7 +1023,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     else:
         clusterizer.set_end_of_cluster_function(end_of_cluster_function_with_index)  # Set the new function to the clusterizer
     clusterizer.set_end_of_event_function(end_of_event_function)
-    additional_columns = list(set(hits_columns) - set(hit_dtype.names))
+    additional_columns = list(set(hits_columns) - set(cluster_hit_dtype.names))
     if additional_columns:
         logging.info('Found additional column(s): %s' % ", ".join(additional_columns))
     clusterizer._additional_columns = additional_columns
@@ -1541,7 +1551,7 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
     for index, _ in enumerate(input_cluster_files):
         description.append(('charge_dut_%d' % index, np.float32))
     for index, _ in enumerate(input_cluster_files):
-        description.append(('frame_dut_%d' % index, np.uint8))
+        description.append(('frame_dut_%d' % index, np.uint16))
     for index, _ in enumerate(input_cluster_files):
         description.append(('n_hits_dut_%d' % index, np.uint32))
     for index, _ in enumerate(input_cluster_files):
