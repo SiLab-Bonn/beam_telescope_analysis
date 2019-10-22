@@ -5,7 +5,7 @@ from functools import wraps
 
 import tables as tb
 
-from beam_telescope_analysis import __version__
+from beam_telescope_analysis import __version__ as bta_version
 
 
 # Python 3 compatibility
@@ -56,7 +56,7 @@ def save_configuration_dict(output_file, table_name, dictionary, group_name="con
             time.asctime(date_created)
         else:
             scan_param_table.attrs.date_created = time.asctime()
-        scan_param_table.attrs.bta_version = __version__
+        scan_param_table.attrs.bta_version = bta_version
         scan_param_table.flush()
 
     if isinstance(output_file, tb.file.File):
