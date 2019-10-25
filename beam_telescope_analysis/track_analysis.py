@@ -1587,6 +1587,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     initial_state_covariance[:, 4, 4] = np.square(5e-3)
     initial_state_covariance[:, 5, 5] = np.square(5e-3)
 
+    # Calculate initial state
     for index, actual_hits in enumerate(track_hits):  # Loop over selected track candidate hits and fit
         # Take cluster hit position error as measurement error for duts which have a hit.
         # For those who have no hit, need no error, since the should not be included in fit via fit selection
@@ -1610,6 +1611,8 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             except np.linalg.linalg.LinAlgError:
                 offset, slope = np.nan, np.nan
 
+            # Calculate intersection with first plane
+            dut = all_dut_planes[z_sorted_dut_indices[0]]
             intersections = geometry_utils.get_line_intersections_with_dut(
                 line_origins=np.array([offset]),
                 line_directions=np.array([slope]),
