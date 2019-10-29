@@ -359,7 +359,7 @@ def _smooth_update(observation, observation_matrix, observation_covariance,
         smoothed_residuals_covariance = observation_covariance[valid_hit_selection] - _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(smoothed_state_covariance[valid_hit_selection], _mat_trans(observation_matrix[valid_hit_selection])))
     else:
         residual_covariance_matrix = 2 * predicted_state_covariance - smoothed_state_covariance
-        smoothed_residuals_covariance = observation_covariance[valid_hit_selection] + _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(residual_covariance_matrix, _mat_trans(observation_matrix[valid_hit_selection])))
+        smoothed_residuals_covariance = observation_covariance[valid_hit_selection] + _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(residual_covariance_matrix[valid_hit_selection], _mat_trans(observation_matrix[valid_hit_selection])))
     check_covariance_matrix(smoothed_residuals_covariance)  # Sanity check for covariance matrix
     chi2 = _vec_vec_mul(smoothed_residuals, _vec_mul(_mat_inverse(smoothed_residuals_covariance), smoothed_residuals))
 
