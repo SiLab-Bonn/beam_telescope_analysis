@@ -2499,7 +2499,8 @@ def histogram_track_angle(telescope_configuration, input_tracks_file, select_dut
 
 
 def get_angles(slopes, xz_plane_normal, yz_plane_normal, dut_plane_normal):
-    # normalize track slopes to 1
+    # Make z-slope pointing into positive z-direction (z-slope is reveresed when going from local into global coord. system) and normalize track slopes to 1.
+    slopes[:, 2] = np.abs(slopes[:, 2])
     slopes_mag = np.sqrt(np.einsum('ij,ij->i', slopes, slopes))
     slopes /= slopes_mag[:, np.newaxis]
     track_slopes_onto_xz_plane = slopes - np.matmul(xz_plane_normal, slopes.T).reshape(-1, 1) * xz_plane_normal
