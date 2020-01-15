@@ -73,7 +73,7 @@ def save_arguments(func):
     def wrapper(*args, **kwargs):
         curr_time = time.time()
         ret_val = func(*args, **kwargs)
-        func_name = func.func_name
+        func_name = func.__name__
         output_files = None
         if isinstance(ret_val, basestring) and os.path.isfile(ret_val):
             output_files = (ret_val,)
