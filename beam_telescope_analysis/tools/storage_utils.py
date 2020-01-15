@@ -86,7 +86,7 @@ def save_arguments(func):
                 output_files = ret_val[0]
         if output_files:
             for output_file in output_files:
-                all_parameters = func.func_code.co_varnames[:func.func_code.co_argcount]
+                all_parameters = func.__code__.co_varnames[:func.__code__.co_argcount]
                 all_kwargs = dict(zip(all_parameters, args))
                 all_kwargs.update(kwargs)
                 save_configuration_dict(output_file=output_file, table_name=func_name, dictionary=all_kwargs, group_name="arguments", date_created=curr_time, mode="a")
