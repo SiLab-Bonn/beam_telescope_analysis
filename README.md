@@ -39,13 +39,6 @@ The following packages are required and can be obtained from PyPI (via `pip inst
 - [pixel_clusterizer](https://github.com/SiLab-Bonn/pixel_clusterizer)
 - [PyLandau](https://github.com/SiLab-Bonn/pylandau)
 
-*Note:*
-Only the development branch of [pixel_clusterizer](https://github.com/SiLab-Bonn/pixel_clusterizer) is currently supported.
-For that, install pixel_clusterizer with the following command:
-```
-pip install git+https://github.com/SiLab-Bonn/pixel_clusterizer@development
-```
-
 ### Installation of BTA
 
 Clone the BTA repository:
