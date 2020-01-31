@@ -42,7 +42,7 @@ def save_configuration_dict(output_file, table_name, dictionary, group_name="con
         try:
             configuration_group = h5_file.create_group(where="/", name=group_name)
         except tb.NodeError:
-            configuration_group = h5_file.root.configuration
+            configuration_group = h5_file.get_node(where=h5_file.root, name=group_name)
 
         scan_param_table = h5_file.create_table(where=configuration_group, name=table_name, description=NameValue, title=table_name)
         row_scan_param = scan_param_table.row
