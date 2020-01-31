@@ -1110,14 +1110,14 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
             center_x = np.median(x_residuals[select_fitted_tracks_for_storage & select_finite_distance])
             std_x = np.std(x_residuals[select_fitted_tracks_for_storage & select_finite_distance])
             x_kde = gaussian_kde(x_residuals[select_fitted_tracks_for_storage & select_finite_distance], bw_method=dut.pixel_size[0] / 12**0.5 / std_x)
-            x_grid = np.linspace(center_x - 0.5 * std_x, center_x + 0.5 * std_x, np.ceil(std_x))
+            x_grid = np.linspace(center_x - 0.5 * std_x, center_x + 0.5 * std_x, int(np.ceil(std_x)))
             x_index_max = np.argmax(x_kde.evaluate(x_grid))
             mean_x_residual = x_grid[x_index_max]
             x_residuals -= mean_x_residual
             center_y = np.median(y_residuals[select_fitted_tracks_for_storage & select_finite_distance])
             std_y = np.std(y_residuals[select_fitted_tracks_for_storage & select_finite_distance])
             y_kde = gaussian_kde(y_residuals[select_fitted_tracks_for_storage & select_finite_distance], bw_method=dut.pixel_size[1] / 12**0.5 / std_y)
-            y_grid = np.linspace(center_y - 0.5 * std_y, center_y + 0.5 * std_y, np.ceil(std_y))
+            y_grid = np.linspace(center_y - 0.5 * std_y, center_y + 0.5 * std_y, int(np.ceil(std_y)))
             y_index_max = np.argmax(y_kde.evaluate(y_grid))
             mean_y_residual = y_grid[y_index_max]
             y_residuals -= mean_y_residual
