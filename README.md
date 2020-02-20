@@ -116,7 +116,7 @@ Please use GitHub's [issue tracker](https://github.com/SiLab-Bonn/beam_telescope
 1. J. Janssen (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *Test Beam Results of ATLAS DBM pCVD Diamond Detectors Using a Novel Threshold Tuning Method*, JINST. DOI: [10.1088/1748-0221/12/03/C03072](https://dx.doi.org/10.1088/1748-0221/12/03/C03072)
 2. N. Wermes, *Pixel detectors ... where do we stand?*, NIMA. DOI: [10.1016/j.nima.2018.07.003](https://dx.doi.org/10.1016/j.nima.2018.07.003)
 3. D.-L. Pohl et al., *Radiation Hard Pixel Sensors Using High-Resistive Wafers in a 150nm CMOS Processing Line*, JINST. DOI: [10.1088/1748-0221/12/06/P06020](https://dx.doi.org/10.1088/1748-0221/12/06/P06020)
-4. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, preprint submitted.
+4. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, NIMA. DOI: [10.1016/j.nima.2019.162675](https://doi.org/10.1016/j.nima.2019.162675)
 
 ...more to come.
 
