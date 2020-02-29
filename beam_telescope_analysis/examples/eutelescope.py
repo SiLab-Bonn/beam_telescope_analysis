@@ -98,7 +98,7 @@ def run_analysis(hit_files):
     # Cluster hits from all DUTs
     use_positions = [False, False, False, False, False, False]
     min_hit_charges = [0, 0, 0, 0, 0, 0]
-    max_hit_charges = [0, 0, 0, 0, 0, 0]
+    max_hit_charges = [1, 1, 1, 1, 1, 1]
     column_cluster_distances = [3, 3, 3, 3, 3, 3]
     row_cluster_distances = [3, 3, 3, 3, 3, 3]
     frame_cluster_distances = [0, 0, 0, 0, 0, 0]
@@ -172,7 +172,6 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
-        select_no_quality_duts=None,
         query='(track_chi2 < 500)')
 
     # Step 4:
@@ -241,7 +240,6 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
-        select_no_quality_duts=None,
         query='(track_chi2 < 15.0)')
 
     # Calculate the unconstrained residuals from final tracks (with chi^2 cut and quality selection)
@@ -286,7 +284,6 @@ def run_analysis(hit_files):
         select_hit_duts=[0, 1, 2, 3, 4, 5],
         select_no_hit_duts=None,
         select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
-        select_no_quality_duts=None,
         query='(track_chi2 < 5.0)')
 
     # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
@@ -298,46 +295,46 @@ def run_analysis(hit_files):
         nbins_per_pixel=20,
         use_limits=True)
 
+    # TODO: Fixme
     # Example 3:
     # Use a Kalman filter to build tracks. This is the best way to build
     # tracks in case of heavily scattered tracks.
     # Fit the track candidates, assign quality flags, and create a track table
-    track_analysis.fit_tracks(
-        telescope_configuration=aligned_configuration,
-        input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman.h5'),
-        select_duts=[0, 1, 2, 3, 4, 5],
-        select_fit_duts=[0, 1, 2, 3, 4, 5],
-        select_hit_duts=[0, 1, 2, 3, 4, 5],
-        exclude_dut_hit=True,
-        quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
-        isolation_distances=(1000.0, 1000.0),
-        method='kalman',
-        beam_energy=5000.0,
-        particle_mass=0.511,
-        use_limits=False,
-        plot=True)
+    # track_analysis.fit_tracks(
+    #     telescope_configuration=aligned_configuration,
+    #     input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+    #     output_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman.h5'),
+    #     select_duts=[0, 1, 2, 3, 4, 5],
+    #     select_fit_duts=[0, 1, 2, 3, 4, 5],
+    #     select_hit_duts=[0, 1, 2, 3, 4, 5],
+    #     exclude_dut_hit=True,
+    #     quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
+    #     isolation_distances=(1000.0, 1000.0),
+    #     method='kalman',
+    #     beam_energy=5000.0,
+    #     particle_mass=0.511,
+    #     use_limits=False,
+    #     plot=True)
 
-    # Do additional track selection cuts on the tracks table
-    data_selection.select_tracks(
-        telescope_configuration=aligned_configuration,
-        input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman_selected.h5'),
-        select_duts=[0, 1, 2, 3, 4, 5],
-        select_hit_duts=[0, 1, 2, 3, 4, 5],
-        select_no_hit_duts=None,
-        select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
-        select_no_quality_duts=None,
-        query='(track_chi2 < 5.0)')
+    # # Do additional track selection cuts on the tracks table
+    # data_selection.select_tracks(
+    #     telescope_configuration=aligned_configuration,
+    #     input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman.h5'),
+    #     output_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman_selected.h5'),
+    #     select_duts=[0, 1, 2, 3, 4, 5],
+    #     select_hit_duts=[0, 1, 2, 3, 4, 5],
+    #     select_no_hit_duts=None,
+    #     select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
+    #     query='(track_chi2 < 5.0)')
 
-    # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
-    result_analysis.calculate_residuals(
-        telescope_configuration=aligned_configuration,
-        input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman_selected.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_aligned_kalman.h5'),
-        select_duts=[0, 1, 2, 3, 4, 5],
-        nbins_per_pixel=20,
-        use_limits=True)
+    # # Calculate the unconstrained residuals from final from final tracks (with chi^2 cut and quality selection)
+    # result_analysis.calculate_residuals(
+    #     telescope_configuration=aligned_configuration,
+    #     input_tracks_file=os.path.join(output_folder, 'Tracks_aligned_kalman_selected.h5'),
+    #     output_residuals_file=os.path.join(output_folder, 'Residuals_aligned_kalman.h5'),
+    #     select_duts=[0, 1, 2, 3, 4, 5],
+    #     nbins_per_pixel=20,
+    #     use_limits=True)
 
 
 # Main entry point is needed for multiprocessing under Windows
