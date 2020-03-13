@@ -404,6 +404,23 @@ class RD53A(RectangularPixelDut):
         super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
+class RD53A_8x8(RectangularPixelDut):
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+        super(RD53A_8x8, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
+
+    def map_to_primitive_cell(self, x, y, z=None):
+        ''' Primitve cell is a pixel.
+        '''
+        # check for valid z coordinates
+        if z is not None and not np.allclose(np.nan_to_num(z), 0.0):
+            raise RuntimeError('The local z positions contain values z!=0.')
+        x_primitve_cell = np.mod(x + self.x_extent()[0], self.column_size * 8.0)
+        y_primitve_cell = np.mod(y + self.y_extent()[0], self.row_size * 8.0)
+        return x_primitve_cell, y_primitve_cell
+
+
 class PSI46(RectangularPixelDutWithDoubleColumns):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
 

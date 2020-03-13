@@ -292,10 +292,8 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 # total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                if max_events:
-                    pbar.update(n_events_chunk)
-                else:
-                    pbar.update(n_tracks_chunk)
+                pbar.update(tracklets_data_chunk.shape[0])
+
             pbar.close()
 
     return output_track_candidates_file
@@ -621,6 +619,12 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     if scattering_planes is not None and method != 'kalman':
         raise ValueError('Scattering plane feature can only be used when using the Kalman Filter.')
+
+    if method == "fit":
+        method_str = 'Straight Line Fit'
+    if method == "kalman":
+        method_str = 'Kalman Filter'
+    logging.info('=== Fitting tracks of %d DUTs (using %s)===' % (n_duts, method_str))
 
     if output_tracks_file is None:
         output_tracks_file = os.path.join(os.path.dirname(input_track_candidates_file), 'Tracks_%s.h5' % method.title())
