@@ -20,7 +20,7 @@ typedef struct ClusterHitInfo{
   int64_t eventNumber;  // event number value
   uint16_t column;  // column value
   uint16_t row; // row value
-  uint16_t charge; // pixel charge
+  float charge; // pixel charge
   uint16_t frame;  // relative BCID value
   int16_t clusterID;  // the cluster id of the hit
   uint8_t isSeed;  // flag to mark seed pixel
@@ -36,7 +36,7 @@ typedef struct ClusterInfo{
   int64_t eventNumber;  // event number value
   uint16_t ID;  // the cluster id of the cluster
   uint32_t n_hits;  // number of all hits in all clusters
-  uint16_t charge;  // sum charge of all cluster hits
+  float charge;  // sum charge of all cluster hits
   uint16_t frame;  // relative BCID value
   uint16_t seed_column;  // seed pixel column value
   uint16_t seed_row;  // seed pixel row value
