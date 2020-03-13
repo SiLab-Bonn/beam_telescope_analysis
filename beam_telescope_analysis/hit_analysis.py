@@ -935,6 +935,26 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         clusters[cluster_index]["err_row"] = max_row - min_row
         clusters[cluster_index]["frame"] = min_frame
 
+        # Calculate cluster TDC and cluster TDC status
+        cluster_tdc = 0
+        cluster_tdc_timestamp = 0
+        cluster_tdc_status = 0  # Logical OR of TDC stati of hits belonging to the cluster
+        one_hit_has_no_tdc = False  # Indicator that one hit belonging to the cluster has no TDC value, in this case set TDC status of cluster to zero
+        for j in range(clusters[cluster_index].n_hits):
+            hit_index = cluster_hit_indices[j]
+            cluster_tdc += hits[hit_index].tdc_value
+            cluster_tdc_timestamp = hits[hit_index].tdc_timestamp
+            if hits[hit_index].tdc_status == 0:
+                # Hit has no TDC value, thus set cluster TDc status to zero.
+                cluster_tdc_status = 0
+                one_hit_has_no_tdc = True
+                continue
+            if not one_hit_has_no_tdc:
+                cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC stati of hits belonging to the cluster
+        clusters[cluster_index].tdc_value = cluster_tdc
+        clusters[cluster_index].tdc_timestamp = cluster_tdc_timestamp
+        clusters[cluster_index].tdc_status = cluster_tdc_status
+
     @numba.njit()
     def end_of_cluster_function_with_position(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
         min_col = hits[cluster_hit_indices[0]]["column"]
@@ -962,6 +982,26 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         clusters[cluster_index]["err_y"] = max_row - min_row
         clusters[cluster_index]["frame"] = min_frame
 
+        # Calculate cluster TDC and cluster TDC status
+        cluster_tdc = 0
+        cluster_tdc_timestamp = 0
+        cluster_tdc_status = 0  # Logical OR of TDC stati of hits belonging to the cluster
+        one_hit_has_no_tdc = False  # Indicator that one hit belonging to the cluster has no TDC value, in this case set TDC status of cluster to zero
+        for j in range(clusters[cluster_index].n_hits):
+            hit_index = cluster_hit_indices[j]
+            cluster_tdc += hits[hit_index].tdc_value
+            cluster_tdc_timestamp = hits[hit_index].tdc_timestamp
+            if hits[hit_index].tdc_status == 0:
+                # Hit has no TDC value, thus set cluster TDc status to zero.
+                cluster_tdc_status = 0
+                one_hit_has_no_tdc = True
+                continue
+            if not one_hit_has_no_tdc:
+                cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC stati of hits belonging to the cluster
+        clusters[cluster_index].tdc_value = cluster_tdc
+        clusters[cluster_index].tdc_timestamp = cluster_tdc_timestamp
+        clusters[cluster_index].tdc_status = cluster_tdc_status
+
     # Adding number of clusters
     def end_of_event_function(hits, clusters, start_event_hit_index, stop_event_hit_index, start_event_cluster_index, stop_event_cluster_index):
         for i in range(start_event_cluster_index, stop_event_cluster_index):
@@ -977,7 +1017,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('cluster_ID', '<i2'),
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
-            ('n_cluster', '<u4')])
+            ('n_cluster', '<u4'),
+            ('tdc_value', '<u2'),
+            ('tdc_timestamp', '<u2'),
+            ('tdc_status', '<u1')])
         cluster_hit_fields = {
             'x': 'column',
             'y': 'row'}
@@ -996,7 +1039,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('seed_x', '<u2'),
             ('seed_y', '<u2'),
             ('mean_x', '<f8'),
-            ('mean_y', '<f8')])
+            ('mean_y', '<f8'),
+            ('tdc_value', '<u2'),
+            ('tdc_timestamp', '<u2'),
+            ('tdc_status', '<u1')])
     else:
         cluster_hit_dtype = np.dtype([
             ('event_number', '<i8'),
@@ -1007,7 +1053,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('cluster_ID', '<i2'),
             ('is_seed', '<u1'),
             ('cluster_size', '<u4'),
-            ('n_cluster', '<u4')])
+            ('n_cluster', '<u4'),
+            ('tdc_value', '<u2'),
+            ('tdc_timestamp', '<u2'),
+            ('tdc_status', '<u1')])
         cluster_hit_fields = None
         cluster_fields = {
             'cluster_ID': 'ID'}
@@ -1020,7 +1069,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             ('seed_column', '<u2'),
             ('seed_row', '<u2'),
             ('mean_column', '<f8'),
-            ('mean_row', '<f8')])
+            ('mean_row', '<f8'),
+            ('tdc_value', '<u2'),
+            ('tdc_timestamp', '<u2'),
+            ('tdc_status', '<u1')])
 
     clusterizer = HitClusterizer(
         hit_fields=cluster_hit_fields,
@@ -1586,6 +1638,12 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
         description.append(('cluster_shape_dut_%d' % index, np.int64))
     for index, _ in enumerate(input_cluster_files):
         description.append(('n_cluster_dut_%d' % index, np.uint32))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('tdc_value_dut_%d' % index, np.uint32))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('tdc_timestamp_dut_%d' % index, np.uint32))
+    for index, _ in enumerate(input_cluster_files):
+        description.append(('tdc_status_dut_%d' % index, np.uint32))
     description.append(('hit_flag', np.uint32))
     for dimension in ['x', 'y', 'z']:
         for index_dut in range(n_duts):
@@ -1667,6 +1725,9 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                 merged_cluster_array['cluster_ID_dut_0'][selection] = mapped_clusters_dut_0['cluster_ID'][selection]
                 merged_cluster_array['cluster_shape_dut_0'][selection] = mapped_clusters_dut_0['cluster_shape'][selection]
                 merged_cluster_array['n_cluster_dut_0'][selection] = mapped_clusters_dut_0['n_cluster'][selection]
+                merged_cluster_array['tdc_value_dut_0'][selection] = mapped_clusters_dut_0['tdc_value'][selection]
+                merged_cluster_array['tdc_timestamp_dut_0'][selection] = mapped_clusters_dut_0['tdc_timestamp'][selection]
+                merged_cluster_array['tdc_status_dut_0'][selection] = mapped_clusters_dut_0['tdc_status'][selection]
 
                 # Fill result array with other DUT data
                 # Second loop: get the cluster from all files and merge them to the common event number
@@ -1706,6 +1767,9 @@ def merge_cluster_data(telescope_configuration, input_cluster_files, output_merg
                             merged_cluster_array['cluster_ID_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_ID'][selection]
                             merged_cluster_array['cluster_shape_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['cluster_shape'][selection]
                             merged_cluster_array['n_cluster_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['n_cluster'][selection]
+                            merged_cluster_array['tdc_value_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['tdc_value'][selection]
+                            merged_cluster_array['tdc_timestamp_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['tdc_timestamp'][selection]
+                            merged_cluster_array['tdc_status_dut_%d' % (dut_index)][selection] = mapped_clusters_dut['tdc_status'][selection]
                 # calculate hit flags
                 for dut_index in range(n_duts):
                     merged_cluster_array['hit_flag'] += np.isfinite(merged_cluster_array['x_dut_%d' % dut_index]).astype(merged_cluster_array['hit_flag'].dtype) << dut_index

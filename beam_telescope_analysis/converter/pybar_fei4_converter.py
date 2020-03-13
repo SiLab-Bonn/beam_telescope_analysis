@@ -22,6 +22,16 @@ from beam_telescope_analysis.hit_analysis import default_hits_dtype
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
+beam_telescope_analysis_dtype = np.dtype([
+    ('event_number', np.int64),
+    ('frame', np.uint8),
+    ('column', np.uint16),
+    ('row', np.uint16),
+    ('charge', np.uint16),
+    ('tdc_value', np.uint16),
+    ('tdc_timestamp', np.uint16),
+    ('tdc_status', np.uint8)])
+
 
 def process_dut(raw_data_file, output_filename=None, trigger_data_format=0):
     ''' Process and format raw data.
@@ -75,7 +85,7 @@ def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0
         analyze_raw_data.create_cluster_size_hist = True
         analyze_raw_data.create_cluster_tot_hist = True
         analyze_raw_data.align_at_trigger = True
-        analyze_raw_data.fei4b = False
+        analyze_raw_data.fei4b = True
         analyze_raw_data.create_empty_event_hits = False
         # analyze_raw_data.n_bcid = 16
         # analyze_raw_data.max_tot_value = 13
@@ -114,7 +124,7 @@ def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
             output_hits_table = out_file_h5.create_table(
                 where=out_file_h5.root,
                 name='Hits',
-                description=default_hits_dtype,
+                description=beam_telescope_analysis_dtype,
                 title='Hits for test beam analysis',
                 filters=tb.Filters(
                     complib='blosc',
@@ -125,12 +135,15 @@ def format_hit_table(input_filename, output_filename=None, chunk_size=1000000):
                 if np.any(np.diff(np.concatenate((last_event_number, hits_chunk['event_number']))) < 0):
                     raise RuntimeError('The event number does not increase.')
                 last_event_number = hits_chunk['event_number'][-1:]
-                hits_data_formatted = np.zeros(shape=hits_chunk.shape[0], dtype=default_hits_dtype)
+                hits_data_formatted = np.zeros(shape=hits_chunk.shape[0], dtype=beam_telescope_analysis_dtype)
                 hits_data_formatted['event_number'] = hits_chunk['event_number']
                 hits_data_formatted['frame'] = hits_chunk['relative_BCID']
                 hits_data_formatted['column'] = hits_chunk['column']
                 hits_data_formatted['row'] = hits_chunk['row']
                 hits_data_formatted['charge'] = hits_chunk['tot']
+                hits_data_formatted['tdc_value'] = 0
+                hits_data_formatted['tdc_timestamp'] = 0
+                hits_data_formatted['tdc_status'] = 0
                 output_hits_table.append(hits_data_formatted)
                 output_hits_table.flush()
 
