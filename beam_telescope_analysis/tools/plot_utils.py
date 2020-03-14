@@ -245,6 +245,8 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
                         occupancy_mask[disabled_pixels.T[0] - 1, disabled_pixels.T[1] - 1] = 1
                     occupancy[occupancy_mask > 0] = 0
 
+            c_max = np.ceil(np.percentile(occupancy, 99.0))  # update maximum after masking pixels
+
             # Fancy occupancy plot
             fig = Figure()
             _ = FigureCanvas(fig)
