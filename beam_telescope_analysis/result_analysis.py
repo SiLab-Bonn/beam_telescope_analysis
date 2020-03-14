@@ -560,7 +560,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
 
 
 @save_arguments
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), cluster_shapes_charge=[1], enable_mask=None, plot=True, chunk_size=1000000, z_limits_charge=(1500, 500), conversion_to_e=(10.0, 0.0)):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), cluster_shapes_charge=[[1]], enable_mask=None, plot=True, chunk_size=1000000, z_limits_charge=(0, 255), conversion_to_e=(10.0, 0.0)):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
