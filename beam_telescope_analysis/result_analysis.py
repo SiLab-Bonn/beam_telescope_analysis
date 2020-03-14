@@ -1080,9 +1080,12 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Select data where distance between the hit and track is smaller than the given value
                     select_valid_hit = np.isfinite(hit_x_local)
                     # Select only enabled pixels from enable mask
-                    _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((hit_x_local, hit_y_local)))
-                    enabled_pixels_indices = np.where(enable_mask == False)[1] + (np.where(enable_mask == False)[0] * enable_mask.shape[1])
-                    select_enabled_pixel_hit = np.isin(closest_indices, enabled_pixels_indices)
+                    if enable_mask is not None:
+                        _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((hit_x_local, hit_y_local)))
+                        enabled_pixels_indices = np.where(enable_mask == False)[1] + (np.where(enable_mask == False)[0] * enable_mask.shape[1])
+                        select_enabled_pixel_hit = np.isin(closest_indices, enabled_pixels_indices)
+                    else:
+                        select_enabled_pixel_hit = select_valid_hit
                     # Cluster shapes with unique TDC lines (in RD53A)
                     cluster_shape_selection_tdc = []
                     for i, cluster_shapes_selection_charge in enumerate(cluster_shapes_charge):
