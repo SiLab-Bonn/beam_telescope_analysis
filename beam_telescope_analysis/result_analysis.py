@@ -1444,7 +1444,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 stat_2d_charge_vs_beta_angle_local_hist.append([])
                                 if np.any(select_valid_hit_tdc[i]):  # Check for valid hits
                                     # 2D hits (considered for TDC analysis, CS1)
-                                    print(i)
                                     count_hits_tdc_2d_hist[i], _, _, _ = stats.binned_statistic_2d(x=hit_x_local[select_valid_hit_tdc[i]], y=hit_y_local[select_valid_hit_tdc[i]], values=None, statistic='count', bins=hist_2d_edges)
                                     # 2D tracks with valid hit and TDC (CS1)
                                     count_tracks_with_hit_tdc_2d_hist[i] = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc[i] & select_enabled_pixel_hit], y=intersection_y_local[select_valid_hit_tdc[i] & select_enabled_pixel_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
@@ -1560,7 +1559,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         for i in range(len(cluster_shapes_charge)):
                             if np.any(select_valid_hit_tdc[i]):  # Check for valid hits
                                 # 2D hits (considered for TDC analysis, CS1)
-                                print(i)
                                 count_hits_tdc_2d_hist[i] += stats.binned_statistic_2d(x=hit_x_local[select_valid_hit_tdc[i]], y=hit_y_local[select_valid_hit_tdc[i]], values=None, statistic='count', bins=hist_2d_edges)[0]
                                 # 2D tracks with hit and TDC (CS1)
                                 count_tracks_with_hit_tdc_2d_hist_tmp = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit_tdc[i] & select_enabled_pixel_hit], y=intersection_y_local[select_valid_hit_tdc[i] & select_enabled_pixel_hit], values=None, statistic='count', bins=hist_2d_edges)[0]
