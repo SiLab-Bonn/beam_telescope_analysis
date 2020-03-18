@@ -423,7 +423,7 @@ def check_file(dut, input_hit_file, output_check_file=None, event_range=1, resol
 
 
 @save_arguments
-def mask(telescope_configuration, input_hit_files, output_mask_files=None, select_duts=None, pixel_mask_names="NoisyPixelMask", iterations=None, thresholds=10.0, filter_sizes=3, plot=True, chunk_size=1000000):
+def mask(telescope_configuration, input_hit_files, output_mask_files=None, select_duts=None, pixel_mask_names="NoisyPixelMask", iterations=None, thresholds=10.0, filter_sizes=3, disable_masks=None, plot=True, chunk_size=1000000):
     '''"Masking noisy pixels.
     Wrapper for mask_pixels(). For detailed description of the parameters see mask_pixels().
 
@@ -447,6 +447,9 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
         The thresholds for pixel masking.
     filter_sizes : list
         Median filter sizes.
+    disable_masks : list of boolean array
+        List of arrays containing the disabled pixel mask for every DUT. True means pixel will be disabled.
+        If None, no disable mask will be created. Shape of the array has to match DUT shape (n_columns, n_rows).
     plot : bool
         If True, create additional output plots.
     chunk_size : uint
@@ -492,6 +495,11 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
             raise ValueError('Parameter "filter_sizes" has wrong length.')
     else:
         filter_sizes = [filter_sizes] * len(select_duts)
+    if isinstance(disable_masks, (list, tuple)):
+        if len(select_duts) != len(disable_masks):
+            raise ValueError('Parameter "disable_masks" has wrong length.')
+    else:
+        disable_masks = [disable_masks] * len(select_duts)
 
     output_files = []
     for i, dut in enumerate(selected_telescope_duts):
@@ -503,13 +511,14 @@ def mask(telescope_configuration, input_hit_files, output_mask_files=None, selec
             iterations=iterations[i],
             threshold=thresholds[i],
             filter_size=filter_sizes[i],
+            disable_mask=disable_masks[i],
             plot=plot,
             chunk_size=chunk_size))
     return output_files
 
 
 @save_arguments
-def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_mask_file=None, iterations=None, threshold=10.0, filter_size=3, plot=True, chunk_size=1000000):
+def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_mask_file=None, iterations=None, threshold=10.0, filter_size=3, disable_mask=None, plot=True, chunk_size=1000000):
     '''Generating pixel mask from the hit table.
     The pixel masking is an iterative process to identify and suppress any noisy pixel (cluster).
     The iterative process stops when no more noisy pixels are found or the maximum number of iterations is reached.
@@ -536,6 +545,8 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     filter_size : scalar or tuple
         Adjust the median filter size by giving the number of columns and rows.
         The higher the value, the more the background is smoothed and the more pixels are masked.
+    disable_mask : boolean array
+        Array containing the disabled pixel mask. True means pixel will be disabled.
     plot : bool
         If True, create additional output plots.
     chunk_size : int
@@ -598,7 +609,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
                 break
         logging.info('Masked %d pixels in total at threshold %.1f', np.count_nonzero(pixel_mask), threshold)
 
-        # Create masked pixels array
+        # Create masked pixels array for noisy pixels
         masked_pixel_table = out_file_h5.create_carray(
             where=out_file_h5.root,
             name=pixel_mask_name,
@@ -610,6 +621,21 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
                 complevel=5,
                 fletcher32=False))
         masked_pixel_table[:] = pixel_mask
+
+        # Create masked pixels array for disabled pixels
+        if disable_mask is not None:
+            pixel_mask_disabled = disable_mask
+            masked_pixel_table = out_file_h5.create_carray(
+                where=out_file_h5.root,
+                name='DisabledPixelMask',
+                title='Pixel Mask',
+                atom=tb.Atom.from_dtype(pixel_mask_disabled.dtype),
+                shape=pixel_mask_disabled.shape,
+                filters=tb.Filters(
+                    complib='blosc',
+                    complevel=5,
+                    fletcher32=False))
+            masked_pixel_table[:] = pixel_mask_disabled
 
     if plot:
         plot_masked_pixels(input_mask_file=output_mask_file, pixel_size=(dut.column_size, dut.row_size), dut_name=dut.name)
