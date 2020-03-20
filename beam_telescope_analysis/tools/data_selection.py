@@ -127,6 +127,8 @@ def reduce_events(input_file, max_events, output_file=None, chunk_size=1000000):
     with tb.open_file(input_file, mode='r') as in_file_h5:
         with tb.open_file(output_file, mode="w") as out_file_h5:
             for node in in_file_h5.root:
+                if type(node) == tb.group.Group:
+                    continue
                 logging.info('Reducing events for node %s', node.name)
 
                 tracks_table_out = out_file_h5.create_table(
