@@ -572,14 +572,16 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         Energy of the beam in MeV, e.g., 2500.0 MeV for ELSA beam. Only used for the Kalman Filter.
     particle_mass : float
         Mass of the particle in MeV, e.g., 0.511 MeV for electrons. Only used for the Kalman Filter.
-    scattering_planes : list or dict
+    scattering_planes : list of Dut objects
         Specifies additional scattering planes in case of DUTs which are not used or additional material in the way of the tracks.
-        The list must contain dictionaries containing the following keys:
+        Scattering planes must contain the following attributes:
+            name: name of the scattering plane
             material_budget: material budget of the scattering plane
             translation_x/translation_y/translation_z: x/y/z position of the plane (in um)
             rotation_alpha/rotation_beta/rotation_gamma: alpha/beta/gamma angle of scattering plane (in radians)
         The material budget is defined as the thickness devided by the radiation length.
-        If scattering_planes is None, no scattering plane will be added.
+        If scattering_planes is None, no scattering plane will be added. Only available when using the Kalman Filter.
+        See the example on how to create scattering planes in the example script folder.
     quality_distances : 2-tuple or list of 2-tuples
         X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
         must have a smaller distance to have the quality flag to be set to 1.
@@ -616,6 +618,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     if method == "kalman" and not particle_mass:
         raise ValueError('Particle mass not given (in MeV).')
+
+    if scattering_planes is not None and method != 'kalman':
+        raise ValueError('Scattering plane feature can only be used when using the Kalman Filter.')
 
     if output_tracks_file is None:
         output_tracks_file = os.path.join(os.path.dirname(input_track_candidates_file), 'Tracks_%s.h5' % method.title())
@@ -803,6 +808,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 # selecting DUTs for residual correction
                 if select_align_duts is not None and select_align_duts:
                     logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
+
+                if scattering_planes is not None:
+                    logging.info('Adding the following scattering planes: %s', ', '.join([scp.name for scp in scattering_planes]))
 
                 chunk_indices = []
                 chunk_stats = []
@@ -1538,7 +1546,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #     first_dut_pixel_size = [0.0, 0.0]
 
     if scattering_planes:
-        track_hits = np.append(arr=track_hits, values=np.full((track_hits.shape[0], track_hits.shape[2] * len(scattering_planes)), fill_value=np.nan, dtype=np.float64), axis=1)
+        track_hits = np.append(arr=track_hits, values=np.full((track_hits.shape[0], len(scattering_planes), track_hits.shape[2]), fill_value=np.nan, dtype=np.float64), axis=1)
 
     chunk_size = track_hits.shape[0]
     n_duts = len(all_dut_planes)

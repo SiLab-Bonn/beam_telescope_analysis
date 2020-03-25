@@ -414,10 +414,10 @@ def _smooth(dut_planes, z_sorted_dut_indices, select_fit_duts,
     chunk_size, n_timesteps, n_dim_state = filtered_states.shape
     smoothed_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
     smoothed_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
-    kalman_smoothing_gains = np.zeros((chunk_size, n_timesteps - 1, n_dim_state, n_dim_state))
+    kalman_smoothing_gains = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
     chi2 = np.zeros((chunk_size, n_timesteps))
 
-    last_dut_index = n_timesteps - 1
+    last_dut_index = z_sorted_dut_indices[-1]
 
     # Smoother not done for last plane (At last plane smoothed states are the same as filtered states)
     smoothed_states[:, last_dut_index] = filtered_states[:, last_dut_index]
