@@ -1658,10 +1658,10 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     # remove scatter planes from data
     x_err = x_err[:, :len(telescope)]
     y_err = y_err[:, :len(telescope)]
-
     offsets = track_estimates_chunk[:, :len(telescope), :3]
-
     slopes = track_estimates_chunk[:, :len(telescope), 3:]
+    chi2 = chi2[:, :len(telescope)]
+
     # force the 3rd component (z) to be positive
     # and normalize to 1
     slopes[slopes[:, :, 2] < 0.0] = -slopes[slopes[:, :, 2] < 0.0]
