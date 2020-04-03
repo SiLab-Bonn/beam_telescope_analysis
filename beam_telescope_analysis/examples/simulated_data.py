@@ -7,10 +7,11 @@ import os
 from beam_telescope_analysis import (
     hit_analysis, dut_alignment, track_analysis, result_analysis)
 
+from beam_telescope_analysis.telescope.telescope import Telescope
+
 from beam_telescope_analysis.tools.simulate_data import SimulateData
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - "
-                    "[%(levelname)-8s] (%(threadName)-10s) %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - ""[%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 
 def run_analysis(n_events):
@@ -41,13 +42,13 @@ def run_analysis(n_events):
     sim.tracks_per_event_sigma = 1
 
     # Device specific settings
-    sim.dut_bias = [50] * sim.n_duts  # Sensor bias voltage
+    sim.dut_bias = [80] * sim.n_duts  # Sensor bias voltage
     sim.dut_thickness = [200] * sim.n_duts  # Sensor thickness
     # Detection threshold for each device in electrons, influences efficiency!
     sim.dut_threshold = [0.] * sim.n_duts
     sim.dut_noise = [0.] * sim.n_duts  # Noise for each device in electrons
-    sim.dut_pixel_size = [(50, 18.4)] * sim.n_duts  # Pixel size in x / y
-    sim.dut_n_pixel = [(400, 1100)] * sim.n_duts  # Number of pixel in x / y
+    sim.dut_pixel_size = [(250.0, 50.0)] * sim.n_duts  # Pixel size in x / y
+    sim.dut_n_pixel = [(80, 336)] * sim.n_duts  # Number of pixel in x / y
     # Efficiency for each device from 0. to 1. for hits above threshold
     sim.dut_efficiencies = [1.] * sim.n_duts
     # The effective material budget (sensor + passive compoonents) given in
@@ -75,100 +76,105 @@ def run_analysis(n_events):
     data_files = [os.path.join(output_folder, r'simulated_data_DUT%d.h5' % i)
                   for i in range(sim.n_duts)]
 
+    initial_configuration = os.path.join(output_folder, 'telescope.yaml')
+    telescope = Telescope()
+    telescope.add_dut(dut_type="FEI4", dut_id=0, translation_x=0, translation_y=0, translation_z=sim.z_positions[0], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 1")
+    telescope.add_dut(dut_type="FEI4", dut_id=1, translation_x=0, translation_y=0, translation_z=sim.z_positions[1], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 2")
+    telescope.add_dut(dut_type="FEI4", dut_id=2, translation_x=0, translation_y=0, translation_z=sim.z_positions[2], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 3")
+    telescope.add_dut(dut_type="FEI4", dut_id=3, translation_x=0, translation_y=0, translation_z=sim.z_positions[3], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 4")
+    telescope.add_dut(dut_type="FEI4", dut_id=4, translation_x=0, translation_y=0, translation_z=sim.z_positions[4], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 5")
+    telescope.add_dut(dut_type="FEI4", dut_id=5, translation_x=0, translation_y=0, translation_z=sim.z_positions[5], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 6")
+    telescope.save_configuration(initial_configuration)
+    prealigned_configuration = os.path.join(output_folder, 'telescope_prealigned.yaml')
+    aligned_configuration = os.path.join(output_folder, 'telescope_aligned.yaml')
+
     # The following shows a complete test beam analysis by calling the separate
     # function in correct order
 
     # Cluster hits from all DUTs
-    for i, data_file in enumerate(data_files):
-        hit_analysis.cluster_hits(input_hits_file=data_file,
-                                  min_hit_charge=1,
-                                  max_hit_charge=2 ** 16,
-                                  column_cluster_distance=1,
-                                  row_cluster_distance=1,
-                                  frame_cluster_distance=2,
-                                  dut_name=data_files[i])
+    cluster_files = hit_analysis.cluster(telescope_configuration = initial_configuration,
+                        input_hit_files=data_files,
+                        select_duts = None,
+                        input_mask_files = [None]*sim.n_duts,
+                        use_positions = [False]*sim.n_duts,
+                        min_hit_charges=[1]*sim.n_duts,
+                        max_hit_charges=[2 ** 16]*sim.n_duts,
+                        column_cluster_distances=[1]*sim.n_duts,
+                        row_cluster_distances=[1]*sim.n_duts,
+                        frame_cluster_distances=[2]*sim.n_duts,
+                        )
 
     # Generate filenames for cluster data
-    input_cluster_files = [os.path.splitext(data_file)[0] + '_clustered.h5'
-                           for data_file in data_files]
+    # cluster_files = [os.path.splitext(data_file)[0] + '_clustered.h5'
+    #                        for data_file in data_files]
 
     # Correlate the row / column of each DUT
-    dut_alignment.correlate_cluster(
-        input_cluster_files=input_cluster_files,
+    hit_analysis.correlate(
+        telescope_configuration=initial_configuration,
+        input_files=cluster_files,
         output_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
-        n_pixels=sim.dut_n_pixel,
-        pixel_size=sim.dut_pixel_size)
+        resolution = (250.0, 50.0),
+        select_reference_duts = 0)
 
     # Create alignment data for the DUT positions to the first DUT from the
     # correlation data. When needed, set offset and error cut for each DUT
     # as list of tuples
-    dut_alignment.prealignment(
+    prealigned_configuration = dut_alignment.prealign(
+        telescope_configuration=initial_configuration,
         input_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
-        output_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        z_positions=sim.z_positions,
-        pixel_size=sim.dut_pixel_size,
-        # Deactivate if you have a large dataset, enhances alignment slightly
-        no_fit=True,
-        fit_background=False if not (sim.tracks_per_event or
-                                     sim.tracks_per_event_sigma) else True,
-        # Tries to find cuts automatically; deactivate to do this manualy
-        non_interactive=True)
+        reduce_background=True,
+        select_reference_dut=0)
 
-    # Correct all DUT hits via alignment information and merge the cluster
-    # tables to one tracklets table aligned at the event number
-    dut_alignment.merge_cluster_data(
-        input_cluster_files=input_cluster_files,
-        output_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        n_pixels=sim.dut_n_pixel,
-        pixel_size=sim.dut_pixel_size)
+    # Merge all cluster tables into a single table
+    hit_analysis.merge_cluster_data(
+        telescope_configuration=initial_configuration,
+        input_cluster_files=cluster_files,
+        output_merged_file=os.path.join(output_folder, 'Merged.h5'))
 
-    dut_alignment.apply_alignment(
-        input_hit_file=os.path.join(output_folder, 'Merged.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_hit_file=os.path.join(output_folder,
-                                             'Tracklets_prealigned.h5'),
-        # If there is already an alignment info in the alignment file this has
-        # to be set
-        force_prealignment=True)
+    # Create alignment, take first and last DUT as reference (telescope DUTs)
+    aligned_configuration = dut_alignment.align(
+        telescope_configuration=prealigned_configuration,
+        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+        select_duts=[[0, 1, 2, 3, 4, 5]],  # align all planes at once
+        select_telescope_duts=[0, 5],  # add outermost planes, z-axis positions are fixed for telescope DUTs, if not stated otherwise (see select_alignment_parameters)
+        select_fit_duts=[0, 1, 2, 3, 4, 5],  # use all DUTs for track fit
+        select_hit_duts=[[0, 1, 2, 3, 4, 5]],  # require hits in all DUTs
+        max_iterations=[3],  # number of alignment iterations, the higher the number the more precise
+        max_events=(100000),  # limit number of events to speed up alignment
+        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
+        isolation_distances=(1000.0, 1000.0),
+        use_limits=True,
+        plot=True)
 
     # Find tracks from the tracklets and stores the with quality indicator
     # into track candidates table
     track_analysis.find_tracks(
-        input_tracklets_file=os.path.join(
-            output_folder, 'Tracklets_prealigned.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealigned.h5'))
+        telescope_configuration=aligned_configuration,
+        input_merged_file=os.path.join(output_folder, 'Merged.h5'),
+        output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+        align_to_beam=True)
 
     # Fit the track candidates and create new track table
     track_analysis.fit_tracks(
-        input_track_candidates_file=os.path.join(
-            output_folder, 'TrackCandidates_prealigned.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
-        # To get unconstrained residuals do not use DUT hit for track fit
+        telescope_configuration=aligned_configuration,
+        input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+        output_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
+        select_duts=[0, 1, 2, 3, 4, 5],
+        select_fit_duts=(0, 1, 2, 3, 4, 5),
+        select_hit_duts=(0, 1, 2, 3, 4, 5),
         exclude_dut_hit=True,
-        selection_track_quality=0,
-        # To get close to excact efficiency heavily avoid merged tracks
-        min_track_distance=1000,
-        force_prealignment=True)
+        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0),(250.0, 50.0),(250.0, 50.0)],
+        isolation_distances=(1000.0, 1000.0),
+        use_limits=False,
+        plot=True)
 
-    result_analysis.calculate_efficiency(
-        input_tracks_file=os.path.join(output_folder, 'Tracks_prealigned.h5'),
-        input_alignment_file=os.path.join(output_folder, 'Alignment.h5'),
-        output_efficiency_file=os.path.join(output_folder, 'Efficiency.h5'),
-        bin_size=[(250, 50)],
-        sensor_size=[(250. * 80, 50. * 336)],
-        minimum_track_density=2,
-        use_duts=None,
-        cut_distance=500,
-        max_distance=500,
-        col_range=None,
-        row_range=None,
-        pixel_size=sim.dut_pixel_size,
-        n_pixels=sim.dut_n_pixel,
-        force_prealignment=True,
-        show_inefficient_events=True)
+    result_analysis.calculate_residuals(
+        telescope_configuration=aligned_configuration,
+        input_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
+        output_residuals_file=os.path.join(output_folder, 'Residuals_aligned.h5'),
+        select_duts=[0, 1, 2, 3, 4, 5],
+        nbins_per_pixel=20,
+        use_limits=True)
 
 if __name__ == '__main__':
     run_analysis(n_events=1000000)
