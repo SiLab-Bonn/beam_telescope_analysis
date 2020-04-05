@@ -11,7 +11,8 @@ from beam_telescope_analysis.telescope.telescope import Telescope
 
 from beam_telescope_analysis.tools.simulate_data import SimulateData
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - ""[%(levelname)-8s] (%(threadName)-10s) %(message)s")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(name)s - ""[%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
 
 def run_analysis(n_events):
@@ -78,31 +79,41 @@ def run_analysis(n_events):
 
     initial_configuration = os.path.join(output_folder, 'telescope.yaml')
     telescope = Telescope()
-    telescope.add_dut(dut_type="FEI4", dut_id=0, translation_x=0, translation_y=0, translation_z=sim.z_positions[0], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 1")
-    telescope.add_dut(dut_type="FEI4", dut_id=1, translation_x=0, translation_y=0, translation_z=sim.z_positions[1], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 2")
-    telescope.add_dut(dut_type="FEI4", dut_id=2, translation_x=0, translation_y=0, translation_z=sim.z_positions[2], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 3")
-    telescope.add_dut(dut_type="FEI4", dut_id=3, translation_x=0, translation_y=0, translation_z=sim.z_positions[3], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 4")
-    telescope.add_dut(dut_type="FEI4", dut_id=4, translation_x=0, translation_y=0, translation_z=sim.z_positions[4], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 5")
-    telescope.add_dut(dut_type="FEI4", dut_id=5, translation_x=0, translation_y=0, translation_z=sim.z_positions[5], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 6")
+    telescope.add_dut(dut_type="FEI4", dut_id=0, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[0], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 1")
+    telescope.add_dut(dut_type="FEI4", dut_id=1, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[1], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 2")
+    telescope.add_dut(dut_type="FEI4", dut_id=2, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[2], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 3")
+    telescope.add_dut(dut_type="FEI4", dut_id=3, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[3], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 4")
+    telescope.add_dut(dut_type="FEI4", dut_id=4, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[4], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 5")
+    telescope.add_dut(dut_type="FEI4", dut_id=5, translation_x=0, translation_y=0,
+                      translation_z=sim.z_positions[5], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, name="Telescope 6")
     telescope.save_configuration(initial_configuration)
-    prealigned_configuration = os.path.join(output_folder, 'telescope_prealigned.yaml')
-    aligned_configuration = os.path.join(output_folder, 'telescope_aligned.yaml')
+    prealigned_configuration = os.path.join(
+        output_folder, 'telescope_prealigned.yaml')
+    aligned_configuration = os.path.join(
+        output_folder, 'telescope_aligned.yaml')
 
     # The following shows a complete test beam analysis by calling the separate
     # function in correct order
 
     # Cluster hits from all DUTs
-    cluster_files = hit_analysis.cluster(telescope_configuration = initial_configuration,
-                        input_hit_files=data_files,
-                        select_duts = None,
-                        input_mask_files = [None]*sim.n_duts,
-                        use_positions = [False]*sim.n_duts,
-                        min_hit_charges=[1]*sim.n_duts,
-                        max_hit_charges=[2 ** 16]*sim.n_duts,
-                        column_cluster_distances=[1]*sim.n_duts,
-                        row_cluster_distances=[1]*sim.n_duts,
-                        frame_cluster_distances=[2]*sim.n_duts,
-                        )
+    cluster_files = hit_analysis.cluster(telescope_configuration=initial_configuration,
+                                         input_hit_files=data_files,
+                                         select_duts=None,
+                                         input_mask_files=[None]*sim.n_duts,
+                                         use_positions=[False]*sim.n_duts,
+                                         min_hit_charges=[1]*sim.n_duts,
+                                         max_hit_charges=[2 ** 16]*sim.n_duts,
+                                         column_cluster_distances=[
+                                             1]*sim.n_duts,
+                                         row_cluster_distances=[1]*sim.n_duts,
+                                         frame_cluster_distances=[
+                                             2]*sim.n_duts,
+                                         )
 
     # Generate filenames for cluster data
     # cluster_files = [os.path.splitext(data_file)[0] + '_clustered.h5'
@@ -113,8 +124,8 @@ def run_analysis(n_events):
         telescope_configuration=initial_configuration,
         input_files=cluster_files,
         output_correlation_file=os.path.join(output_folder, 'Correlation.h5'),
-        resolution = (250.0, 50.0),
-        select_reference_duts = 0)
+        resolution=(250.0, 50.0),
+        select_reference_duts=0)
 
     # Create alignment data for the DUT positions to the first DUT from the
     # correlation data. When needed, set offset and error cut for each DUT
@@ -136,12 +147,15 @@ def run_analysis(n_events):
         telescope_configuration=prealigned_configuration,
         input_merged_file=os.path.join(output_folder, 'Merged.h5'),
         select_duts=[[0, 1, 2, 3, 4, 5]],  # align all planes at once
-        select_telescope_duts=[0, 5],  # add outermost planes, z-axis positions are fixed for telescope DUTs, if not stated otherwise (see select_alignment_parameters)
+        # add outermost planes, z-axis positions are fixed for telescope DUTs, if not stated otherwise (see select_alignment_parameters)
+        select_telescope_duts=[0, 5],
         select_fit_duts=[0, 1, 2, 3, 4, 5],  # use all DUTs for track fit
         select_hit_duts=[[0, 1, 2, 3, 4, 5]],  # require hits in all DUTs
-        max_iterations=[3],  # number of alignment iterations, the higher the number the more precise
+        # number of alignment iterations, the higher the number the more precise
+        max_iterations=[3],
         max_events=(100000),  # limit number of events to speed up alignment
-        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
+        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0),
+                           (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
         isolation_distances=(1000.0, 1000.0),
         use_limits=True,
         plot=True)
@@ -151,19 +165,22 @@ def run_analysis(n_events):
     track_analysis.find_tracks(
         telescope_configuration=aligned_configuration,
         input_merged_file=os.path.join(output_folder, 'Merged.h5'),
-        output_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+        output_track_candidates_file=os.path.join(
+            output_folder, 'TrackCandidates_aligned.h5'),
         align_to_beam=True)
 
     # Fit the track candidates and create new track table
     track_analysis.fit_tracks(
         telescope_configuration=aligned_configuration,
-        input_track_candidates_file=os.path.join(output_folder, 'TrackCandidates_aligned.h5'),
+        input_track_candidates_file=os.path.join(
+            output_folder, 'TrackCandidates_aligned.h5'),
         output_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
         select_duts=[0, 1, 2, 3, 4, 5],
         select_fit_duts=(0, 1, 2, 3, 4, 5),
         select_hit_duts=(0, 1, 2, 3, 4, 5),
         exclude_dut_hit=True,
-        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0), (250.0, 50.0),(250.0, 50.0),(250.0, 50.0)],
+        quality_distances=[(250.0, 50.0), (250.0, 50.0), (250.0, 50.0),
+                           (250.0, 50.0), (250.0, 50.0), (250.0, 50.0)],
         isolation_distances=(1000.0, 1000.0),
         use_limits=False,
         plot=True)
@@ -171,10 +188,12 @@ def run_analysis(n_events):
     result_analysis.calculate_residuals(
         telescope_configuration=aligned_configuration,
         input_tracks_file=os.path.join(output_folder, 'Tracks_aligned.h5'),
-        output_residuals_file=os.path.join(output_folder, 'Residuals_aligned.h5'),
+        output_residuals_file=os.path.join(
+            output_folder, 'Residuals_aligned.h5'),
         select_duts=[0, 1, 2, 3, 4, 5],
         nbins_per_pixel=20,
         use_limits=True)
+
 
 if __name__ == '__main__':
     run_analysis(n_events=1000000)
