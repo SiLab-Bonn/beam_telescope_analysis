@@ -916,14 +916,14 @@ def fit_residuals_vs_position(hist, xedges, yedges, mean, count, limit=None):
 
 
 def hough_transform(img, theta_res=1.0, rho_res=1.0, return_edges=False):
-    thetas = np.linspace(-90.0, 0.0, np.ceil(90.0 / theta_res) + 1)
+    thetas = np.linspace(-90.0, 0.0, int(np.ceil(90.0 / theta_res)) + 1)
     thetas = np.concatenate((thetas, -thetas[len(thetas) - 2::-1]))
     thetas = np.deg2rad(thetas)
     width, height = img.shape
     diag_len = np.sqrt((width - 1)**2 + (height - 1)**2)
     q = np.ceil(diag_len / rho_res)
     nrhos = 2 * q + 1
-    rhos = np.linspace(-q * rho_res, q * rho_res, nrhos)
+    rhos = np.linspace(-q * rho_res, q * rho_res, int(nrhos))
 
     cos_t = np.cos(thetas)
     sin_t = np.sin(thetas)
