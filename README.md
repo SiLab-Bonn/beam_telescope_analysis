@@ -67,15 +67,15 @@ Optional:
 1. Modify the BTA source code according to your needs.
 2. Under some circumstances it might be necessary to add your detector specifications to BTA. For that, add your specification to [`./beam_telescope_analysis/telescope/dut.py`](https://github.com/SiLab-Bonn/beam_telescope_analysis/blob/master/beam_telescope_analysis/telescope/dut.py).
 
-## Input Data File
+### Input Data File
 
-### File Format
+#### File Format
 
 The input data for BTA must be using the PyTables/HDF5 file format.
 No other file format is currently supported.
 A single file must be provided for each detector (i.e., telescope plane, timing reference, DUT, etc.).
 
-###  Hit Data Table
+####  Hit Data Table
 
 Each input data file must contain a data table with the node name `Hits`.
 The hit data table must at least contain the following columns:
@@ -89,6 +89,12 @@ Additional columns can be provided.
 
 *Note:*
 The columns `column` and `row` can be provided as float data type if x/y coordinates instead of indices are available.
+
+### Notes about performance and memory usage
+
+The code is generally optimized for low memory footprint. For example, it reads data slices from the HDF5 file, processes the data chunk, adds results to histograms/arrays, and then goes to the next data slice.
+
+The code rans on a local machine with 8 GB RAM. If you encounter problems, the easiest solution is to throw more RAM at the problem.
 
 ## Contributing to BTA
 
