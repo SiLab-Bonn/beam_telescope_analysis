@@ -560,7 +560,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
 
 
 @save_arguments
-def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), plot=True, chunk_size=1000000):
+def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts, input_cluster_files=None, resolutions=None, in_pixel_resolutions=None, extend_areas=None, extend_in_pixel_areas=None, plot_ranges=None, n_bins_track_angle=100, efficiency_regions=None, efficiency_region_names=None, output_efficiency_file=None, minimum_track_density=1, cut_distances=(250.0, 250.0), disabled_pixel_masks=None, plot=True, chunk_size=1000000):
     '''Takes the tracks and calculates the hit efficiency and hit/track hit distance for selected DUTs.
 
     Parameters
@@ -604,6 +604,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
         X and y distance (in um) for each selected DUT to calculate the efficiency.
         Hits contribute to efficiency when the distance between track and hist is smaller than the cut_distance.
         If None, use infinite distance.
+    disabled_pixel_masks : list of boolean arrays
+        Boolean array specifying pixels for each selected DUT which should be ignored in the analysis (e.g. deactivated, noisy, ... pixels).
+        The shape of the array must be (dut.n_columns, dut.n_rows).
     plot : bool
         If True, create additional output plots.
     chunk_size : int
@@ -771,6 +774,13 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
     for distance in cut_distances:
         if distance is not None and len(distance) != 2:  # check the length of the items
             raise ValueError("Item in parameter cut_distances has length != 2.")
+
+    # Create disabled pixel masks
+    if isinstance(disabled_pixel_masks, (list, tuple)):
+        if len(select_duts) != len(disabled_pixel_masks):
+            raise ValueError('Parameter "disabled_pixel_masks" has wrong length.')
+    else:
+        disabled_pixel_masks = [disabled_pixel_masks] * len(select_duts)
 
     if output_efficiency_file is None:
         output_efficiency_file = os.path.splitext(input_tracks_file)[0] + '_efficiency.h5'
@@ -979,6 +989,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 else:
                     count_pixel_hits_2d_hist = None
 
+
+                # Select actual disabled pixel mask of DUT
+                disabled_pixel_mask = disabled_pixel_masks[index]
+
                 pbar = tqdm(total=node.shape[0], ncols=80)
                 initialize = True
                 start_index_cluster_hits = 0
@@ -992,6 +1006,20 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     cluster_size = tracks_chunk['n_hits_dut_%d' % actual_dut_index]
                     cluster_shape = tracks_chunk['cluster_shape_dut_%d' % actual_dut_index]
 
+                    # Select only enabled pixels from enable mask
+                    if disabled_pixel_mask is not None:
+                        _, closest_indices = pixel_center_extended_kd_tree.query(np.column_stack((intersection_x_local, intersection_y_local)))
+                        enabled_pixels_indices = np.where(disabled_pixel_mask == False)[1] + (np.where(disabled_pixel_mask == False)[0] * disabled_pixel_mask.shape[1])
+                        select_enabled_pixel_hit = np.isin(closest_indices, enabled_pixels_indices)
+                    else:
+                        select_enabled_pixel_hit = np.ones(shape=intersection_x_local.shape, dtype=np.bool)
+                    hit_x_local, hit_y_local = hit_x_local[select_enabled_pixel_hit], hit_y_local[select_enabled_pixel_hit]
+                    intersection_x_local, intersection_y_local = intersection_x_local[select_enabled_pixel_hit], intersection_y_local[select_enabled_pixel_hit]
+                    charge = charge[select_enabled_pixel_hit]
+                    frame = frame[select_enabled_pixel_hit]
+                    cluster_size = cluster_size[select_enabled_pixel_hit]
+                    cluster_shape = cluster_shape[select_enabled_pixel_hit]
+
                     # Calculate distance between track intersection and DUT hit location
                     x_residuals = hit_x_local - intersection_x_local
                     y_residuals = hit_y_local - intersection_y_local
@@ -1000,9 +1028,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
 
                     # Calculate track angles in column and row direction (local coordinate system)
                     track_slopes_local = np.column_stack([
-                        tracks_chunk['slope_x'],
-                        tracks_chunk['slope_y'],
-                        tracks_chunk['slope_z']])
+                        tracks_chunk['slope_x'][select_enabled_pixel_hit],
+                        tracks_chunk['slope_y'][select_enabled_pixel_hit],
+                        tracks_chunk['slope_z'][select_enabled_pixel_hit]])
                     total_angles_local, alpha_angles_local, beta_angles_local = get_angles(
                         slopes=track_slopes_local,
                         xz_plane_normal=np.array([0.0, 1.0, 0.0]),
