@@ -26,7 +26,7 @@ from tqdm import tqdm
 import pylandau
 
 from beam_telescope_analysis.tools import geometry_utils
-from beam_telescope_analysis.hit_analysis import default_hits_dtype
+from beam_telescope_analysis.hit_analysis import default_hits_dtype, positions_dtype
 
 
 logging.basicConfig(
@@ -461,6 +461,8 @@ class SimulateData(object):
         # Create output h5 files with emtpy hit ta
         output_files = []
         hit_tables = []
+        if self.digitization_pixel_discretization == False:
+            self._hit_dtype = positions_dtype
         for dut_index in range(self._n_duts):
             output_files.append(
                 tb.open_file(base_file_name + '_DUT%d.h5' % dut_index, mode='w'))
@@ -489,8 +491,12 @@ class SimulateData(object):
                 actual_hits = np.zeros(
                     shape=actual_dut_events.shape[0], dtype=self._hit_dtype)
                 actual_hits['event_number'] = actual_dut_events
-                actual_hits['column'] = actual_dut_hits.T[0]
-                actual_hits['row'] = actual_dut_hits.T[1]
+                if self.digitization_pixel_discretization == True:
+                    actual_hits['column'] = actual_dut_hits.T[0]
+                    actual_hits['row'] = actual_dut_hits.T[1]
+                else:
+                    actual_hits['x'] = actual_dut_hits.T[0]
+                    actual_hits['y'] = actual_dut_hits.T[1]
                 actual_hits['charge'] = actual_dut_hits.T[
                     2] / 10.  # One charge LSB corresponds to 10 electrons
                 hit_tables[dut_index].append(actual_hits)
@@ -755,7 +761,10 @@ class SimulateData(object):
                 # Reducce event number to event number with valid hits
                 actual_event_number = actual_event_number[selection]
             else:  # No position digitization
-                dut_hits_digits[:, :2] = dut_hits[:, :2]
+                # #TODO check!
+                dut_hits_digits[:, :2] = dut_hits[
+                    :, :2] / np.array(self.dut_pixel_size[dut_index])  # position in pixel numbers
+                # dut_hits_digits[:, :2] = dut_hits[:, :2]
                 # Hits can only have a positive position
                 selection = np.logical_and(
                     dut_hits_digits.T[0] > 0, dut_hits_digits.T[1] > 0)

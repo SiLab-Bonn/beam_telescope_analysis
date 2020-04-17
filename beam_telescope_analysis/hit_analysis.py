@@ -29,7 +29,16 @@ default_hits_descr = [
     ('row', '<u2'),
     ('charge', '<f4')]
 
+positions_hits_descr = [
+    ('event_number', '<i8'),
+    ('frame', '<u2'),
+    ('x', '<f8'),
+    ('y', '<f8'),
+    ('charge', '<f4')]
+
 default_hits_dtype = np.dtype(default_hits_descr)
+
+positions_dtype = np.dtype(positions_hits_descr)
 
 
 @save_arguments
