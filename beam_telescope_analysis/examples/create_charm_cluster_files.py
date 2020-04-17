@@ -96,9 +96,9 @@ runs = {
         # 2863 : ("439", "333", "267"),
         }
 
-raw_data_dirs = ['/media/niko/data/SHiP/charm_exp_2018/data/part_0x0800',
-                 '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0801',
-                 '/media/niko/data/SHiP/charm_exp_2018/data/part_0x0802'
+raw_data_dirs = ['/media/niko/big_data/charm_testbeam_july18/pybar_data/part_0x0800',
+                 '/media/niko/big_data/charm_testbeam_july18/pybar_data/part_0x0801',
+                 '/media/niko/big_data/charm_testbeam_july18/pybar_data/part_0x0802'
                  ]
 
 output_dir = "/media/niko/big_data/charm_testbeam_july18/analysis"
