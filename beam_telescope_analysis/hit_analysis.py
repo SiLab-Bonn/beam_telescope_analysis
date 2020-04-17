@@ -618,7 +618,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
 
 
 @save_arguments
-def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=None, max_hit_charges=None, charge_corrections=None, charge_weighted_clustering=False, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, plot=True, chunk_size=1000000):
+def cluster(telescope_configuration, input_hit_files, input_mask_files=None, output_cluster_files=None, select_duts=None, use_positions=None, min_hit_charges=None, max_hit_charges=None, charge_corrections=None, charge_weighted_clustering=False, column_cluster_distances=1, row_cluster_distances=1, frame_cluster_distances=0, max_event_size = None, plot=True, chunk_size=1000000):
     '''Clustering hits. Wrapper for cluster_hits(). For detailed description of the parameters see cluster_hits().
 
     Parameters
@@ -747,13 +747,14 @@ def cluster(telescope_configuration, input_hit_files, input_mask_files=None, out
             column_cluster_distance=column_cluster_distances[i],
             row_cluster_distance=row_cluster_distances[i],
             frame_cluster_distance=frame_cluster_distances[i],
+            max_event_size = max_event_size,
             plot=plot,
             chunk_size=chunk_size))
     return output_files
 
 
 @save_arguments
-def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=None, max_hit_charge=None, charge_correction=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, charge_weighted_clustering=False, plot=True, chunk_size=1000000):
+def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=None, use_positions=None, min_hit_charge=None, max_hit_charge=None, charge_correction=None, column_cluster_distance=1, row_cluster_distance=1, frame_cluster_distance=0, max_event_size=None, charge_weighted_clustering=False, plot=True, chunk_size=1000000):
     '''Clusters the hits in the data file containing the hit table.
 
     Parameters
@@ -1024,7 +1025,7 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
     clusterizer._additional_columns = additional_columns
 
     # Run clusterizer on hit table in parallel on all cores
-    def cluster_func(hits, clusterizer, noisy_pixels, disabled_pixels, dut, convert_to_positions, copy_hit_indices):
+    def cluster_func(hits, clusterizer, noisy_pixels, disabled_pixels, dut, convert_to_positions, copy_hit_indices, max_event_size):
         if convert_to_positions:
             dut_x_pos, dut_y_pos, _ = dut.index_to_local_position(column=hits['column'], row=hits['row'])
             new_hits_dtype = []
@@ -1063,6 +1064,10 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
                 else:
                     new_cluster_hits[name] = cluster_hits[name]
             cluster_hits = new_cluster_hits
+
+        if max_event_size:
+            cluster_hits = cluster_hits[cluster_hits["n_cluster"]<=max_event_size]
+            clusters = clusters[clusters["n_cluster"]<=max_event_size]
         return cluster_hits, clusters  # return hits array with additional columns for cluster ID, and cluster array
 
     smc.SMC(
@@ -1076,7 +1081,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
             'disabled_pixels': disabled_pixels,
             'dut': dut,
             'convert_to_positions': convert_to_positions,
-            'copy_hit_indices': copy_hit_indices},
+            'copy_hit_indices': copy_hit_indices,
+            'max_event_size': max_event_size},
         node_desc=[{'name': 'ClusterHits'}, {'name': 'Clusters'}],
         align_at='event_number',
         chunk_size=chunk_size)
