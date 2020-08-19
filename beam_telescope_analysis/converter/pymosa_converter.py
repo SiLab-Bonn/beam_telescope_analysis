@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 from contextlib2 import ExitStack
 
-from pyBAR_mimosa26_interpreter import data_interpreter
-from pyBAR_mimosa26_interpreter import raw_data_interpreter
+from pymosa_mimosa26_interpreter import data_interpreter
+from pymosa_mimosa26_interpreter import raw_data_interpreter
 
 from beam_telescope_analysis.hit_analysis import default_hits_dtype
 
