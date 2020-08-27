@@ -8,8 +8,8 @@ from beam_telescope_analysis.tools import geometry_utils
 
 
 @njit
-def _filter_predict(transition_matrix, transition_covariance,
-                    transition_offset, current_filtered_state,
+def _filter_predict(reference_state, track_jacobian, local_scatter_gain_matrix, transition_covariance,
+                    current_filtered_state,
                     current_filtered_state_covariance):
     """Calculates the predicted state and its covariance matrix. Prediction
     is done on whole track chunk with size chunk_size.
@@ -34,17 +34,26 @@ def _filter_predict(transition_matrix, transition_covariance,
     predicted_state_covariance : [chunk_size, n_dim_state, n_dim_state] array
         covariance matrix of predicted state at time t+1.
     """
-    predicted_state = _vec_mul(transition_matrix, current_filtered_state) + transition_offset
 
-    predicted_state_covariance = _mat_mul(transition_matrix,
+    # Extrapolate current filtered state (plane k -> plane k+1)
+    predicted_state = _vec_mul(track_jacobian, current_filtered_state)
+
+    # Extrapolate current filtered covariance (plane k -> plane k+1). Neglect air gap between detectors
+    predicted_state_covariance = _mat_mul(track_jacobian,
                                           _mat_mul(current_filtered_state_covariance,
-                                                   _mat_trans(transition_matrix))) + transition_covariance
+                                                   _mat_trans(track_jacobian)))
+
+    # Add process noise to covariance matrix
+    general_scatter_gain_matrix = _mat_mul(track_jacobian, local_scatter_gain_matrix)
+    predicted_state_covariance += _mat_mul(general_scatter_gain_matrix,
+                                          _mat_mul(transition_covariance,
+                                                   _mat_trans(general_scatter_gain_matrix)))
 
     return predicted_state, predicted_state_covariance
 
 
-def _filter_correct(observation_matrix, observation_covariance,
-                    observation_offset, predicted_state,
+def _filter_correct(reference_state,
+                    observation_matrix, observation_covariance, predicted_state,
                     predicted_state_covariance, observation):
     r"""Filters a predicted state with the Kalman Filter. Filtering
     is done on whole track chunk with size chunk_size.
@@ -55,8 +64,6 @@ def _filter_correct(observation_matrix, observation_covariance,
         observation matrix for time t.
     observation_covariance : [chunk_size, n_dim_obs, n_dim_obs] array
         covariance matrix for observation at time t.
-    observation_offset : [chunk_size, n_dim_obs] array
-        offset for observation at time t.
     predicted_state : [chunk_size, n_dim_state] array
         predicted state at time t.
     predicted_state_covariance : [n_dim_state, n_dim_state] array
@@ -74,7 +81,8 @@ def _filter_correct(observation_matrix, observation_covariance,
     filtered_state_covariance : [chunk_size, n_dim_state, n_dim_state] array
         covariance matrix of filtered state at time t.
     """
-    predicted_observation = _vec_mul(observation_matrix, predicted_state) + observation_offset
+
+    predicted_observation = _vec_mul(observation_matrix, predicted_state + reference_state)
 
     predicted_observation_covariance = _mat_mul(observation_matrix,
                                                 _mat_mul(predicted_state_covariance, _mat_trans(observation_matrix))) + observation_covariance
@@ -95,7 +103,7 @@ def _filter_correct(observation_matrix, observation_covariance,
     filtered_state_covariance[~valid_hit_selection, :, :] = predicted_state_covariance[~valid_hit_selection, :, :]
 
     # Calculate chi2 (only if observation available)
-    filtered_residuals = observation[valid_hit_selection] - _vec_mul(observation_matrix[valid_hit_selection], filtered_state[valid_hit_selection])
+    filtered_residuals = observation[valid_hit_selection] - _vec_mul(observation_matrix[valid_hit_selection], filtered_state[valid_hit_selection] + reference_state[valid_hit_selection])
     filtered_residuals_covariance = observation_covariance[valid_hit_selection] - _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(filtered_state_covariance[valid_hit_selection], _mat_trans(observation_matrix[valid_hit_selection])))
     check_covariance_matrix(filtered_residuals_covariance)  # Sanity check for covariance matrix
     chi2 = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
@@ -103,7 +111,7 @@ def _filter_correct(observation_matrix, observation_covariance,
     return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
 
-def _filter(dut_planes, z_sorted_dut_indices, thetas, select_fit_duts, observations,
+def _filter_f(dut_planes, x_ref_state, z_sorted_dut_indices, thetas, select_fit_duts, observations,
             transition_matrices, observation_matrices, transition_covariances,
             observation_covariances, transition_offsets, observation_offsets,
             initial_state, initial_state_covariance):
@@ -158,7 +166,7 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, select_fit_duts, observati
         updated transition matrices in case of rotated planes.
     """
     chunk_size, n_timesteps, n_dim_obs = observations.shape
-    n_dim_state = transition_covariances.shape[2]
+    n_dim_state = initial_state_covariance.shape[2]
 
     predicted_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
     predicted_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
@@ -167,80 +175,55 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, select_fit_duts, observati
     filtered_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
     chi2 = np.full((chunk_size, n_timesteps), fill_value=np.nan)
     # array where new transition matrices are stored, needed to pass it to kalman smoother
-    transition_matrices_update = np.zeros_like(transition_covariances)
+    # transition_matrices_update = np.zeros_like(transition_covariances)
+    Js = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
 
     for i, dut_index in enumerate(z_sorted_dut_indices):
-        dut = dut_planes[dut_index]
+        # Get actual reference state x_ref
+        x_ref = x_ref_state[:, dut_index, :]
+        
         if i == 0:  # first DUT
             predicted_states[:, dut_index] = initial_state
             predicted_state_covariances[:, dut_index] = initial_state_covariance
         else:
-            # slopes (directional vectors) of the filtered estimates
-            slopes_filtered_state = np.column_stack((
-                filtered_states[:, z_sorted_dut_indices[i - 1], 3],
-                filtered_states[:, z_sorted_dut_indices[i - 1], 4],
-                filtered_states[:, z_sorted_dut_indices[i - 1], 5]))
+            dut = dut_planes[dut_index - 1]  # we use filter from plane before [dut_index - 1] and extrapolate/predict onto actual plane [dut_index - 1]
+            next_dut = dut_planes[dut_index]  # we want to get prediction onto actual plane [dut_index]
+            check_covariance_matrix(transition_covariances[:, dut_index - 1])  # Sanity check for covariance matrix
 
-            # offsets (support vectors) of the filtered states
-            offsets_filtered_state = np.column_stack((
-                filtered_states[:, z_sorted_dut_indices[i - 1], 0],
-                filtered_states[:, z_sorted_dut_indices[i - 1], 1],
-                filtered_states[:, z_sorted_dut_indices[i - 1], 2]))
+            # Local to global transformation
+            rotation_matrix = geometry_utils.rotation_matrix(
+                                alpha=dut.rotation_alpha,
+                                beta=dut.rotation_beta,
+                                gamma=dut.rotation_gamma)
+            rotation_matrix_next = geometry_utils.rotation_matrix(
+                                alpha=next_dut.rotation_alpha,
+                                beta=next_dut.rotation_beta,
+                                gamma=next_dut.rotation_gamma)
 
-            # offsets of filtered state with actual plane (plane on which the filtered estimate should be predicted)
-            offsets_filtered_state_actual_plane = geometry_utils.get_line_intersections_with_dut(
-                line_origins=offsets_filtered_state,
-                line_directions=slopes_filtered_state,
-                translation_x=dut.translation_x,
-                translation_y=dut.translation_y,
-                translation_z=dut.translation_z,
-                rotation_alpha=dut.rotation_alpha,
-                rotation_beta=dut.rotation_beta,
-                rotation_gamma=dut.rotation_gamma)
+            dut_position = np.array([dut.translation_x, dut.translation_y, dut.translation_z])
+            next_dut_position = np.array([next_dut.translation_x, next_dut.translation_y, next_dut.translation_z])
 
-            z_diff = offsets_filtered_state_actual_plane[:, 2] - offsets_filtered_state[:, 2]
-            if np.any(z_diff < 0.0):
-                raise ValueError("Z differences give values smaller zero.")
+            # Transition matrix: 0: not defined/needed, 1: 0->1, 2: 1->2 (k: k-1 --> k)
+            Js[:, dut_index, :, :] = _calculate_track_jacobian_new(
+                reference_state=x_ref_state[:, dut_index - 1, :],  # use reference state from before
+                dut_position=np.tile(dut_position, reps=(x_ref.shape[0], 1)),
+                next_dut_position=np.tile(next_dut_position, reps=(x_ref.shape[0], 1)),  # extrapolates to this position
+                rotation_matrix=np.tile(rotation_matrix, reps=(x_ref.shape[0], 1, 1)),
+                rotation_matrix_next=np.tile(rotation_matrix_next, reps=(x_ref.shape[0], 1, 1)))
 
-            # update transition matrix according to the DUT rotation
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 0])[0], z_sorted_dut_indices[i - 1], 0, 3] = (offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 0])[0], 0] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 0] == 0)[0], z_sorted_dut_indices[i - 1], 0, 3] = z_diff[np.nonzero(slopes_filtered_state[:, 0] == 0)[0]]
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 1])[0], z_sorted_dut_indices[i - 1], 1, 4] = (offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 1])[0], 1] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 1] == 0)[0], z_sorted_dut_indices[i - 1], 1, 4] = z_diff[np.nonzero(slopes_filtered_state[:, 1] == 0)[0]]
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 2])[0], z_sorted_dut_indices[i - 1], 2, 5] = (offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 2])[0], 2] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]
-            transition_matrices[np.nonzero(slopes_filtered_state[:, 2] == 0)[0], z_sorted_dut_indices[i - 1], 2, 5] = z_diff[np.nonzero(slopes_filtered_state[:, 2] == 0)[0]]
+            # TODO: what is this exactly (according to Wolin et al. paper)
+            Gl_det = _calculate_scatter_gain_matrix(reference_state=x_ref_state[:, dut_index - 1, :]) # use reference state from before
 
-            # update transition covariance matrix according to the DUT rotation
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 0])[0], z_sorted_dut_indices[i - 1], 0, 0] = np.square((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 0])[0], 0] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 0] == 0)[0], z_sorted_dut_indices[i - 1], 0, 0] = np.square(z_diff[np.nonzero(slopes_filtered_state[:, 0] == 0)[0]]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 1])[0], z_sorted_dut_indices[i - 1], 3, 0] = ((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 1])[0], 1] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 1] == 0)[0], z_sorted_dut_indices[i - 1], 3, 0] = z_diff[np.nonzero(slopes_filtered_state[:, 1] == 0)[0]] * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 2])[0], z_sorted_dut_indices[i - 1], 1, 1] = np.square((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 2])[0], 2] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 2] == 0)[0], z_sorted_dut_indices[i - 1], 1, 1] = np.square(z_diff[np.nonzero(slopes_filtered_state[:, 2] == 0)[0]]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 0])[0], z_sorted_dut_indices[i - 1], 4, 1] = ((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 0])[0], 0] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 0])[0], 0]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 0] == 0)[0], z_sorted_dut_indices[i - 1], 4, 1] = z_diff[np.nonzero(slopes_filtered_state[:, 0] == 0)[0]] * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 1])[0], z_sorted_dut_indices[i - 1], 0, 3] = ((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 1])[0], 1] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 1])[0], 1]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 1] == 0)[0], z_sorted_dut_indices[i - 1], 0, 3] = z_diff[np.nonzero(slopes_filtered_state[:, 1] == 0)[0]] * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 2])[0], z_sorted_dut_indices[i - 1], 1, 4] = ((offsets_filtered_state_actual_plane[np.nonzero(slopes_filtered_state[:, 2])[0], 2] - offsets_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]) / slopes_filtered_state[np.nonzero(slopes_filtered_state[:, 2])[0], 2]) * np.square(thetas[z_sorted_dut_indices[i - 1]])
-            transition_covariances[np.nonzero(slopes_filtered_state[:, 2] == 0)[0], z_sorted_dut_indices[i - 1], 1, 4] = z_diff[np.nonzero(slopes_filtered_state[:, 2] == 0)[0]] * np.square(thetas[z_sorted_dut_indices[i - 1]])
-
-            # store updated transition matrices
-            transition_matrices_update[:, z_sorted_dut_indices[i - 1]] = transition_matrices[:, z_sorted_dut_indices[i - 1]]
-
-            check_covariance_matrix(transition_covariances[:, z_sorted_dut_indices[i - 1]])  # Sanity check for covariance matrix
-
-            # calculate prediction from filter
+            # Calculate prediction from filter
             predicted_states[:, dut_index], predicted_state_covariances[:, dut_index] = _filter_predict(
-                transition_matrix=transition_matrices[:, z_sorted_dut_indices[i - 1]],  # next plane in -z direction
-                transition_covariance=transition_covariances[:, z_sorted_dut_indices[i - 1]],  # next plane in -z direction
-                transition_offset=transition_offsets[:, z_sorted_dut_indices[i - 1]],  # next plane in -z direction
-                current_filtered_state=filtered_states[:, z_sorted_dut_indices[i - 1]],  # next plane in -z direction
-                current_filtered_state_covariance=filtered_state_covariances[:, z_sorted_dut_indices[i - 1]])  # next plane in -z direction
+                reference_state=x_ref_state[:, dut_index - 1, :], # use reference state from before,
+                track_jacobian=Js[:, dut_index, :, :],  # transition matrix from dut_index - 1 -> dut_index
+                local_scatter_gain_matrix=Gl_det,
+                transition_covariance=transition_covariances[:, dut_index - 1],  # next plane in -z direction
+                current_filtered_state=filtered_states[:, dut_index - 1],  # next plane in -z direction
+                current_filtered_state_covariance=filtered_state_covariances[:, dut_index - 1])  # next plane in -z direction
 
-            check_covariance_matrix(predicted_state_covariances[:, dut_index])  # Sanity check for covariance matrix
-
-            # TODO:
-            # Check for offsets_filtered_state_actual_plane == predicted_states
+            # check_covariance_matrix(predicted_state_covariances[:, dut_index])  # Sanity check for covariance matrix
 
         valid_hit_selection = ~np.isnan(observations[:, dut_index, 0])
         if dut_index in select_fit_duts:
@@ -248,9 +231,9 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, select_fit_duts, observati
             # set filter to prediction where no hit is available,
             # otherwise calculate filtered state.
             kalman_gains[:, dut_index], filtered_states[:, dut_index], filtered_state_covariances[:, dut_index], chi2[valid_hit_selection, dut_index] = _filter_correct(
+                reference_state=x_ref,  # use reference state from actual plane for filtering
                 observation_matrix=observation_matrices[:, dut_index],
                 observation_covariance=observation_covariances[:, dut_index],
-                observation_offset=observation_offsets[:, dut_index],
                 predicted_state=predicted_states[:, dut_index],
                 predicted_state_covariance=predicted_state_covariances[:, dut_index],
                 observation=observations[:, dut_index])
@@ -267,35 +250,176 @@ def _filter(dut_planes, z_sorted_dut_indices, thetas, select_fit_duts, observati
             check_covariance_matrix(filtered_state_covariances[:, dut_index])  # Sanity check for covariance matrix
 
             # Calculate chi2 (only if observation available).
-            filtered_residuals = observations[valid_hit_selection, dut_index] - _vec_mul(observation_matrices[valid_hit_selection, dut_index], filtered_states[valid_hit_selection, dut_index])
+            filtered_residuals = observations[valid_hit_selection, dut_index] - _vec_mul(observation_matrices[valid_hit_selection, dut_index], filtered_states[valid_hit_selection, dut_index] + x_ref[valid_hit_selection])
             # Note: need to add here covariance matrices, since in this case (filter equals to prediction) need to use the formula for predicted residual covariance
             filtered_residuals_covariance = observation_covariances[valid_hit_selection, dut_index] + _mat_mul(observation_matrices[valid_hit_selection, dut_index], _mat_mul(filtered_state_covariances[valid_hit_selection, dut_index], _mat_trans(observation_matrices[valid_hit_selection, dut_index])))
             check_covariance_matrix(filtered_residuals_covariance)  # Sanity check for covariance matrix
             chi2[valid_hit_selection, dut_index] = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
             chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
 
-        # Set the offset to the track intersection with the tilted plane
-        intersections = geometry_utils.get_line_intersections_with_dut(
-            line_origins=filtered_states[:, dut_index, 0:3],
-            line_directions=filtered_states[:, dut_index, 3:6],
-            translation_x=dut.translation_x,
-            translation_y=dut.translation_y,
-            translation_z=dut.translation_z,
-            rotation_alpha=dut.rotation_alpha,
-            rotation_beta=dut.rotation_beta,
-            rotation_gamma=dut.rotation_gamma)
-        # set x/y/z
-        filtered_states[:, dut_index, 0:3] = intersections
+    # Final check for valid chi2
+    if np.any(chi2[~np.isnan(chi2)] < 0.0):
+        raise RuntimeError('Some chi-square values are negative (during filter step)!')
+
+    return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, chi2, Js
+
+
+def _filter_b(dut_planes, x_ref_state, z_sorted_dut_indices, thetas, select_fit_duts, observations,
+            transition_matrices, observation_matrices, transition_covariances,
+            observation_covariances, transition_offsets, observation_offsets,
+            initial_state, initial_state_covariance):
+    """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
+    done which includes the observations.
+
+    Parameters
+    ----------
+    dut_planes : list
+        List of DUT parameters (material_budget, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma).
+    z_sorted_dut_indices : list
+        List of DUT indices in the order reflecting their z position.
+    thetas : list
+        List of scattering angle root mean squares (RMS).
+    select_fit_duts : iterable
+        List of DUTs which should be included in Kalman Filter. DUTs which are not in list
+        were treated as missing measurements and will not be included in the Filtering step.
+    observations : [chunk_size, n_timesteps, n_dim_obs] array
+        observations (measurements) from times [0...n_timesteps-1]. If any of observations is masked,
+        then observations[:, t] will be treated as a missing observation
+        and will not be included in the filtering step.
+    transition_matrices : [chunk_size, n_timesteps-1, n_dim_state, n_dim_state] array-like
+        matrices to transport states from t to t+1.
+    observation_matrices : [chunk_size, n_timesteps, n_dim_obs, n_dim_state] array-like
+        observation matrices.
+    transition_covariances : [chunk_size, n_timesteps-1, n_dim_state,n_dim_state]  array-like
+        covariance matrices of transition matrices.
+    observation_covariances : [chunk_size, n_timesteps, n_dim_obs, n_dim_obs] array-like
+        covariance matrices of observation matrices.
+    transition_offsets : [chunk_size, n_timesteps-1, n_dim_state] array-like
+        offsets of transition matrices.
+    observation_offsets : [chunk_size, n_timesteps, n_dim_obs] array-like
+        offsets of observations.
+    initial_state : [chunk_size, n_dim_state] array-like
+        initial value of state.
+    initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array-like
+        initial value for observation covariance matrices.
+
+    Returns
+    -------
+    predicted_states : [chunk_size, n_timesteps, n_dim_state] array
+        predicted states of times [0...t].
+    predicted_state_covariances : [chunk_size, n_timesteps, n_dim_state, n_dim_state] array
+        covariance matrices of predicted states of times [0...t].
+    kalman_gains : [chunk_size, n_timesteps, n_dim_state] array
+        Kalman gain matrices of times [0...t].
+    filtered_states : [chunk_size, n_timesteps, n_dim_state] array
+        filtered states of times [0...t].
+    filtered_state_covariances : [chunk_size, n_timesteps, n_dim_state] array
+        covariance matrices of filtered states of times [0...t].
+    transition_matrices_update : [chunk_size, n_timesteps-1, n_dim_state, n_dim_state] array-like
+        updated transition matrices in case of rotated planes.
+    """
+    chunk_size, n_timesteps, n_dim_obs = observations.shape
+    n_dim_state = initial_state_covariance.shape[2]
+
+    predicted_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
+    predicted_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
+    kalman_gains = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_obs))
+    filtered_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
+    filtered_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
+    chi2 = np.full((chunk_size, n_timesteps), fill_value=np.nan)
+    # array where new transition matrices are stored, needed to pass it to kalman smoother
+    # transition_matrices_update = np.zeros_like(transition_covariances)
+    Js = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
+
+    for i, dut_index in enumerate(z_sorted_dut_indices[::-1]):
+        # Get actual reference state x_ref
+        x_ref = x_ref_state[:, dut_index, :]
+        
+        if i == 0:  # first DUT / last DUT
+            predicted_states[:, dut_index] = initial_state
+            predicted_state_covariances[:, dut_index] = initial_state_covariance
+        else:
+            dut = dut_planes[dut_index + 1]  # we use filter from plane before [dut_index - 1] and extrapolate/predict onto actual plane [dut_index - 1]
+            next_dut = dut_planes[dut_index]  # we want to get prediction onto actual plane [dut_index]
+            check_covariance_matrix(transition_covariances[:, dut_index + 1])  # Sanity check for covariance matrix
+
+            # Local to global transformation
+            rotation_matrix = geometry_utils.rotation_matrix(
+                                alpha=dut.rotation_alpha,
+                                beta=dut.rotation_beta,
+                                gamma=dut.rotation_gamma)
+            rotation_matrix_next = geometry_utils.rotation_matrix(
+                                alpha=next_dut.rotation_alpha,
+                                beta=next_dut.rotation_beta,
+                                gamma=next_dut.rotation_gamma)
+
+            dut_position = np.array([dut.translation_x, dut.translation_y, dut.translation_z])
+            next_dut_position = np.array([next_dut.translation_x, next_dut.translation_y, next_dut.translation_z])
+
+            # Transition matrix: 7: not defined/needed, 6: 7->6, 5: 6->5 (k: k + 1 --> k)
+            Js[:, dut_index, :, :] = _calculate_track_jacobian_new(
+                reference_state=x_ref_state[:, dut_index + 1, :],  # use reference state from before (backward)
+                dut_position=np.tile(dut_position, reps=(x_ref.shape[0], 1)),
+                next_dut_position=np.tile(next_dut_position, reps=(x_ref.shape[0], 1)),  # extrapolates to this position
+                rotation_matrix=np.tile(rotation_matrix, reps=(x_ref.shape[0], 1, 1)),
+                rotation_matrix_next=np.tile(rotation_matrix_next, reps=(x_ref.shape[0], 1, 1)))
+
+            # TODO: what is this exactly (according to Wolin et al. paper)
+            Gl_det = _calculate_scatter_gain_matrix(reference_state=x_ref_state[:, dut_index + 1, :]) # use reference state from before
+
+            # Calculate prediction from filter
+            predicted_states[:, dut_index], predicted_state_covariances[:, dut_index] = _filter_predict(
+                reference_state=x_ref_state[:, dut_index + 1, :], # use reference state from before,
+                track_jacobian=Js[:, dut_index, :, :],  # transition matrix from dut_index - 1 -> dut_index
+                local_scatter_gain_matrix=Gl_det,
+                transition_covariance=transition_covariances[:, dut_index + 1],  # next plane in +z direction
+                current_filtered_state=filtered_states[:, dut_index + 1],  # next plane in +z direction
+                current_filtered_state_covariance=filtered_state_covariances[:, dut_index + 1])  # next plane in -z direction
+
+            # check_covariance_matrix(predicted_state_covariances[:, dut_index])  # Sanity check for covariance matrix
+
+        valid_hit_selection = ~np.isnan(observations[:, dut_index, 0])
+        if dut_index in select_fit_duts:
+            # DUT is a fit dut:
+            # set filter to prediction where no hit is available,
+            # otherwise calculate filtered state.
+            kalman_gains[:, dut_index], filtered_states[:, dut_index], filtered_state_covariances[:, dut_index], chi2[valid_hit_selection, dut_index] = _filter_correct(
+                reference_state=x_ref,  # use reference state from actual plane for filtering
+                observation_matrix=observation_matrices[:, dut_index],
+                observation_covariance=observation_covariances[:, dut_index],
+                predicted_state=predicted_states[:, dut_index],
+                predicted_state_covariance=predicted_state_covariances[:, dut_index],
+                observation=observations[:, dut_index])
+
+            chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
+            check_covariance_matrix(filtered_state_covariances[:, dut_index])  # Sanity check for covariance matrix
+        else:
+            # DUT is not a fit dut:
+            # set filter to prediction.
+            kalman_gains[:, dut_index] = np.zeros((chunk_size, n_dim_state, n_dim_obs), dtype=np.float64)
+            filtered_states[:, dut_index] = predicted_states[:, dut_index]
+            filtered_state_covariances[:, dut_index] = predicted_state_covariances[:, dut_index]
+
+            check_covariance_matrix(filtered_state_covariances[:, dut_index])  # Sanity check for covariance matrix
+
+            # Calculate chi2 (only if observation available).
+            filtered_residuals = observations[valid_hit_selection, dut_index] - _vec_mul(observation_matrices[valid_hit_selection, dut_index], filtered_states[valid_hit_selection, dut_index] + x_ref[valid_hit_selection])
+            # Note: need to add here covariance matrices, since in this case (filter equals to prediction) need to use the formula for predicted residual covariance
+            filtered_residuals_covariance = observation_covariances[valid_hit_selection, dut_index] + _mat_mul(observation_matrices[valid_hit_selection, dut_index], _mat_mul(filtered_state_covariances[valid_hit_selection, dut_index], _mat_trans(observation_matrices[valid_hit_selection, dut_index])))
+            check_covariance_matrix(filtered_residuals_covariance)  # Sanity check for covariance matrix
+            chi2[valid_hit_selection, dut_index] = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
+            chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
 
     # Final check for valid chi2
     if np.any(chi2[~np.isnan(chi2)] < 0.0):
         raise RuntimeError('Some chi-square values are negative (during filter step)!')
 
-    return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, transition_matrices_update, chi2
+    return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, chi2, Js
+
 
 
 # @njit
-def _smooth_update(observation, observation_matrix, observation_covariance,
+def _smooth_update(observation, x_ref_state, observation_matrix, observation_covariance,
                    transition_matrix, predicted_state_covariance, filtered_state,
                    filtered_state_covariance, next_predicted_state,
                    next_predicted_state_covariance, next_smoothed_state,
@@ -345,8 +469,7 @@ def _smooth_update(observation, observation_matrix, observation_covariance,
                                      _mat_mul(_mat_trans(transition_matrix),
                                               _mat_inverse(next_predicted_state_covariance)))
 
-    smoothed_state = filtered_state + _vec_mul(kalman_smoothing_gain,
-                                               next_smoothed_state - next_predicted_state)
+    smoothed_state = filtered_state + _vec_mul(kalman_smoothing_gain, next_smoothed_state - next_predicted_state)
 
     smoothed_state_covariance = filtered_state_covariance + _mat_mul(kalman_smoothing_gain,
                                                                      _mat_mul((next_smoothed_state_covariance - next_predicted_state_covariance),
@@ -354,7 +477,7 @@ def _smooth_update(observation, observation_matrix, observation_covariance,
 
     # Calculate chi2 (only if observation available)
     valid_hit_selection = ~np.isnan(observation[:, 0])
-    smoothed_residuals = observation[valid_hit_selection] - _vec_mul(observation_matrix[valid_hit_selection], smoothed_state[valid_hit_selection])
+    smoothed_residuals = observation[valid_hit_selection] - _vec_mul(observation_matrix[valid_hit_selection], smoothed_state[valid_hit_selection] + x_ref_state[valid_hit_selection])
     if dut_used_in_fit:
         smoothed_residuals_covariance = observation_covariance[valid_hit_selection] - _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(smoothed_state_covariance[valid_hit_selection], _mat_trans(observation_matrix[valid_hit_selection])))
     else:
@@ -366,7 +489,7 @@ def _smooth_update(observation, observation_matrix, observation_covariance,
     return smoothed_state, smoothed_state_covariance, kalman_smoothing_gain, chi2
 
 
-def _smooth(dut_planes, z_sorted_dut_indices, select_fit_duts,
+def _smooth(dut_planes, x_ref_state, z_sorted_dut_indices, select_fit_duts,
             observations, observation_matrices, observation_covariances,
             transition_matrices, filtered_states,
             filtered_state_covariances, predicted_states,
@@ -439,10 +562,14 @@ def _smooth(dut_planes, z_sorted_dut_indices, select_fit_duts,
 
     # reverse order for smoother
     for i, dut_index in enumerate(z_sorted_dut_indices[:-1][::-1]):
+        # print(i, dut_index, z_sorted_dut_indices[::-1][i], z_sorted_dut_indices[::-1][i + 1])
+        # print(smoothed_state_covariances[:, z_sorted_dut_indices[::-1][i + 1]], 'NEXT SMOOTHED')
+        # print(smoothed_state_covariances[:, z_sorted_dut_indices[::-1][i]], 'NEXT SMOOTHED WIRNIGIGNNGNGGNGN')
         valid_hit_selection = ~np.isnan(observations[:, dut_index, 0])
         dut = dut_planes[dut_index]
         smoothed_states[:, dut_index], smoothed_state_covariances[:, dut_index], kalman_smoothing_gains[:, dut_index], chi2[valid_hit_selection, dut_index] = _smooth_update(
             observation=observations[:, dut_index],
+            x_ref_state=x_ref_state[:, dut_index],
             observation_matrix=observation_matrices[:, dut_index],
             observation_covariance=observation_covariances[:, dut_index],
             transition_matrix=transition_matrices[:, dut_index],
@@ -457,20 +584,7 @@ def _smooth(dut_planes, z_sorted_dut_indices, select_fit_duts,
         )
 
         chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
-        check_covariance_matrix(smoothed_state_covariances[:, dut_index])  # Sanity check for covariance matrix
-
-        # Set the offset to the track intersection with the tilted plane
-        intersections_smooth = geometry_utils.get_line_intersections_with_dut(
-            line_origins=smoothed_states[:, dut_index, 0:3],
-            line_directions=smoothed_states[:, dut_index, 3:6],
-            translation_x=dut.translation_x,
-            translation_y=dut.translation_y,
-            translation_z=dut.translation_z,
-            rotation_alpha=dut.rotation_alpha,
-            rotation_beta=dut.rotation_beta,
-            rotation_gamma=dut.rotation_gamma)
-
-        smoothed_states[:, dut_index, 0:3] = intersections_smooth
+        # check_covariance_matrix(smoothed_state_covariances[:, dut_index])  # Sanity check for covariance matrix
 
     # Final check for valid chi2
     if np.any(chi2[~np.isnan(chi2)] < 0.0):
@@ -496,6 +610,8 @@ def _mat_mul(X, Y):
     '''Helper function to multiply two 3D matrices. Multiplication is done on last two axes.
     '''
     result = np.zeros((X.shape[0], X.shape[1], Y.shape[2]))
+    if not X.shape[2] == Y.shape[1]:
+        raise RuntimeError('Matrix muliplication failed due to incorrect shape!')
     for l in range(X.shape[0]):
         # iterate through rows of X
         for i in range(X.shape[1]):
@@ -535,7 +651,7 @@ def _mat_trans(X):
 
 
 @njit
-def _mat_inverse(X, atol=1e-5, rtol=1e-8):
+def _mat_inverse(X, atol=1e-4, rtol=1e-6):
     '''Helper function to calculate inverese of 3D matrix. Inversion is done on last two axes.
     '''
     X = np.ascontiguousarray(X)  # make array contiguous (avoid NumbaPerformance warning)
@@ -548,7 +664,9 @@ def _mat_inverse(X, atol=1e-5, rtol=1e-8):
         tol_X = atol + rtol * np.absolute(X_c)
         tol_inv = atol + rtol * np.absolute(inv_c)
         if np.any(np.absolute(X[i] - X_c) > tol_X) or np.any(np.absolute(inv[i] - inv_c) > tol_inv):
-            raise RuntimeError('Matrix inversion failed!')
+            # print(X[i], i)
+            #raise RuntimeError('Matrix inversion failed!')
+            print('Matrix inversion failed!')
     return inv
 
 
@@ -602,9 +720,158 @@ def _make_matrix_psd(A, atol=1e-5, rtol=1e-8):
     return A3
 
 
+def _calculate_scatter_gain_matrix(reference_state):
+    """ Reference: Wolin and Ho (NIM A329 (1993) 493-500)
+    """
+    p3 = reference_state[:, 2]
+    p4 = reference_state[:, 3]
+
+    n_trk = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    n_trk[:, 0] = p3
+    n_trk[:, 1] = p4
+    n_trk[:, 2] = 1.0
+    n_trk_mag = np.sqrt(_vec_vec_mul(n_trk, n_trk))
+    n_trk[:, 0] /= n_trk_mag  # normalize to 1
+    n_trk[:, 1] /= n_trk_mag  # normalize to 1
+    n_trk[:, 2] /= n_trk_mag  # normalize to 1
+
+    u_hat = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    u_hat[:, 0] = 1.0
+    v_trk = np.cross(n_trk, u_hat)
+    v_trk_mag = np.sqrt(_vec_vec_mul(v_trk, v_trk))
+    v_trk[:, 0] /= v_trk_mag  # normalize to 1
+    v_trk[:, 1] /= v_trk_mag  # normalize to 1
+    v_trk[:, 2] /= v_trk_mag  # normalize to 1
+
+    u_trk = np.cross(v_trk, n_trk)
+    u_trk_mag = np.sqrt(_vec_vec_mul(u_trk, u_trk))
+    u_trk[:, 0] /= u_trk_mag  # normalize to 1
+    u_trk[:, 1] /= u_trk_mag  # normalize to 1
+    u_trk[:, 2] /= u_trk_mag  # normalize to 1
+
+    # Direction cosines
+    a1 = u_trk[:, 0]
+    a2 = v_trk[:, 0]
+    a3 = n_trk[:, 0]
+    b1 = u_trk[:, 1]
+    b2 = v_trk[:, 1]
+    b3 = n_trk[:, 1]
+    g1 = u_trk[:, 2]
+    g2 = v_trk[:, 2]
+    g3 = n_trk[:, 2]
+
+    # Scatter Gain Matrix
+    G = np.zeros(shape=(reference_state.shape[0], 4, 2), dtype=np.float64)
+    # dU'/dtheta1, 0, 0
+    G[:, 2, 0] = (a1 * g3 - a3 * g1) / (g3 * g3)  # Eq (10)
+    # dU'/dtheta2, 0, 1
+    G[:, 2, 1] = (a2 * g3 - a3 * g2) / (g3 * g3)  # Eq (11)
+    # dV'/dtheta1, 1, 0
+    G[:, 3, 0] = (b1 * g3 - b3 * g1) / (g3 * g3)  # Eq (12)
+    # dV'/dtheta2, 1, 1
+    G[:, 3, 1] = (b2* g3 - b3 * g2) / (g3 * g3)  # Eq (13)
+    # Scattering angles affect the track
+    # do not affect impact point
+    # dU/dtheta1, 2, 0
+    G[:, 0, 0] = 0.0
+    # dU/dtheta2, 2, 1
+    G[:, 0, 1] = 0.0
+    # dV/dtheta1, 3, 0
+    G[:, 1, 0] = 0.0
+    # dV/dtheta2, 3, 1
+    G[:, 1, 1] = 0.0
+
+    return G
+
+def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_position, rotation_matrix, rotation_matrix_next):
+    ''' Reference: V. Karimaki "Straight Line Fit for Pixel and Strip Detectors with Arbitrary Plane Orientations", CMS Note. (http://cds.cern.ch/record/687146/files/note99_041.pdf)
+        Calculates change of local coordinates (u, v, u', w') from one dut to next dut (wrt. to reference state). Thus, this gives the 
+        transition of local coordinates from one dut to next dut (e.i. transition matrix for local track state).
+        Assumes that rotation is given from local into global coordinates.
+    '''
+
+    # Coordinate transformation into global system of next dut
+    Rot = _mat_mul(rotation_matrix_next, _mat_trans(rotation_matrix))
+    Origin = _vec_mul(rotation_matrix, next_dut_position - dut_position)
+
+    x_point = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    x_point[:, 0] = reference_state[:, 0]
+    x_point[:, 1] = reference_state[:, 1]
+    x_point[:, 2] = 0.0
+    direc = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    direc[:, 0] = reference_state[:, 2]
+    direc[:, 1] = reference_state[:, 3]
+    direc[:, 2] = 1.0
+
+
+    u = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    u[:, 0] = 1.0
+    u[:, 1] = 0.0
+    u[:, 2] = 0.0
+
+    v = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    v[:, 0] = 0.0
+    v[:, 1] = 1.0
+    v[:, 2] = 0.0
+
+    w = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
+    w[:, 0] = 0.0
+    w[:, 1] = 0.0
+    w[:, 2] = 1.0
+
+    bru = _vec_vec_mul(direc, _vec_mul(Rot, u))
+    brv = _vec_vec_mul(direc, _vec_mul(Rot, v))
+    brw = _vec_vec_mul(direc, _vec_mul(Rot, w))
+
+    t = _vec_vec_mul(Origin - x_point, _vec_mul(Rot, w)) / brw
+
+    Up = bru / brw
+    Vp = brv / brw
+
+    J = np.zeros(shape=(reference_state.shape[0], 4, 4), dtype=np.float64)
+
+    # dU'/du'
+    J[:, 2, 2] = (Rot[:, 0, 0] * brw - bru * Rot[:, 0, 2]) / (brw * brw)
+    # dU'/dv'
+    J[:, 2, 3] = (Rot[:, 1, 0] * brw - bru * Rot[:, 1, 2]) / (brw * brw)
+    # dU'/du
+    J[:, 2, 0] = 0.0
+    # dU'/dv
+    J[:, 2, 1] = 0.0
+  
+    # dV'/du'
+    J[:, 3, 2] = (Rot[:, 0, 1] * brw - brv * Rot[:, 0, 2]) / (brw * brw)
+    # dV'/dv'
+    J[:, 3, 3] = (Rot[:, 1, 1] * brw - brv * Rot[:, 1, 2]) / (brw * brw)
+    # dV'/du
+    J[:, 3, 0] = 0.0
+    # dV'/dV
+    J[:, 3, 1] = 0.0
+    
+    # dU/du
+    J[:, 0, 0] = Rot[:, 0, 0] - Rot[:, 0, 2] * Up  # Eq (15)
+    # dU/dv
+    J[:, 0, 1] = Rot[:, 1, 0] - Rot[:, 1, 2] * Up  # Eq (16)
+    # dU/du'
+    J[:, 0, 2] = t * J[:, 0, 0]  # Eq (17)
+    # dU/dv'
+    J[:, 0, 3] = t * J[:, 0, 1]  # Eq (18)
+  
+    # dV/du
+    J[:, 1, 0] = Rot[:, 0, 1] - Rot[:, 0, 2] * Vp  # Eq (15)
+    # dV/dv
+    J[:, 1, 1] = Rot[:, 1, 1] - Rot[:, 1, 2] * Vp  # Eq (16)
+    # dV/du'
+    J[:, 1, 2] = t * J[:, 1, 0]  # Eq (17)
+    # dV/dv'
+    J[:, 1, 3] = t * J[:, 1, 1]  # Eq (18)
+
+
+    return J
+
 class KalmanFilter(object):
-    def smooth(self, dut_planes, z_sorted_dut_indices, thetas, observations, select_fit_duts,
-               transition_offsets, observation_matrices, observation_offsets, observation_covariances,
+    def smooth(self, dut_planes, x_ref_state, z_sorted_dut_indices, thetas, observations, select_fit_duts,
+               transition_offsets, transition_covariances, observation_matrices, observation_offsets, observation_covariances,
                initial_state, initial_state_covariance):
         """Apply the Kalman Smoother to the observations. In the first step a filtering is done,
         afterwards a smoothing is done. Calculation is done on whole track chunk with size chunk_size.
@@ -645,73 +912,17 @@ class KalmanFilter(object):
             covariance matrices of smoothed states for times [0...n_timesteps-1].
         """
 
-        # express transition matrices
-        # transition matrices are filled already here.
-        # If alignment is used, transition matrices are updated (in Kalman Filter) before each prediction step in order to take
-        # rotations of planes into account.
-
         n_duts = len(dut_planes)
         chunk_size = observations.shape[0]
         n_dim_state = transition_offsets.shape[2]
 
-        # express transition matrix
+        # TODO: remove since not needed anymore express transition matrix
         transition_matrices = np.full((chunk_size, n_duts, n_dim_state, n_dim_state), fill_value=np.nan, dtype=np.float64)
 
-        # express transition covariance matrix
-        transition_covariances = np.full((chunk_size, n_duts, n_dim_state, n_dim_state), fill_value=np.nan, dtype=np.float64)
 
-        transition_matrices[:, :, :, 0] = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        transition_matrices[:, :, :, 1] = np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0])
-        transition_matrices[:, :, :, 2] = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
-        transition_matrices[:, :, :, 3] = np.array([[np.nan] * n_duts,
-                                                    [0] * n_duts,
-                                                    [0] * n_duts,
-                                                    [1] * n_duts,
-                                                    [0] * n_duts,
-                                                    [0] * n_duts]).T
-        transition_matrices[:, :, :, 4] = np.array([[0] * n_duts,
-                                                    [np.nan] * n_duts,
-                                                    [0] * n_duts,
-                                                    [0] * n_duts,
-                                                    [1] * n_duts,
-                                                    [0] * n_duts]).T
-        transition_matrices[:, :, :, 5] = np.array([[0] * n_duts,
-                                                    [0] * n_duts,
-                                                    [np.nan] * n_duts,
-                                                    [0] * n_duts,
-                                                    [0] * n_duts,
-                                                    [1] * n_duts]).T
-
-        # express transition covariance matrices, according to http://web-docs.gsi.de/~ikisel/reco/Methods/CovarianceMatrices-NIMA329-1993.pdf
-        transition_covariances[:, :, :, 0] = np.array([[np.nan] * n_duts,
-                                                       [0] * n_duts,
-                                                       [0] * n_duts,
-                                                       [np.nan] * n_duts,
-                                                       [0] * n_duts,
-                                                       [0] * n_duts]).T
-        transition_covariances[:, :, :, 1] = np.array([[0] * n_duts,
-                                                       [np.nan] * n_duts,
-                                                       [0] * n_duts,
-                                                       [0] * n_duts,
-                                                       [np.nan] * n_duts,
-                                                       [0] * n_duts]).T
-        transition_covariances[:, :, :, 2] = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        transition_covariances[:, :, :, 3] = np.array([[np.nan] * n_duts,
-                                                       [0] * n_duts,
-                                                       [0] * n_duts,
-                                                       np.square(thetas),
-                                                       [0] * n_duts,
-                                                       [0] * n_duts]).T
-        transition_covariances[:, :, :, 4] = np.array([[0] * n_duts,
-                                                       [np.nan] * n_duts,
-                                                       [0] * n_duts,
-                                                       [0] * n_duts,
-                                                       np.square(thetas),
-                                                       [0] * n_duts]).T
-        transition_covariances[:, :, :, 5] = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-
-        predicted_states, predicted_state_covariances, _, filtered_states, filtered_state_covariances, transition_matrices, chi2s_filter = _filter(
+        predicted_states_f, predicted_state_covariances_f, _, filtered_states_f, filtered_state_covariances_f, chi2s_filter_f, Js_f = _filter_f(
             dut_planes=dut_planes,
+            x_ref_state=x_ref_state,
             z_sorted_dut_indices=z_sorted_dut_indices,
             thetas=thetas,
             select_fit_duts=select_fit_duts,
@@ -725,17 +936,74 @@ class KalmanFilter(object):
             initial_state=initial_state,
             initial_state_covariance=initial_state_covariance)
 
-        smoothed_states, smoothed_state_covariances, _, chi2s_smooth = _smooth(
+
+        predicted_states_b, predicted_state_covariances_b, _, filtered_states_b, filtered_state_covariances_b, chi2s_filter_b, Js_b = _filter_b(
             dut_planes=dut_planes,
+            x_ref_state=x_ref_state,
             z_sorted_dut_indices=z_sorted_dut_indices,
+            thetas=thetas,
             select_fit_duts=select_fit_duts,
             observations=observations,
-            observation_matrices=observation_matrices,
-            observation_covariances=observation_covariances,
             transition_matrices=transition_matrices,
-            filtered_states=filtered_states,
-            filtered_state_covariances=filtered_state_covariances,
-            predicted_states=predicted_states,
-            predicted_state_covariances=predicted_state_covariances)
+            observation_matrices=observation_matrices,
+            transition_covariances=transition_covariances,
+            observation_covariances=observation_covariances,
+            transition_offsets=transition_offsets,
+            observation_offsets=observation_offsets,
+            initial_state=initial_state,
+            initial_state_covariance=initial_state_covariance)
 
-        return smoothed_states, smoothed_state_covariances, chi2s_smooth
+        smoothed_states = np.zeros_like(predicted_states_f)
+        smoothed_state_covariances = np.zeros_like(filtered_state_covariances_f)
+
+        # Smoothinh: weigthed mean of forward and backward filter
+        for i, dut_index in enumerate(z_sorted_dut_indices):
+            if i == 0:
+                smoothed_states[:, dut_index] = filtered_states_b[:, dut_index] 
+                smoothed_state_covariances[:, dut_index] = filtered_state_covariances_b[:, dut_index] 
+            elif i == len(z_sorted_dut_indices) - 1:
+                smoothed_states[:, dut_index] = filtered_states_f[:, dut_index] 
+                smoothed_state_covariances[:, dut_index] = filtered_state_covariances_f[:, dut_index] 
+            else:
+                xb = filtered_states_b[:, dut_index]
+                Cb = filtered_state_covariances_b[:, dut_index]
+                xf = filtered_states_f[:, dut_index]
+                Cf = filtered_state_covariances_f[:, dut_index]
+                Cf_inv  =_mat_inverse(Cf)
+                Cb_inv  =_mat_inverse(Cb)
+                smoothed_state_covariances[:, dut_index] = _mat_inverse(Cf_inv + Cb_inv)
+                # print(Cf_inv.shape, xf.shape, Cb_inv.shape, xb.shape)
+                smoothed_states[:, dut_index] = _vec_mul(smoothed_state_covariances[:, dut_index], (_vec_mul(Cf_inv, xf) + _vec_mul(Cb_inv, xb)))
+
+        # add reference state
+        # for i in range(predicted_states.shape[1]):
+        #     predicted_states[:, i ,:] = predicted_states[:, i ,:] + x_ref_state[:, i, :]
+        #     filtered_states_f[:, i ,:] = filtered_states_f[:, i ,:] + x_ref_state[:, i, :]
+        # return filtered_states_f, filtered_state_covariances_f, chi2s_filter_f
+        # print(filtered_states[0, 3, 0:2], x_ref_state[0, 3, :])
+        # print(observations[0, 0, :])
+        # raise
+        # TODO: check how smoother needs to be ajusted. Update reference trajectory?
+        # smoothed_states, smoothed_state_covariances, _, chi2s_smooth = _smooth(
+        #     dut_planes=dut_planes,
+        #     x_ref_state=x_ref_state,
+        #     z_sorted_dut_indices=z_sorted_dut_indices,
+        #     select_fit_duts=select_fit_duts,
+        #     observations=observations,
+        #     observation_matrices=observation_matrices,
+        #     observation_covariances=observation_covariances,
+        #     transition_matrices=Js_f,
+        #     filtered_states=filtered_states_f,
+        #     filtered_state_covariances=filtered_state_covariances_f,
+        #     predicted_states=predicted_states,
+        #     predicted_state_covariances=predicted_state_covariances)
+
+        for i in range(predicted_states_f.shape[1]):
+            smoothed_states[:, i ,:] = smoothed_states[:, i ,:] + x_ref_state[:, i, :]
+            filtered_states_f[:, i ,:] = filtered_states_f[:, i ,:] + x_ref_state[:, i, :]
+            filtered_states_b[:, i ,:] = filtered_states_b[:, i ,:] + x_ref_state[:, i, :]
+            predicted_states_f[:, i ,:] = predicted_states_f[:, i ,:] + x_ref_state[:, i, :]
+            predicted_states_b[:, i ,:] = predicted_states_b[:, i ,:] + x_ref_state[:, i, :]
+
+        return smoothed_states, smoothed_state_covariances, chi2s_filter_f, filtered_states_f, filtered_states_b, predicted_states_f, predicted_states_b
+        # return filtered_states_b, filtered_state_covariances_b, chi2s_filter_f

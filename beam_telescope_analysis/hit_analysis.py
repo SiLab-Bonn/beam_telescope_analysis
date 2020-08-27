@@ -936,24 +936,26 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         clusters[cluster_index]["frame"] = min_frame
 
         # Calculate cluster TDC and cluster TDC status
-        cluster_tdc = 0
+        cluster_charge = 0
         cluster_tdc_timestamp = 0
         cluster_tdc_status = 0  # Logical OR of TDC stati of hits belonging to the cluster
         one_hit_has_no_tdc = False  # Indicator that one hit belonging to the cluster has no TDC value, in this case set TDC status of cluster to zero
         for j in range(clusters[cluster_index].n_hits):
             hit_index = cluster_hit_indices[j]
-            cluster_tdc += hits[hit_index].tdc_value
+            cluster_charge += hits[hit_index].tdc_value
             cluster_tdc_timestamp = hits[hit_index].tdc_timestamp
             if hits[hit_index].tdc_status == 0:
                 # Hit has no TDC value, thus set cluster TDc status to zero.
                 cluster_tdc_status = 0
                 one_hit_has_no_tdc = True
                 continue
-            if not one_hit_has_no_tdc:
-                cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC stati of hits belonging to the cluster
-        clusters[cluster_index].tdc_value = cluster_tdc
+            if hits[hit_index].tdc_status == 0:  # Hit has no TDC value
+                one_hit_has_no_tdc = True
+            cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC status of hits belonging to the cluster
+        # Write cluster variables
+        clusters[cluster_index].tdc_value = cluster_charge
+        clusters[cluster_index].tdc_status = cluster_tdc_status if not one_hit_has_no_tdc else 0
         clusters[cluster_index].tdc_timestamp = cluster_tdc_timestamp
-        clusters[cluster_index].tdc_status = cluster_tdc_status
 
     @numba.njit()
     def end_of_cluster_function_with_position(hits, clusters, cluster_size, cluster_hit_indices, cluster_index, cluster_id, charge_correction, noisy_pixels, disabled_pixels, seed_hit_index):
@@ -983,24 +985,26 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         clusters[cluster_index]["frame"] = min_frame
 
         # Calculate cluster TDC and cluster TDC status
-        cluster_tdc = 0
+        cluster_charge = 0
         cluster_tdc_timestamp = 0
         cluster_tdc_status = 0  # Logical OR of TDC stati of hits belonging to the cluster
         one_hit_has_no_tdc = False  # Indicator that one hit belonging to the cluster has no TDC value, in this case set TDC status of cluster to zero
         for j in range(clusters[cluster_index].n_hits):
             hit_index = cluster_hit_indices[j]
-            cluster_tdc += hits[hit_index].tdc_value
+            cluster_charge += hits[hit_index].tdc_value
             cluster_tdc_timestamp = hits[hit_index].tdc_timestamp
             if hits[hit_index].tdc_status == 0:
                 # Hit has no TDC value, thus set cluster TDc status to zero.
                 cluster_tdc_status = 0
                 one_hit_has_no_tdc = True
                 continue
-            if not one_hit_has_no_tdc:
-                cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC stati of hits belonging to the cluster
-        clusters[cluster_index].tdc_value = cluster_tdc
+            if hits[hit_index].tdc_status == 0:  # Hit has no TDC value
+                one_hit_has_no_tdc = True
+            cluster_tdc_status |= hits[hit_index].tdc_status  # OR all TDC status of hits belonging to the cluster
+        # Write cluster variables
+        clusters[cluster_index].tdc_value = cluster_charge
+        clusters[cluster_index].tdc_status = cluster_tdc_status if not one_hit_has_no_tdc else 0
         clusters[cluster_index].tdc_timestamp = cluster_tdc_timestamp
-        clusters[cluster_index].tdc_status = cluster_tdc_status
 
     # Adding number of clusters
     def end_of_event_function(hits, clusters, start_event_hit_index, stop_event_hit_index, start_event_cluster_index, stop_event_cluster_index):

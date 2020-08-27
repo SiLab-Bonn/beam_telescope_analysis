@@ -129,6 +129,7 @@ def get_line_intersections_with_plane(line_origins, line_directions, position_pl
 
     # Warn if some intersection cannot be calculated
     if np.any(norm_dot_dir == 0):
+        raise
         logging.warning('Some line plane intersection could not be calculated')
 
     # Calculate t scalar for each line simultaniously, avoid division by 0
