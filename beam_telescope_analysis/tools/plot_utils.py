@@ -9,7 +9,6 @@ from math import ceil
 from math import floor
 from itertools import cycle
 
-
 import numpy as np
 import tables as tb
 from matplotlib.backends.backend_pdf import PdfPages
@@ -874,9 +873,11 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                             range_full = [0.0, 1.0]
                         hist_full, edges_full = np.histogram(chi2s, range=range_full, bins=250)
                         hist_narrow, edges_narrow = np.histogram(chi2s, range=[0, 250], bins=250)
+                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=10)
                     else:
                         hist_full += np.histogram(chi2s, bins=edges_full)[0]
                         hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]
+                        hist_very_narrow += np.histogram(chi2s, bins=edges_very_narrow)[0]
 
                 plot_log = np.any(chi2s)
 
@@ -888,10 +889,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_full, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_full[0], edges_full[-1]])
-                ax.set_xlabel('$\mathrm{\chi}^2$')
+                ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
                 fig = Figure()
@@ -902,10 +903,24 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_narrow, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
-                ax.set_xlabel('$\mathrm{\chi}^2$')
+                ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                x = (edges_very_narrow[1:] + edges_very_narrow[:-1]) / 2.0
+                width = (edges_very_narrow[1:] - edges_very_narrow[:-1])
+                ax.bar(x, hist_very_narrow, width=width, log=plot_log, align='center')
+                ax.grid()
+                ax.set_xlim([edges_very_narrow[0], edges_very_narrow[-1]])
+                ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
+                ax.set_ylabel('#')
+                ax.set_yscale('log')
+                ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
 
@@ -1203,7 +1218,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
         if -1 not in region:
             vert = vertices[region]
             verts.append(vert)
-    cmap = copy(cm.get_cmap('viridis'))
+    cmap = cm.get_cmap('viridis')
     cmap.set_bad('w')
     norm = colors.Normalize(vmin=z_min, vmax=z_max)
     p = PolyCollection(
@@ -1217,12 +1232,13 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_tdc_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_frame_hist, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, count_1d_tdc_charge_hist, stat_2d_tdc_charge_hist, count_1d_tdc_dist_hist, stat_2d_tdc_dist_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, stat_2d_cs_vs_alpha_angle_local_hist, stat_2d_cs_vs_beta_angle_local_hist, stat_2d_cluster_shape_vs_alpha_angle_local_hist, stat_2d_cluster_shape_vs_beta_angle_local_hist, stat_2d_cs_vs_charge_hist, stat_2d_cluster_shape_vs_charge_hist, stat_2d_charge_vs_alpha_angle_local_hist, stat_2d_charge_vs_beta_angle_local_hist, efficiency, efficiency_chunks, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiencies, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_count_1d_tdc_charge_hist, efficiency_regions_count_1d_tdc_dist_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_tdc_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_tdc_charge_2d_hist, efficiency_regions_stat_in_pixel_tdc_dist_2d_hist, efficiency_regions_efficiencies_chunks, chunk_indices, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, efficiency_regions_analyze_cluster_shapes, mask_zero=True, output_pdf=None, z_limits_charge=(0, 255), conversion_to_e=(10.0, 0.0), cluster_shapes_charge=[1]):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_tdc_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_frame_hist, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, count_1d_tdc_charge_hist, stat_2d_tdc_charge_hist, count_1d_tdc_dist_hist, stat_2d_tdc_dist_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, stat_2d_cs_vs_alpha_angle_local_hist, stat_2d_cs_vs_beta_angle_local_hist, stat_2d_cluster_shape_vs_alpha_angle_local_hist, stat_2d_cluster_shape_vs_beta_angle_local_hist, stat_2d_cs_vs_charge_hist, stat_2d_cluster_shape_vs_charge_hist, stat_2d_charge_vs_alpha_angle_local_hist, stat_2d_charge_vs_beta_angle_local_hist, efficiency, efficiency_chunks, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiencies, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_count_1d_tdc_charge_hist, efficiency_regions_count_1d_tdc_charge_in_pixel_regions_hist, efficiency_regions_count_1d_tdc_dist_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_tdc_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_tdc_regions_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_tdc_charge_2d_hist, efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist, efficiency_regions_stat_in_pixel_tdc_dist_2d_hist, efficiency_regions_efficiencies_chunks, chunk_indices, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, efficiency_regions_analyze_cluster_shapes, mask_zero=True, output_pdf=None, z_limits_charge=(0, 255), conversion_to_e=(10.0, 0.0), cluster_shapes_charge=[1]):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
     # get number of entries for every histogram
     n_hits = np.sum(count_hits_2d_hist)
+    n_hits_tdc = np.sum(count_hits_tdc_2d_hist)
     n_tracks = np.sum(count_tracks_2d_hist)
     n_tracks_with_hit = np.sum(count_tracks_with_hit_2d_hist)
 
@@ -1250,6 +1266,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
         stat_2d_charge_vs_beta_angle_local_hist[i] = np.ma.array(stat_2d_charge_vs_beta_angle_local_hist[i], mask=(stat_2d_charge_vs_beta_angle_local_hist[i] == 0))
         for region_index, region in enumerate(efficiency_regions):
             efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[i][region_index] = np.ma.array(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[i][region_index], mask=(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[i][region_index] == 0))  # mask entries with zero TDC charge
+            efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[i][region_index] = np.ma.array(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[i][region_index], mask=(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[i][region_index] == 0))  # mask entries with zero TDC charge
 
     mesh_color = 'red'
     mesh_line_width = 0.5
@@ -1261,6 +1278,12 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
     in_pixel_mesh_point_size = 1.0
     in_pixel_mesh_alpha = 1.0
     in_pixel_mesh_line_style = '--'
+
+    widths_in_pixel_regions = [[20.0, 20.0], [10.0, 20.0], [10.0, 10.0]]  # in um
+    center_location_in_pixel_regions = [[25.0, 25.0], [0.0, 25.0], [0.0, 50.0]]  # in um
+
+    # widths_in_pixel_regions = [[50.0, 50.0]]  # in um
+    # center_location_in_pixel_regions = [[25.0, 25.0]]  # in um
 
     fig = Figure()
     text = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name)
@@ -1298,7 +1321,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
     ax = fig.add_subplot(111)
     z_max = np.ceil(np.percentile(count_hits_tdc_2d_hist_masked.compressed(), q=95.0))
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, count_hits_tdc_2d_hist_masked.T, hist_extent, title='Hit density (TDC selection)\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
+    plot_2d_pixel_hist(fig, ax, count_hits_tdc_2d_hist_masked.T, hist_extent, title='Hit density (TDC selection)\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits_tdc), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1614,7 +1637,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         z_max = np.percentile(stat_2d_tdc_charge_hist[i].compressed(), 97.0)
         z_min = np.percentile(stat_2d_tdc_charge_hist[i].compressed(), 3.0)
-        plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist[i].T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
+        plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist[i].T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits_tdc, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
         for region_index, region in enumerate(efficiency_regions):
             mean_charge = beam_telescope_analysis.tools.analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_tdc_charge_hist[i][region_index], (tdc_charge_bins[1:] + tdc_charge_bins[:-1]) / 2.0)
             rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
@@ -1627,7 +1650,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                 rotation = 'vertical'
             else:
                 rotation = 'horizontal'
-            ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8, rotation=rotation)
+            ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
         ax.set_xlim(plot_range[0])
@@ -1640,7 +1663,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
         z_max = np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 97.0)
         z_min = np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 3.0) if np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 3.0) > 0.0 else 0.0
-        plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist_e.T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
+        plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist_e.T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits_tdc, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
         for region_index, region in enumerate(efficiency_regions):
             mean_charge = beam_telescope_analysis.tools.analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_tdc_charge_hist[i][region_index], (tdc_charge_bins[1:] + tdc_charge_bins[:-1]) / 2.0)
             mean_charge_e = mean_charge * conversion_to_e[0] + conversion_to_e[1]
@@ -1654,7 +1677,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                 rotation = 'vertical'
             else:
                 rotation = 'horizontal'
-            ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8, rotation=rotation)
+            ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
         rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
         ax.add_patch(rect)
         ax.set_xlim(plot_range[0])
@@ -1700,8 +1723,9 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    z_max = max_frame
-    plot_2d_pixel_hist(fig, ax, stat_2d_frame_hist.T, hist_extent, title='Mean frame\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max)
+    z_max = stat_2d_frame_hist.max()
+    z_min = stat_2d_frame_hist.min()
+    plot_2d_pixel_hist(fig, ax, stat_2d_frame_hist.T, hist_extent, title='Mean frame\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1713,7 +1737,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
     ax = fig.add_subplot(111)
     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
     z_max = max_tdc_dist
-    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_dist_hist.T, hist_extent, title='Mean TDC trigger distance\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max)
+    z_min = stat_2d_tdc_dist_hist.min()
+    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_dist_hist.T, hist_extent, title='Mean TDC trigger distance\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max)
     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
     ax.add_patch(rect)
     ax.set_xlim(plot_range[0])
@@ -1881,7 +1906,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
         ax = fig.add_subplot(111)
         z_max = np.max(stat_2d_cs_vs_charge_hist[i].compressed())  # np.ceil(np.percentile(stat_2d_cs_vs_charge_hist_masked.compressed(), q=95.0))
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-        plot_2d_pixel_hist(fig, ax, stat_2d_cs_vs_charge_hist[i].T, stat_2d_cs_vs_charge_hist_extend, title='Cluster size vs TDC charge\nfor cluster shapes %s for %s\n(%d Hits)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits), x_axis_title="Cluster size", y_axis_title="TDC charge [$\Delta$VCAL]", z_max=z_max)
+        plot_2d_pixel_hist(fig, ax, stat_2d_cs_vs_charge_hist[i].T, stat_2d_cs_vs_charge_hist_extend, title='Cluster size vs TDC charge\nfor cluster shapes %s for %s\n(%d Hits)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits_tdc), x_axis_title="Cluster size", y_axis_title="TDC charge [$\Delta$VCAL]", z_max=z_max)
         ax.set_ylim(top=2000)
         output_pdf.savefig(fig)
 
@@ -1895,7 +1920,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
         ax = fig.add_subplot(111)
         z_max = np.max(cluster_shape_hist.compressed())  # np.ceil(np.percentile(cluster_shape_hist.compressed(), q=95.0))
         # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-        plot_2d_pixel_hist(fig, ax, cluster_shape_hist.T, stat_2d_cluster_shape_vs_charge_hist_extend, title='Cluster shape vs TDC charge\nfor cluster shapes %s for %s\n(%d Hits)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits), x_axis_title="Cluster shape", y_axis_title="TDC charge [$\Delta$VCAL]", z_max=z_max)
+        plot_2d_pixel_hist(fig, ax, cluster_shape_hist.T, stat_2d_cluster_shape_vs_charge_hist_extend, title='Cluster shape vs TDC charge\nfor cluster shapes %s for %s\n(%d Hits)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits_tdc), x_axis_title="Cluster shape", y_axis_title="TDC charge [$\Delta$VCAL]", z_max=z_max)
         ax.xaxis.set_ticks(x)
         ax.set_ylim(top=2000)
         fig.subplots_adjust(bottom=0.2)
@@ -2090,7 +2115,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     rotation = 'vertical'
                 else:
                     rotation = 'horizontal'
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6, rotation=rotation)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
             rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
             ax.add_patch(rect)
             ax.set_xlim(plot_range[0])
@@ -2114,7 +2139,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     rotation = 'vertical'
                 else:
                     rotation = 'horizontal'
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6, rotation=rotation)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
             _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices, vertices=vertices, show_points=False, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color)
             rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
             ax.add_patch(rect)
@@ -2164,7 +2189,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     rotation = 'vertical'
                 else:
                     rotation = 'horizontal'
-                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=6, rotation=rotation)
+                ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
                 rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                 ax.add_patch(rect)
                 ax.set_xlim(plot_range[0])
@@ -2179,7 +2204,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     z_max = np.percentile(stat_2d_tdc_charge_hist[i].compressed(), 97.0)
                     z_min = np.percentile(stat_2d_tdc_charge_hist[i].compressed(), 3.0)
 
-                    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist[i].T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
+                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, n_hits_tdc, n_tracks)
+                    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist[i].T, hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
                     region = efficiency_regions[region_index]
                     mean_charge = beam_telescope_analysis.tools.analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_tdc_charge_hist[i][region_index], (tdc_charge_bins[1:] + tdc_charge_bins[:-1]) / 2.0)
                     rect = matplotlib.patches.Rectangle(xy=(min(region[0]), min(region[1])), width=np.abs(np.diff(region[0])), height=np.abs(np.diff(region[1])), linewidth=2.0, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
@@ -2192,7 +2218,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                         rotation = 'vertical'
                     else:
                         rotation = 'horizontal'
-                    ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8, rotation=rotation)
+                    ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
                     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                     ax.add_patch(rect)
                     ax.set_xlim(plot_range[0])
@@ -2206,7 +2232,8 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
                     z_max = np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 97.0)
                     z_min = np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 3.0) if np.percentile(stat_2d_tdc_charge_hist_e.compressed(), 3.0) > 0.0 else 0.0
-                    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist_e.T, hist_extent, title='TDC charge for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % ([str(shape) for shape in shapes], actual_dut.name, n_hits, n_tracks), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
+                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Hits, %d Tracks)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, n_hits_tdc, n_tracks)
+                    plot_2d_pixel_hist(fig, ax, stat_2d_tdc_charge_hist_e.T, hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap='coolwarm')
                     region = efficiency_regions[region_index]
                     mean_charge = beam_telescope_analysis.tools.analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_tdc_charge_hist[i][region_index], (tdc_charge_bins[1:] + tdc_charge_bins[:-1]) / 2.0)
                     mean_charge_e = mean_charge * conversion_to_e[0] + conversion_to_e[1]
@@ -2220,7 +2247,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                         rotation = 'vertical'
                     else:
                         rotation = 'horizontal'
-                    ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8, rotation=rotation)
+                    ax.text(np.sum(region[0]) / 2.0, np.sum(region[1]) / 2.0, text, horizontalalignment='center', verticalalignment='center', fontsize=9, rotation=rotation)
                     rect = matplotlib.patches.Rectangle(xy=(min(dut_extent[:2]), min(dut_extent[2:])), width=np.abs(np.diff(dut_extent[:2])), height=np.abs(np.diff(dut_extent[2:])), linewidth=mesh_line_width, edgecolor=mesh_color, facecolor='none', alpha=mesh_alpha)
                     ax.add_patch(rect)
                     ax.set_xlim(plot_range[0])
@@ -2257,7 +2284,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     ax.bar(x=tdc_charge_bins[:hist_tdc_charge_indices[-1] + 1], height=efficiency_regions_count_1d_tdc_charge_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1] / np.sum(efficiency_regions_count_1d_tdc_charge_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1]).astype(np.float32), width=0.8 * np.diff(tdc_charge_bins)[0], align='center')
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                     # add_value_labels(ax=ax)
-                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", [str(shape) for shape in shapes], actual_dut.name, region_n_pixels)
+                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, region_n_pixels)
                     ax.set_title(title)
                     ax.set_xlabel('Charge / $\Delta$VCAL')
                     ax.set_xlim(0, 2000)
@@ -2269,7 +2296,31 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     ax.bar(x=tdc_charge_bins_e[:hist_tdc_charge_indices[-1] + 1], height=efficiency_regions_count_1d_tdc_charge_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1] / np.sum(efficiency_regions_count_1d_tdc_charge_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1]).astype(np.float32), width=0.8 * np.diff(tdc_charge_bins_e)[0], align='center')
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                     # add_value_labels(ax=ax)
-                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", [str(shape) for shape in shapes], actual_dut.name, region_n_pixels)
+                    title = 'Region %d%s: TDC charge distribution for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, region_n_pixels)
+                    ax.set_title(title)
+                    ax.set_xlabel('Charge / electrons')
+                    ax.set_xlim(0, 20000)
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.bar(x=tdc_charge_bins[:hist_tdc_charge_indices[-1] + 1], height=efficiency_regions_count_1d_tdc_charge_in_pixel_regions_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1] / np.sum(efficiency_regions_count_1d_tdc_charge_in_pixel_regions_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1]).astype(np.float32), width=0.8 * np.diff(tdc_charge_bins)[0], align='center')
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                    # add_value_labels(ax=ax)
+                    title = 'Region %d%s: TDC charge distribution (center region) for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, region_n_pixels)
+                    ax.set_title(title)
+                    ax.set_xlabel('Charge / $\Delta$VCAL')
+                    ax.set_xlim(0, 2000)
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.bar(x=tdc_charge_bins_e[:hist_tdc_charge_indices[-1] + 1], height=efficiency_regions_count_1d_tdc_charge_in_pixel_regions_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1] / np.sum(efficiency_regions_count_1d_tdc_charge_in_pixel_regions_hist[i][region_index][:hist_tdc_charge_indices[-1] + 1]).astype(np.float32), width=0.8 * np.diff(tdc_charge_bins_e)[0], align='center')
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                    # add_value_labels(ax=ax)
+                    title = 'Region %d%s: TDC charge distribution (center region) for cluster shapes %s\nfor %s\n(%d Pixels)' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name, region_n_pixels)
                     ax.set_title(title)
                     ax.set_xlabel('Charge / electrons')
                     ax.set_xlim(0, 20000)
@@ -2509,9 +2560,12 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                 count_in_pixel_tracks_2d_hist_masked_tmp = np.ma.array(efficiency_regions_count_in_pixel_tracks_2d_hist[region_index], mask=(efficiency_regions_count_in_pixel_tracks_2d_hist[region_index] == 0))
                 count_in_pixel_tracks_with_hit_2d_hist_masked_tmp = np.ma.array(efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index], mask=(efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist[region_index] == 0))
                 count_in_pixel_tracks_with_hit_tdc_2d_hist_masked_tmp = []
+                count_in_pixel_tracks_with_hit_tdc_regions_2d_hist_masked_tmp = []
                 for i in range(len(cluster_shapes_charge)):
                     count_in_pixel_tracks_with_hit_tdc_2d_hist_masked_tmp.append([])
+                    count_in_pixel_tracks_with_hit_tdc_regions_2d_hist_masked_tmp.append([])
                     count_in_pixel_tracks_with_hit_tdc_2d_hist_masked_tmp[i] = np.ma.array(efficiency_regions_count_in_pixel_tracks_with_hit_tdc_2d_hist[i][region_index], mask=(efficiency_regions_count_in_pixel_tracks_with_hit_tdc_2d_hist[i][region_index] == 0))
+                    count_in_pixel_tracks_with_hit_tdc_regions_2d_hist_masked_tmp[i] = np.ma.array(efficiency_regions_count_in_pixel_tracks_with_hit_tdc_regions_2d_hist[i][region_index], mask=(efficiency_regions_count_in_pixel_tracks_with_hit_tdc_regions_2d_hist[i][region_index] == 0))
 
                 fig = Figure()
                 _ = FigureCanvas(fig)
@@ -2574,6 +2628,22 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                     output_pdf.savefig(fig)
 
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    try:
+                        z_max = np.ceil(np.percentile(count_in_pixel_tracks_with_hit_tdc_regions_2d_hist_masked_tmp[i].compressed(), q=95.00))
+                    except IndexError:
+                        z_max = 1
+                    title = 'Region %d%s: In-pixel (center region) track density with associated hit and valid TDC\nfor cluster shapes %s for %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", [str(shape) for shape in shapes], actual_dut.name)
+                    plot_2d_pixel_hist(fig, ax, count_in_pixel_tracks_with_hit_tdc_regions_2d_hist_masked_tmp[i].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                    # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                    ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                    ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                    output_pdf.savefig(fig)
+
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
@@ -2582,6 +2652,31 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                 plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0, aspect=1.0)
                 # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_min = 0.0
+                title = 'Region %d%s: In-pixel efficiency\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=100.0, aspect=1.0)
+                # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                # Add in pixel regions
+                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[:-1]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
+                for w, loc in zip(widths_in_pixel_regions, center_location_in_pixel_regions):
+                    center_region_indices = np.ceil((np.array(loc) - np.array([efficiency_regions_in_pixel_hist_extent[0], efficiency_regions_in_pixel_hist_extent[2]])) / in_pixel_resolution)
+                    center_region_extent = np.array(w) / in_pixel_resolution
+                    center_region_selection = [np.int(np.ceil(center_region_indices[0]) - np.ceil(center_region_extent[0] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[0]) + np.ceil(center_region_extent[0] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[1]) - np.ceil(center_region_extent[1] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[1]) + np.ceil(center_region_extent[1] / 2.0))]
+                    rect = matplotlib.patches.Rectangle((loc[0] - w[0] / 2.0, loc[1] - w[1] / 2.0), w[0], w[1], linewidth=1.2, edgecolor=in_pixel_mesh_color, facecolor='none')
+                    ax.add_patch(rect)
+                    mean = np.mean(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index][center_region_selection[0]:center_region_selection[1], center_region_selection[2]:center_region_selection[3]].compressed())
+                    ax.text(loc[0], loc[1], '%.2f%%' % mean, horizontalalignment='center', verticalalignment='center', fontsize=9)
                 ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
                 ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                 output_pdf.savefig(fig)
@@ -2601,9 +2696,46 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
+                z_min = 0.0
+                title = 'Region %d%s: In-pixel efficiency\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=95.0, z_max=100.0, aspect=1.0)
+                # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                # Add in pixel regions
+                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[:-1]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
+                for w, loc in zip(widths_in_pixel_regions, center_location_in_pixel_regions):
+                    center_region_indices = np.ceil((np.array(loc) - np.array([efficiency_regions_in_pixel_hist_extent[0], efficiency_regions_in_pixel_hist_extent[2]])) / in_pixel_resolution)
+                    center_region_extent = np.array(w) / in_pixel_resolution
+                    center_region_selection = [np.int(np.ceil(center_region_indices[0]) - np.ceil(center_region_extent[0] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[0]) + np.ceil(center_region_extent[0] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[1]) - np.ceil(center_region_extent[1] / 2.0)),
+                                               np.int(np.ceil(center_region_indices[1]) + np.ceil(center_region_extent[1] / 2.0))]
+                    rect = matplotlib.patches.Rectangle((loc[0] - w[0] / 2.0, loc[1] - w[1] / 2.0), w[0], w[1], linewidth=1.2, edgecolor=in_pixel_mesh_color, facecolor='none')
+                    ax.add_patch(rect)
+                    mean = np.mean(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index][center_region_selection[0]:center_region_selection[1], center_region_selection[2]:center_region_selection[3]].compressed())
+                    ax.text(loc[0], loc[1], '%.2f%%' % mean, horizontalalignment='center', verticalalignment='center', fontsize=9)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
                 z_max = hist_residuals_indices[-1] + 1
                 title = 'Region %d%s: In-pixel mean residuals\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
                 plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_residuals_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
+                # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                z_max = hist_charge_indices[-1] + 1
+                title = 'Region %d%s: In-pixel mean charge\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
+                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_charge_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0)
                 # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
                 ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
@@ -2628,7 +2760,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     ax = fig.add_subplot(111)
                     z_max = z_limits_charge[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[region_index].compressed(), q=95.0)
                     z_min = z_limits_charge[0]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[region_index].compressed(), q=5.0)
-                    title = 'Region %d%s: In-pixel mean TDC charge\nfor cluster shapes %s for %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", [str(shape) for shape in shapes], actual_dut.name)
+                    title = 'Region %d%s: In-pixel mean TDC charge\nfor cluster shapes %s\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name)
                     plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[i][region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, aspect=1.0, cmap='coolwarm')
                     # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
@@ -2642,24 +2774,65 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_hits_td
                     ax = fig.add_subplot(111)
                     z_max = z_limits_charge[1] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.compressed(), q=95.0)
                     z_min = z_limits_charge[0] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.compressed(), q=5.0)
-                    title = 'Region %d%s: In-pixel mean TDC charge\nfor cluster shapes %s for %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", [str(shape) for shape in shapes], actual_dut.name)
+                    title = 'Region %d%s: In-pixel mean TDC charge\nfor cluster shapes %s\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name)
                     plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, aspect=1.0, cmap='coolwarm')
                     # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                     _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
-                    # box around center
-                    # Create a Rectangle patch
-                    rect = matplotlib.patches.Rectangle((17.5, 17.5), 15, 15, linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    text = '%.2f' % (np.mean(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e[28:28 + 15, 28:28 + 15].compressed()))
-                    ax.text(25.0, 25.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8)
-                    rect = matplotlib.patches.Rectangle((-5.0, 17.5), 10, 15, linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    text = '%.2f' % (np.mean(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e[5:5 + 10, 28:28 + 15].compressed()))
-                    ax.text(0.0, 25.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8, rotation='vertical')
-                    rect = matplotlib.patches.Rectangle((-5.0, 45.0), 10, 10, linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    text = '%.2f' % (np.mean(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e[5:5 + 10, 55:55 + 10].compressed()))
-                    ax.text(0.0, 50.0, text, horizontalalignment='center', verticalalignment='center', fontsize=8)
+                    ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                    ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                    output_pdf.savefig(fig)
+
+                    efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e = efficiency_regions_stat_in_pixel_tdc_charge_2d_hist[i][region_index] * conversion_to_e[0] + conversion_to_e[1]
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    z_max = z_limits_charge[1] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.compressed(), q=95.0)
+                    z_min = z_limits_charge[0] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.compressed(), q=5.0)
+                    title = 'Region %d%s: In-pixel mean TDC charge\nfor cluster shapes %s\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name)
+                    plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, aspect=1.0, cmap='coolwarm')
+                    # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                    # Add in pixel regions
+                    in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[:-1]) / np.array(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e.shape)
+                    for w, loc in zip(widths_in_pixel_regions, center_location_in_pixel_regions):
+                        center_region_indices = np.ceil((np.array(loc) - np.array([efficiency_regions_in_pixel_hist_extent[0], efficiency_regions_in_pixel_hist_extent[2]])) / in_pixel_resolution)
+                        center_region_extent = np.array(w) / in_pixel_resolution
+                        center_region_selection = [np.int(np.ceil(center_region_indices[0]) - np.ceil(center_region_extent[0] / 2.0)),
+                                                   np.int(np.ceil(center_region_indices[0]) + np.ceil(center_region_extent[0] / 2.0)),
+                                                   np.int(np.ceil(center_region_indices[1]) - np.ceil(center_region_extent[1] / 2.0)),
+                                                   np.int(np.ceil(center_region_indices[1]) + np.ceil(center_region_extent[1] / 2.0))]
+                        rect = matplotlib.patches.Rectangle((loc[0] - w[0] / 2.0, loc[1] - w[1] / 2.0), w[0], w[1], linewidth=1.2, edgecolor=in_pixel_mesh_color, facecolor='none')
+                        ax.add_patch(rect)
+                        mean = np.mean(efficiency_regions_stat_in_pixel_tdc_charge_2d_hist_e[center_region_selection[0]:center_region_selection[1], center_region_selection[2]:center_region_selection[3]].compressed())
+                        ax.text(loc[0], loc[1], '%i e' % mean, horizontalalignment='center', verticalalignment='center', fontsize=9)
+                    ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                    ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                    output_pdf.savefig(fig)
+
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    z_max = z_limits_charge[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[region_index].compressed(), q=95.0)
+                    z_min = z_limits_charge[0]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[region_index].compressed(), q=5.0)
+                    title = 'Region %d%s: In-pixel (center region) mean TDC charge\nfor cluster shapes %s\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name)
+                    plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[i][region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, aspect=1.0, cmap='coolwarm')
+                    # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                    ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                    ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                    output_pdf.savefig(fig)
+
+                    efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist_e = efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist[i][region_index] * conversion_to_e[0] + conversion_to_e[1]
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    z_max = z_limits_charge[1] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist_e.compressed(), q=95.0)
+                    z_min = z_limits_charge[0] * conversion_to_e[0] + conversion_to_e[1]  # np.percentile(efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist_e.compressed(), q=5.0)
+                    title = 'Region %d%s: In-pixel (center region) mean TDC charge\nfor cluster shapes %s\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", ', '.join([str(shape) for shape in shapes]), actual_dut.name)
+                    plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_tdc_charge_regions_2d_hist_e.T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, aspect=1.0, cmap='coolwarm')
+                    # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                    _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
                     ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
                     ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                     output_pdf.savefig(fig)
