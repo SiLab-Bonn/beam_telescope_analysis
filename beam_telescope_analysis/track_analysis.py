@@ -1801,8 +1801,8 @@ def align_tracks_kalman(telescope_configuration, input_track_candidates_file, ou
                                 ax.hist(np.array(chi2_all), bins=np.linspace(0.0, 100.0, 100))
                                 ax.set_xlim(0.0, 100.0)
                                 ax.axvline(x=track_chi2, ls='--', color='grey')
-                                ax.set_xlabel('Track $\Chi$^2')
-                                ax.set_xlabel('#')
+                                ax.set_xlabel('Track Chi2')
+                                ax.set_ylabel('#')
                                 ax.grid()
                                 output_pdf.savefig(fig)
 
@@ -1882,7 +1882,7 @@ def _create_karimaki_delta(dx,dy,dz,dalpha,dbeta,dgamma):
     return deltaRot, global_offset
 
 def _combine_karimaki(initial_rot, initial_pos, deltaFrame):
-    Rot_combined = np.matmul(deltaFrame[0], initial_rot)
+    Rot_combined = np.matmul(deltaFrame[0].T, initial_rot)
     # print(deltaFrame[0], initial_rot, 'MUTLTIPLASPLASPLAPLSALPSPAL', Rot_combined)
     pos_combined = deltaFrame[1] + initial_pos
     return Rot_combined, pos_combined
@@ -1928,18 +1928,16 @@ def _jacobian_aligment(p0, R):
     jaq[1, 1] = -1      # dfv / ddv
     jaq[0, 2] = +tu     # dfu / ddw
     jaq[1, 2] = +tv     # dfv / ddw
-    jaq[0, 3] = v * tu   # dfu / ddalpha
-    jaq[1, 3] = v * tv   # dfv / ddalpha
+    jaq[0, 3] = -v * tu   # dfu / ddalpha
+    jaq[1, 3] = -v * tv   # dfv / ddalpha
     jaq[0, 4] = u * tu    # dfu / ddbeta
     jaq[1, 4] = u * tv    # dfv / ddbeta
-    jaq[0, 5] = v      # dfu / ddgamma
-    jaq[1, 5] = -u       # dfv / ddgamma
+    jaq[0, 5] = -v      # dfu / ddgamma
+    jaq[1, 5] = u       # dfv / ddgamma
 
       
-    # Compute A=daq/dar
-    # TODO: understand why this is needed, R or R.T (R local to global trafo of actual plane)
     A = np.eye(6, dtype=np.float64)
-    A[:3, :3] = R
+    A[:3, :3] = R.T
     
     # Apply chain rule
     return np.matmul(jaq, A)
