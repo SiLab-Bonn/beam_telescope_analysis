@@ -3170,3 +3170,134 @@ def plot_residual_correlation(input_residual_correlation_file, select_duts, pixe
             ax_row.legend(loc="upper right")
             output_pdf.savefig(fig_col)
             output_pdf.savefig(fig_row)
+
+
+def plot_kf_alignment(output_alignment_file, telescope, output_pdf_file):
+    aligment_parameter_names = ['translation_x', 'translation_y', 'translation_z', 'rotation_alpha', 'rotation_beta', 'rotation_gamma']
+    with tb.open_file(output_alignment_file, mode='r') as in_file_h5:
+        with PdfPages(output_pdf_file) as output_pdf:
+            import matplotlib.pyplot as plt
+            from matplotlib import colors, cm
+            cmap = cm.get_cmap('tab10')
+
+            # Read Chi2
+            track_chi2_table = in_file_h5.get_node('/TrackChi2')
+            track_chi2 = track_chi2_table[:]
+            max_track_chi2 = track_chi2_table._v_attrs.max_track_chi2
+
+            n_tracks_processed = []  # number of procssed tracks for all DUTs
+
+            for par in range(6):
+                par_name = aligment_parameter_names[par]
+                for dut_index, dut in enumerate(telescope):
+                    aligment_parameter_table = in_file_h5.get_node('/Alignment_DUT%i' % dut_index)
+                    deviation_cuts = aligment_parameter_table._v_attrs.deviation_cuts
+                    aligment_parameters = aligment_parameter_table[:]
+                    x = np.arange(aligment_parameters[:][par_name].shape[0])
+                    y = aligment_parameters[:][par_name]
+                    yerr = aligment_parameters[:][par_name + '_err']
+                    alpha = aligment_parameters[:]['annealing_factor']
+                    y_delta = aligment_parameters[:][par_name + '_delta']
+                    y_delta = y_delta[~np.isnan(y_delta)]
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.plot(x, y, label='%s for %s' % (par_name, dut.name), color=cmap(dut_index))
+                    ax.fill_between(x, y - yerr, y + yerr, color=cmap(dut_index), alpha=0.4)
+                    ax.legend()
+                    ax.set_title('%s for %s' % (par_name, dut.name))
+                    ax.set_ylabel('%s' % par_name)
+                    ax.set_xlabel('# processed tracks')
+                    ax.grid()
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.plot(x, y - y[0], label='%s for %s' % (par_name, dut.name), color=cmap(dut_index))
+                    ax.legend()
+                    ax.set_title('%s for %s' % (par_name, dut.name))
+                    ax.set_ylabel('Rel. Change of %s' % par_name)
+                    ax.set_xlabel('# processed tracks')
+                    ax.grid()
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.plot(x, yerr, label='%s for %s' % (par_name, dut.name), color=cmap(dut_index))
+                    ax.legend()
+                    ax.set_title('%s for %s' % (par_name, dut.name))
+                    ax.set_ylabel('Error of %s' % par_name)
+                    ax.set_xlabel('# processed tracks')
+                    ax.grid()
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.hist(y_delta, bins=np.linspace(y_delta.min(), np.percentile(y_delta, q=97.0), 100), color=cmap(dut_index))
+                    ax.axvline(x=deviation_cuts[par], ls='--', color='grey')
+                    ax.set_title('%s for %s' % (par_name, dut.name))
+                    ax.set_ylabel('Deviation of %s for %s' % (par_name, dut.name))
+                    ax.set_ylabel('#')
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.plot(np.arange(y_delta.shape[0]), y_delta, label='%s for %s' % (par_name, dut.name), color=cmap(dut_index))
+                    ax.axhline(y=deviation_cuts[par], ls='--', color='grey')
+                    ax.set_ylabel('#')
+                    ax.set_ylabel('Deviation of %s for %s' % (par_name, dut.name))
+                    ax.grid()
+                    output_pdf.savefig(fig)
+
+                    fig = Figure()
+                    _ = FigureCanvas(fig)
+                    ax = fig.add_subplot(111)
+                    ax.set_title('Annealing Factor for %s' % dut.name)
+                    ax.plot(x, alpha, label='Annealing Factor for %s' % dut.name, color=cmap(dut_index))
+                    ax.axhline(y=1.0, ls='--', color='grey')
+                    ax.set_xlabel('# processed tracks')
+                    ax.set_xlabel('Annealing Factor')
+                    ax.grid()
+                    output_pdf.savefig(fig)
+
+            # Plot chi2 distribution
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            ax.hist(track_chi2, bins=np.linspace(0.0, 100.0, 200))
+            ax.set_xlim(0.0, 100.0)
+            ax.axvline(x=max_track_chi2, ls='--', color='grey')
+            ax.set_xlabel('Track $\chi^2$/ndf')
+            ax.set_ylabel('#')
+            ax.grid()
+            output_pdf.savefig(fig)
+
+            # Plot chi2 distribution, narrow
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            ax.hist(track_chi2, bins=np.linspace(0.0, 20.0, 200))
+            ax.set_xlim(0.0, 20.0)
+            ax.axvline(x=max_track_chi2, ls='--', color='grey')
+            ax.set_xlabel('Track $\chi^2$/ndf')
+            ax.set_ylabel('#')
+            ax.grid()
+            output_pdf.savefig(fig)
+
+            # Plot number of processed tracks
+            for dut_index, dut in enumerate(telescope):
+                aligment_parameter_table = in_file_h5.get_node('/Alignment_DUT%i' % dut_index)
+                n_tracks_processed.append(aligment_parameter_table._v_attrs.n_tracks_processed)
+            xtick_labels = ['DUT %i' % i for i in range(len(telescope))]
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            ax.bar(x=np.arange(len(telescope)), height=n_tracks_processed, width=0.8, align='center')
+            ax.set_ylabel('# processed Tracks')
+            ax.set_xticks(range(len(telescope)))
+            ax.set_xticklabels(xtick_labels, rotation=45, ha="right")
+            output_pdf.savefig(fig)
