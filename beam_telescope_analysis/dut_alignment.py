@@ -888,7 +888,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, fit_method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, use_limits=True, plot=True, chunk_size=1000000):
+def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, use_reference_dut = None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, use_limits=True, plot=True, chunk_size=1000000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -1098,26 +1098,6 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         if set(fit_dut) - set(select_hit_duts[index]):  # fit DUTs are required to have a hit
             raise ValueError("DUT in select_fit_duts is not in select_hit_duts.")
 
-    # # Create chi2 array
-    # if not isinstance(track_chi2, Iterable):
-    #     track_chi2 = [track_chi2] * len(select_duts)
-    # # Finally check length
-    # if len(track_chi2) != len(select_duts):
-    #     raise ValueError("Parameter track_chi2 has the wrong length.")
-    # # expand dimensions
-    # # Check iterable and length for each item
-    # for index, chi2 in enumerate(track_chi2):
-    #     # Check if non-iterable
-    #     if not isinstance(chi2, Iterable):
-    #         track_chi2[index] = [chi2] * len(select_duts[index])
-    # # again check for consistency
-    # for index, chi2 in enumerate(track_chi2):
-    #     # Check iterable and length
-    #     if not isinstance(chi2, Iterable):
-    #         raise ValueError("Item in parameter track_chi2 is not an iterable.")
-    #     if len(chi2) != len(select_duts[index]):  # empty iterable
-    #         raise ValueError("Item in parameter track_chi2 has the wrong length.")
-
     # Create cluster shape selection
     if cluster_shapes is None:  # If None: set default value for all DUTs
         cluster_shapes = [cluster_shapes] * len(select_duts)
@@ -1156,50 +1136,6 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         if len(shapes) != len(select_duts[index]):  # empty iterable
             raise ValueError("Item in parameter cluster_shapes has the wrong length.")
 
-    # # Create quality distance
-    # if isinstance(quality_distances, tuple) or quality_distances is None:
-    #     quality_distances = [quality_distances] * n_duts
-    # # Check iterable and length
-    # if not isinstance(quality_distances, Iterable):
-    #     raise ValueError("Parameter quality_distances is not an iterable.")
-    # elif not quality_distances:  # empty iterable
-    #     raise ValueError("Parameter quality_distances has no items.")
-    # # Finally check length of all arrays
-    # if len(quality_distances) != n_duts:  # empty iterable
-    #     raise ValueError("Parameter quality_distances has the wrong length.")
-    # # Check if only iterable in iterable
-    # if not all(map(lambda val: isinstance(val, Iterable) or val is None, quality_distances)):
-    #     raise ValueError("Not all items in parameter quality_distances are iterable or None.")
-    # # Finally check length of all arrays
-    # for distance in quality_distances:
-    #     if distance is not None and len(distance) != 2:  # check the length of the items
-    #         raise ValueError("Item in parameter quality_distances has length != 2.")
-
-    # # Create reject quality distance
-    # if isinstance(isolation_distances, tuple) or isolation_distances is None:
-    #     isolation_distances = [isolation_distances] * n_duts
-    # # Check iterable and length
-    # if not isinstance(isolation_distances, Iterable):
-    #     raise ValueError("Parameter isolation_distances is no iterable.")
-    # elif not isolation_distances:  # empty iterable
-    #     raise ValueError("Parameter isolation_distances has no items.")
-    # # Finally check length of all arrays
-    # if len(isolation_distances) != n_duts:  # empty iterable
-    #     raise ValueError("Parameter isolation_distances has the wrong length.")
-    # # Check if only iterable in iterable
-    # if not all(map(lambda val: isinstance(val, Iterable) or val is None, isolation_distances)):
-    #     raise ValueError("Not all items in Parameter isolation_distances are iterable or None.")
-    # # Finally check length of all arrays
-    # for distance in isolation_distances:
-    #     if distance is not None and len(distance) != 2:  # check the length of the items
-    #         raise ValueError("Item in parameter isolation_distances has length != 2.")
-
-    # if not isinstance(max_iterations, Iterable):
-    #     max_iterations = [max_iterations] * len(select_duts)
-    # # Finally check length of all arrays
-    # if len(max_iterations) != len(select_duts):  # empty iterable
-    #     raise ValueError("Parameter max_iterations has the wrong length.")
-
     if not isinstance(max_events, Iterable):
         max_events = [max_events] * len(select_duts)
     # Finally check length
@@ -1224,17 +1160,12 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         aligned_telescope.save_configuration()
     else:
         telescope.save_configuration(configuration_file=output_telescope_configuration)
-    prealigned_track_candidates_file = os.path.splitext(input_merged_file)[0] + '_track_candidates_prealigned_tmp.h5'
-    
-
-    # clean up remaining files
-    # if os.path.isfile(prealigned_track_candidates_file):
-    #     os.remove(prealigned_track_candidates_file)
 
     for index, align_duts in enumerate(select_duts):
         # Find pre-aligned tracks for the 1st step of the alignment.
         # This file can be used for different sets of alignment DUTs,
         # so keep the file and remove later.
+        prealigned_track_candidates_file = os.path.splitext(input_merged_file)[0] + '_track_candidates_prealigned_%i_tmp.h5' % index
         if not os.path.isfile(prealigned_track_candidates_file):
             logging.info('= Alignment step 1: Finding pre-aligned tracks =')
             find_tracks(
@@ -1243,16 +1174,7 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
                 output_track_candidates_file=prealigned_track_candidates_file,
                 select_extrapolation_duts=select_extrapolation_duts,
                 align_to_beam=True,
-                max_events=None)
-
-         # data_selection.select_tracks(
-         #    telescope_configuration=telescope_configuration,
-         #    input_tracks_file=prealigned_track_candidates_file,
-         #    output_tracks_file=output_selected_prealigned_track_candidates_file,
-         #    select_duts=align_duts,
-         #    select_hit_duts=select_hit_duts[index],
-         #    max_events=None,
-         #    chunk_size=chunk_size)
+                max_events=max_events[index])
 
         logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
         _duts_alignment_kalman(
@@ -1260,27 +1182,18 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
             merged_file=input_merged_file,
             prealigned_track_candidates_file=prealigned_track_candidates_file,
             align_duts=align_duts,
+            use_reference_dut = use_reference_dut,
             alignment_parameters=alignment_parameters[index],
-            # select_telescope_duts=select_telescope_duts,
-            select_extrapolation_duts=select_extrapolation_duts,
             select_fit_duts=select_fit_duts[index],
             select_hit_duts=select_hit_duts[index],
-            # max_iterations=max_iterations[index],
-            max_events=max_events[index],
-            fit_method='kalman',
             beam_energy=beam_energy,
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
             track_chi2=track_chi2[index],
-            cluster_shapes=cluster_shapes[index],
-            # quality_distances=quality_distances,
-            # isolation_distances=isolation_distances,
             use_limits=use_limits,
             plot=plot,
-            chunk_size=chunk_size)
-
-    # if os.path.isfile(prealigned_track_candidates_file):
-    #     os.remove(prealigned_track_candidates_file)
+            chunk_size=chunk_size,
+            iteration_index = index)
 
     return output_telescope_configuration
 
@@ -1424,150 +1337,31 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
     if output_track_candidates_file is not None:
         os.remove(output_track_candidates_file)
 
-def _duts_alignment_kalman(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, select_extrapolation_duts, select_fit_duts, select_hit_duts, max_events, fit_method, beam_energy, particle_mass, scattering_planes, track_chi2, cluster_shapes, use_limits, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
-    alignment_duts = "_".join(str(dut) for dut in align_duts)
-    aligned_telescope = Telescope(configuration_file=output_telescope_configuration)
+def _duts_alignment_kalman(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, use_reference_dut, select_fit_duts, select_hit_duts, beam_energy, particle_mass, scattering_planes, track_chi2, use_limits, iteration_index, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
 
-    # output_track_candidates_file = None
-    # iteration_steps = range(max_iterations)
-    # for iteration_step in iteration_steps:
-    #     # aligning telescope DUTs to the beam axis (z-axis)
-    #     if set(align_duts) & set(select_telescope_duts):
-    #         align_telescope(
-    #             telescope_configuration=output_telescope_configuration,
-    #             select_telescope_duts=list(set(align_duts) & set(select_telescope_duts)))
-    #     actual_align_duts = align_duts
-    #     actual_fit_duts = select_fit_duts
-    #     # reqire hits in each DUT that will be aligned
-    #     actual_hit_duts = [list(set(select_hit_duts) | set([dut_index])) for dut_index in actual_align_duts]
-    #     actual_quality_duts = actual_hit_duts
-    #     fit_quality_distances = np.zeros_like(quality_distances)
-    #     for index, item in enumerate(quality_distances):
-    #         if index in align_duts:
-    #             fit_quality_distances[index, 0] = np.linspace(item[0] * 1.08447**max_iterations, item[0], max_iterations)[iteration_step]
-    #             fit_quality_distances[index, 1] = np.linspace(item[1] * 1.08447**max_iterations, item[1], max_iterations)[iteration_step]
-    #         else:
-    #             fit_quality_distances[index, 0] = item[0]
-    #             fit_quality_distances[index, 1] = item[1]
-    #     fit_quality_distances = fit_quality_distances.tolist()
-    #     print(max_events)
-
-        # if iteration_step > 0:
-        #     logging.info('= Alignment step 1 - iteration %d: Finding tracks for %d DUTs =', iteration_step, len(align_duts))
-        #     # remove temporary file
-        #     if output_track_candidates_file is not None:
-        #         os.remove(output_track_candidates_file)
-        #     output_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_aligned_duts_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
-        #     find_tracks(
-        #         telescope_configuration=output_telescope_configuration,
-        #         input_merged_file=merged_file,
-        #         output_track_candidates_file=output_track_candidates_file,
-        #         select_extrapolation_duts=select_extrapolation_duts,
-        #         align_to_beam=True,
-        #         max_events=max_events)
-
-    # The quality flag of the actual align DUT depends on the alignment calculated
-    # in the previous iteration, therefore this step has to be done every time
     logging.info('= Alignment step 2 - Fitting tracks for %d DUTs =', len(align_duts))
-    output_alignment_file = os.path.splitext(merged_file)[0] + '_alignment_parameters_duts_%s_tmp.h5' % (alignment_duts)
+    output_alignment_file = os.path.splitext(merged_file)[0] + '_alignment_parameters.h5'
+    if iteration_index == 0: # clean up before starting alignment. In case differen sets of DUTs are aligned after each other only clean up once.
+        if os.path.exists(output_alignment_file):
+            os.remove(output_alignment_file)
     align_tracks_kalman(
         telescope_configuration=output_telescope_configuration,
         input_track_candidates_file=prealigned_track_candidates_file,
         output_alignment_file=output_alignment_file,
-        alignment_parameters=alignment_parameters,
-        max_events=max_events,
+        align_parameters=alignment_parameters,
         select_duts=align_duts,
+        use_reference_dut = use_reference_dut,
         select_fit_duts=select_fit_duts,
         select_hit_duts=select_hit_duts,
         exclude_dut_hit=False,  # for biased residuals
         select_align_duts=align_duts,  # correct residual offset for align DUTs
-        method=fit_method,
         beam_energy=beam_energy,
         particle_mass=particle_mass,
         scattering_planes=scattering_planes,
-        # quality_distances=quality_distances,
-        # isolation_distances=isolation_distances,
         track_chi2=track_chi2,
         use_limits=use_limits,
         plot=plot,
         chunk_size=chunk_size)
-
-
-        # Delete temporary files
-        # os.remove(output_tracks_file)
-        # os.remove(output_selected_tracks_file)
-
-    # Delete temporary files
-    # if output_track_candidates_file is not None:
-    #     os.remove(output_track_candidates_file)
-
-    # if plot or set(align_duts) & set(select_fit_duts):
-    #     final_track_candidates_file = os.path.splitext(merged_file)[0] + '_track_candidates_final_tmp_duts_%s.h5' % alignment_duts
-    #     find_tracks(
-    #         telescope_configuration=output_telescope_configuration,
-    #         input_merged_file=merged_file,
-    #         output_track_candidates_file=final_track_candidates_file,
-    #         select_extrapolation_duts=select_extrapolation_duts,
-    #         align_to_beam=True,
-    #         max_events=max_events)
-
-    #     final_tracks_file = os.path.splitext(merged_file)[0] + '_tracks_final_tmp_duts_%s.h5' % alignment_duts
-    #     fit_tracks(
-    #         telescope_configuration=output_telescope_configuration,
-    #         input_track_candidates_file=final_track_candidates_file,
-    #         output_tracks_file=final_tracks_file,
-    #         select_duts=align_duts,  # Only create residuals of selected DUTs
-    #         select_fit_duts=select_fit_duts,  # Only use selected duts
-    #         select_hit_duts=select_hit_duts,
-    #         exclude_dut_hit=True,  # For unbiased residuals for the final plots
-    #         method=fit_method,
-    #         beam_energy=beam_energy,
-    #         particle_mass=particle_mass,
-    #         scattering_planes=scattering_planes,
-    #         quality_distances=fit_quality_distances,
-    #         isolation_distances=isolation_distances,
-    #         plot=plot,
-    #         chunk_size=chunk_size)
-
-    #     final_selected_tracks_file = os.path.splitext(merged_file)[0] + '_selected_tracks_final_tmp_duts_%s.h5' % alignment_duts
-    #     data_selection.select_tracks(
-    #         input_tracks_file=final_tracks_file,
-    #         output_tracks_file=final_selected_tracks_file,
-    #         select_duts=align_duts,
-    #         duts_hit_selection=duts_selection,
-    #         duts_quality_selection=duts_selection,,
-    #         select_isolated_track_duts=duts_selection,
-    #         select_isolated_hit_duts=duts_selection,
-    #         query=None,
-    #         chunk_size=chunk_size)
-
-    #     if set(align_duts) & set(select_fit_duts):
-    #         track_angles_file = os.path.splitext(merged_file)[0] + '_tracks_angles_final_reduced_tmp_duts_%s.h5' % alignment_duts
-    #         histogram_track_angle(
-    #             telescope_configuration=output_telescope_configuration,
-    #             input_tracks_file=final_selected_tracks_file,
-    #             output_track_angle_file=track_angles_file,
-    #             select_duts=align_duts,
-    #             n_bins="auto",
-    #             plot=plot)
-
-    #     # Plotting final results
-    #     if plot:
-    #         final_residuals_file = os.path.splitext(merged_file)[0] + '_residuals_final_duts_%s.h5' % alignment_duts
-    #         calculate_residuals(
-    #             telescope_configuration=output_telescope_configuration,
-    #             input_tracks_file=final_selected_tracks_file,
-    #             output_residuals_file=final_residuals_file,
-    #             select_duts=align_duts,
-    #             use_limits=use_limits,
-    #             plot=plot,
-    #             chunk_size=chunk_size)
-
-    #     # Delete temporary files
-    #     os.remove(final_track_candidates_file)
-    #     os.remove(final_tracks_file)
-    #     os.remove(final_selected_tracks_file)
-    #     os.remove(final_residuals_file)
 
 
 def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
