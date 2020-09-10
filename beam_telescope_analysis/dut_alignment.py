@@ -1166,15 +1166,13 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         # This file can be used for different sets of alignment DUTs,
         # so keep the file and remove later.
         prealigned_track_candidates_file = os.path.splitext(input_merged_file)[0] + '_track_candidates_prealigned_%i_tmp.h5' % index
-        if not os.path.isfile(prealigned_track_candidates_file):
-            logging.info('= Alignment step 1: Finding pre-aligned tracks =')
-            find_tracks(
-                telescope_configuration=telescope_configuration,
-                input_merged_file=input_merged_file,
-                output_track_candidates_file=prealigned_track_candidates_file,
-                select_extrapolation_duts=select_extrapolation_duts,
-                align_to_beam=True,
-                max_events=max_events[index])
+        find_tracks(
+            telescope_configuration=telescope_configuration,
+            input_merged_file=input_merged_file,
+            output_track_candidates_file=prealigned_track_candidates_file,
+            select_extrapolation_duts=select_extrapolation_duts,
+            align_to_beam=True,
+            max_events=max_events[index])
 
         logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
         _duts_alignment_kalman(
