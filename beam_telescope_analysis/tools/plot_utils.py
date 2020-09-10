@@ -873,7 +873,7 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                             range_full = [0.0, 1.0]
                         hist_full, edges_full = np.histogram(chi2s, range=range_full, bins=250)
                         hist_narrow, edges_narrow = np.histogram(chi2s, range=[0, 250], bins=250)
-                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=10)
+                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=40)
                     else:
                         hist_full += np.histogram(chi2s, bins=edges_full)[0]
                         hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]
