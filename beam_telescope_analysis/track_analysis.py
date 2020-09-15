@@ -1590,7 +1590,7 @@ def _combine_karimaki(initial_rotation_matrix, initial_position_vector, deltaFra
 
 
 def _calculate_annealing(k, annealing_factor, annealing_tracks):
-    # According to Scheme C from https://sci-hub.tw/10.1088/0954-3899/29/3/309
+    # According to Scheme C from https://iopscience.iop.org/article/10.1088/0954-3899/29/3/309
     if k < annealing_tracks:
         alpha = annealing_factor ** ((annealing_tracks - k) / annealing_tracks)
     else:
