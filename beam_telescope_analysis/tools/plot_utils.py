@@ -4,8 +4,10 @@ import logging
 import re
 import os.path
 import warnings
+from copy import copy
 from math import ceil
 from itertools import cycle
+
 
 import numpy as np
 import tables as tb
@@ -88,7 +90,7 @@ def plot_2d_pixel_hist(fig, ax, hist2d, plot_range, title=None, x_axis_title=Non
         else:
             z_max = ceil(hist2d.max())
     if isinstance(cmap, basestring):
-        cmap = cm.get_cmap(cmap)
+        cmap = copy(cm.get_cmap(cmap))
         cmap.set_bad('w')
     else:
         cmap = cmap
@@ -177,7 +179,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
         output_pdf_file = os.path.splitext(input_mask_file)[0] + '.pdf'
 
     with PdfPages(output_pdf_file, keep_empty=False) as output_pdf:
-        cmap = cm.get_cmap('viridis')
+        cmap = copy(cm.get_cmap('viridis'))
         cmap.set_bad('w')
         c_max = np.ceil(np.percentile(occupancy, 99.0))
 
@@ -544,7 +546,7 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, dut_names=No
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                cmap = cm.get_cmap('viridis')
+                cmap = copy(cm.get_cmap('viridis'))
                 cmap.set_bad('w')
                 norm = colors.LogNorm()
                 aspect = 1.0  # "auto"
@@ -566,7 +568,7 @@ def plot_hough(dut_pos, data, accumulator, offset, slope, dut_pos_limit, theta_e
     fig = Figure()
     _ = FigureCanvas(fig)
     ax = fig.add_subplot(111)
-    cmap = cm.get_cmap('viridis')
+    cmap = copy(cm.get_cmap('viridis'))
     cmap.set_bad('w')
     ax.imshow(np.flip(np.flip(accumulator, 0), 1), interpolation="none", origin="lower", aspect="auto", cmap=cmap, extent=[np.rad2deg(theta_edges[0]), np.rad2deg(theta_edges[-1]), rho_edges[0], rho_edges[-1]])
     ax.set_xticks([-90, -45, 0, 45, 90])
@@ -617,7 +619,7 @@ def plot_checks(input_corr_file, output_pdf_file=None):
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                cmap = cm.get_cmap('viridis')
+                cmap = copy(cm.get_cmap('viridis'))
                 cmap.set_bad('w')
                 norm = colors.LogNorm()
                 if len(data.shape) == 1:  # 1 d data (event delta)
@@ -1167,7 +1169,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
         if -1 not in region:
             vert = vertices[region]
             verts.append(vert)
-    cmap = cm.get_cmap('viridis')
+    cmap = copy(cm.get_cmap('viridis'))
     cmap.set_bad('w')
     norm = colors.Normalize(vmin=z_min, vmax=z_max)
     p = PolyCollection(
@@ -1301,7 +1303,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         _, residual_to_pixel_center_sel = pixel_center_kd_tree.query(residual_vectors)
         _, bin_center_to_pixel_center_sel = pixel_center_kd_tree.query(bin_center_data_sel)
         color_indices = np.linspace(0.0, 1.0, num=100)
-        cmap = cm.get_cmap('tab20')
+        cmap = copy(cm.get_cmap('tab20'))
         cmap.set_bad('w')
         rgb_colors = np.array([cmap(color) for color in color_indices])
         valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
@@ -1379,7 +1381,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             # generate array with pixel index of the pixel with the most hits for each bin
             max_hits_pixel_index_sel = max_hits_pixel_index[np.ravel(select_bins)]
             color_indices = np.linspace(0.0, 1.0, num=100)
-            cmap = cm.get_cmap('tab20')
+            cmap = copy(cm.get_cmap('tab20'))
             cmap.set_bad('w')
             rgb_colors = np.array([cmap(color) for color in color_indices])
             valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
@@ -1516,11 +1518,11 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     # plot cluster size average (cluster sizes 1 - 4 only)
     z_min = 1.0
     z_max = 4.0
-    # set1_cmap = cm.get_cmap("Set1", 9)
+    # set1_cmap = copy(m.get_cmap("Set1", 9))
     # new_colors = set1_cmap(np.linspace(0, 1, 9))
     # new_cmap = colors.ListedColormap(new_colors[1:5], name="cluster_colormap")
     # new_cmap.set_over('k')
-    cmap = cm.get_cmap("viridis", 256)
+    cmap = copy(cm.get_cmap("viridis", 256))
     cmap.set_over('magenta')
     _, cbar = plot_2d_pixel_hist(fig, ax, stat_2d_cluster_size_hist.T, hist_extent, title='Mean cluster size\nfor %s' % (actual_dut.name,), x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=cmap)
     cbar.set_ticks(range(1, 5))
@@ -1982,7 +1984,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 _, residual_to_pixel_center_in_pixel_sel = pixel_center_in_pixel_kd_tree.query(residual_vectors_in_pixel)
                 _, bin_center_to_pixel_center_in_pixel_sel = pixel_center_in_pixel_kd_tree.query(bin_center_data_in_pixel_sel)
                 color_indices = np.linspace(0.0, 1.0, num=100)
-                cmap = cm.get_cmap('tab20')
+                cmap = copy(cm.get_cmap('tab20'))
                 cmap.set_bad('w')
                 rgb_colors = np.array([cmap(color) for color in color_indices])
                 valid_color_indices = np.r_[0, np.unique(np.where(rgb_colors[:-1] != rgb_colors[1:])[0]) + 1]
@@ -2138,11 +2140,11 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 # plot cluster size average (cluster sizes 1 - 4 only)
                 z_min = 1.0
                 z_max = 4.0
-                # set1_cmap = cm.get_cmap("Set1", 9)
+                # set1_cmap = copy(cm.get_cmap("Set1", 9))
                 # new_colors = set1_cmap(np.linspace(0, 1, 9))
                 # new_cmap = colors.ListedColormap(new_colors[1:5], name="cluster_colormap")
                 # new_cmap.set_over('k')
-                cmap = cm.get_cmap("viridis", 256)
+                cmap = copy(cm.get_cmap("viridis", 256))
                 cmap.set_over('magenta')
                 title = 'Region %d%s: In-pixel mean cluster size\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
                 _, cbar = plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_cluster_size_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=z_min, z_max=z_max, cmap=cmap, aspect=1.0)
@@ -2160,7 +2162,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax = fig.add_subplot(111)
                 z_min = -0.5
                 z_max = len(efficiency_regions_analyze_cluster_shapes) - 0.5
-                set1_cmap = cm.get_cmap("Set1", 9)
+                set1_cmap = copy(cm.get_cmap("Set1", 9))
                 new_colors = set1_cmap(np.linspace(0, 1, 9))
                 new_cmap = colors.ListedColormap(new_colors[1:len(efficiency_regions_analyze_cluster_shapes) + 1], name="cluster_colormap")
                 new_cmap.set_over('k')
