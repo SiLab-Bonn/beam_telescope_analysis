@@ -888,7 +888,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, select_duts=None, alignment_parameters=None, use_reference_dut = None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, use_limits=True, plot=True, chunk_size=1000000):
+def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, output_alignment_file=None, select_duts=None, alignment_parameters=None, use_reference_dut = None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, use_limits=True, plot=True, chunk_size=1000000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -1161,6 +1161,11 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
     else:
         telescope.save_configuration(configuration_file=output_telescope_configuration)
 
+    if output_alignment_file is None:
+        output_alignment_file = os.path.splitext(input_merged_file)[0] + '_alignment_parameters.h5'
+    else:
+        output_alignment_file = output_alignment_file
+
     for index, align_duts in enumerate(select_duts):
         # Find pre-aligned tracks for the 1st step of the alignment.
         # This file can be used for different sets of alignment DUTs,
@@ -1177,7 +1182,7 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         logging.info('== Aligning %d DUTs: %s ==', len(align_duts), ", ".join(telescope[dut_index].name for dut_index in align_duts))
         _duts_alignment_kalman(
             output_telescope_configuration=output_telescope_configuration,  # aligned configuration
-            merged_file=input_merged_file,
+            output_alignment_file=output_alignment_file,
             prealigned_track_candidates_file=prealigned_track_candidates_file,
             align_duts=align_duts,
             use_reference_dut = use_reference_dut,
@@ -1335,10 +1340,9 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
     if output_track_candidates_file is not None:
         os.remove(output_track_candidates_file)
 
-def _duts_alignment_kalman(output_telescope_configuration, merged_file, align_duts, prealigned_track_candidates_file, alignment_parameters, use_reference_dut, select_fit_duts, select_hit_duts, beam_energy, particle_mass, scattering_planes, track_chi2, use_limits, iteration_index, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
+def _duts_alignment_kalman(output_telescope_configuration, output_alignment_file, align_duts, prealigned_track_candidates_file, alignment_parameters, use_reference_dut, select_fit_duts, select_hit_duts, beam_energy, particle_mass, scattering_planes, track_chi2, use_limits, iteration_index, plot=True, chunk_size=100000):  # Called for each list of DUTs to align
 
     logging.info('= Alignment step 2 - Fitting tracks for %d DUTs =', len(align_duts))
-    output_alignment_file = os.path.splitext(merged_file)[0] + '_alignment_parameters.h5'
     if iteration_index == 0: # clean up before starting alignment. In case differen sets of DUTs are aligned after each other only clean up once.
         if os.path.exists(output_alignment_file):
             os.remove(output_alignment_file)
