@@ -7,10 +7,8 @@ from numba import njit
 from beam_telescope_analysis.tools import geometry_utils
 
 
-@njit
-def _filter_predict(reference_state, track_jacobian, local_scatter_gain_matrix, transition_covariance,
-                    current_filtered_state,
-                    current_filtered_state_covariance):
+@njit(cache=True)
+def _filter_predict(reference_state, track_jacobian, local_scatter_gain_matrix, transition_covariance, current_filtered_state, current_filtered_state_covariance):
     """Calculates the predicted state and its covariance matrix. Prediction
     is done on whole track chunk with size chunk_size.
 
@@ -46,15 +44,13 @@ def _filter_predict(reference_state, track_jacobian, local_scatter_gain_matrix, 
     # Add process noise to covariance matrix
     general_scatter_gain_matrix = _mat_mul(track_jacobian, local_scatter_gain_matrix)
     predicted_state_covariance += _mat_mul(general_scatter_gain_matrix,
-                                          _mat_mul(transition_covariance,
-                                                   _mat_trans(general_scatter_gain_matrix)))
+                                           _mat_mul(transition_covariance,
+                                                    _mat_trans(general_scatter_gain_matrix)))
 
     return predicted_state, predicted_state_covariance
 
 
-def _filter_correct(reference_state,
-                    observation_matrix, observation_covariance, predicted_state,
-                    predicted_state_covariance, observation):
+def _filter_correct(reference_state, observation_matrix, observation_covariance, predicted_state, predicted_state_covariance, observation):
     r"""Filters a predicted state with the Kalman Filter. Filtering
     is done on whole track chunk with size chunk_size.
 
@@ -111,10 +107,7 @@ def _filter_correct(reference_state,
     return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
 
-def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations,
-            observation_matrices, transition_covariances,
-            observation_covariances,
-            initial_state, initial_state_covariance):
+def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
     """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
     done which includes the observations.
 
@@ -169,7 +162,7 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
     for i, dut_index in enumerate(z_sorted_dut_indices):
         # Get actual reference state
         reference_state = reference_states[:, dut_index, :]
-        
+
         if i == 0:  # first DUT: Set predicted state to initial state
             predicted_states[:, dut_index] = initial_state
             predicted_state_covariances[:, dut_index] = initial_state_covariance
@@ -199,12 +192,12 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
                 rotation_matrix=np.tile(rotation_matrix, reps=(reference_state.shape[0], 1, 1)),
                 rotation_matrix_next=np.tile(rotation_matrix_next, reps=(reference_state.shape[0], 1, 1)))
 
-            # TODO: what is this exactly (according to Wolin et al. paper)
-            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, dut_index - 1, :]) # use reference state from before
+            # According to Wolin et al. paper
+            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, dut_index - 1, :])  # use reference state from before
 
             # Calculate prediction from filter
             predicted_states[:, dut_index], predicted_state_covariances[:, dut_index] = _filter_predict(
-                reference_state=reference_states[:, dut_index - 1, :], # use reference state from before,
+                reference_state=reference_states[:, dut_index - 1, :],  # use reference state from before
                 track_jacobian=Js[:, dut_index, :, :],  # transition matrix from dut_index - 1 -> dut_index
                 local_scatter_gain_matrix=Gl_det,
                 transition_covariance=transition_covariances[:, dut_index - 1],  # next plane in -z direction
@@ -252,10 +245,7 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
     return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, chi2, Js
 
 
-def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations,
-            observation_matrices, transition_covariances,
-            observation_covariances,
-            initial_state, initial_state_covariance):
+def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
     """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
     done which includes the observations.
 
@@ -310,7 +300,7 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
     for i, dut_index in enumerate(z_sorted_dut_indices[::-1]):
         # Get actual reference state
         reference_state = reference_states[:, dut_index, :]
-        
+
         if i == 0:  # first DUT / last DUT
             predicted_states[:, dut_index] = initial_state
             predicted_state_covariances[:, dut_index] = initial_state_covariance
@@ -341,11 +331,11 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
                 rotation_matrix_next=np.tile(rotation_matrix_next, reps=(reference_state.shape[0], 1, 1)))
 
             # TODO: what is this exactly (according to Wolin et al. paper)
-            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, dut_index + 1, :]) # use reference state from before
+            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, dut_index + 1, :])  # use reference state from before
 
             # Calculate prediction from filter
             predicted_states[:, dut_index], predicted_state_covariances[:, dut_index] = _filter_predict(
-                reference_state=reference_states[:, dut_index + 1, :], # use reference state from before,
+                reference_state=reference_states[:, dut_index + 1, :],  # use reference state from before
                 track_jacobian=Js[:, dut_index, :, :],  # transition matrix from dut_index - 1 -> dut_index
                 local_scatter_gain_matrix=Gl_det,
                 transition_covariance=transition_covariances[:, dut_index + 1],  # next plane in +z direction
@@ -393,13 +383,8 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
     return predicted_states, predicted_state_covariances, kalman_gains, filtered_states, filtered_state_covariances, chi2, Js
 
 
-
-# @njit
-def _smooth_update(observation, reference_state, observation_matrix, observation_covariance,
-                   transition_matrix, predicted_state_covariance, filtered_state,
-                   filtered_state_covariance, next_predicted_state,
-                   next_predicted_state_covariance, next_smoothed_state,
-                   next_smoothed_state_covariance, dut_used_in_fit):
+@njit(cache=True)
+def _smooth_update(observation, reference_state, observation_matrix, observation_covariance, transition_matrix, predicted_state_covariance, filtered_state, filtered_state_covariance, next_predicted_state, next_predicted_state_covariance, next_smoothed_state, next_smoothed_state_covariance, dut_used_in_fit):
     """Smooth a filtered state with a Kalman Smoother. Smoothing
     is done on whole track chunk with size chunk_size.
 
@@ -465,10 +450,7 @@ def _smooth_update(observation, reference_state, observation_matrix, observation
     return smoothed_state, smoothed_state_covariance, kalman_smoothing_gain, chi2
 
 
-def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts,
-            observations, observation_matrices, observation_covariances, filtered_states,
-            filtered_state_covariances, predicted_states,
-            predicted_state_covariances):
+def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, observation_covariances, filtered_states, filtered_state_covariances, predicted_states, predicted_state_covariances):
     """Apply the Kalman Smoother to filtered states. Estimate the smoothed states.
     Smoothing is done on whole track chunk with size chunk_size.
 
@@ -535,9 +517,6 @@ def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts,
 
     # reverse order for smoother
     for i, dut_index in enumerate(z_sorted_dut_indices[:-1][::-1]):
-        # print(i, dut_index, z_sorted_dut_indices[::-1][i], z_sorted_dut_indices[::-1][i + 1])
-        # print(smoothed_state_covariances[:, z_sorted_dut_indices[::-1][i + 1]], 'NEXT SMOOTHED')
-        # print(smoothed_state_covariances[:, z_sorted_dut_indices[::-1][i]], 'NEXT SMOOTHED WIRNIGIGNNGNGGNGN')
         valid_hit_selection = ~np.isnan(observations[:, dut_index, 0])
         dut = dut_planes[dut_index]
         smoothed_states[:, dut_index], smoothed_state_covariances[:, dut_index], kalman_smoothing_gains[:, dut_index], chi2[valid_hit_selection, dut_index] = _smooth_update(
@@ -552,8 +531,7 @@ def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts,
             next_predicted_state_covariance=predicted_state_covariances[:, z_sorted_dut_indices[::-1][i]],  # next plane +z direction
             next_smoothed_state=smoothed_states[:, z_sorted_dut_indices[::-1][i]],  # next plane +z direction
             next_smoothed_state_covariance=smoothed_state_covariances[:, z_sorted_dut_indices[::-1][i]],  # next plane +z direction
-            dut_used_in_fit=True if dut_index in select_fit_duts else False,
-        )
+            dut_used_in_fit=True if dut_index in select_fit_duts else False)
 
         chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
         # check_covariance_matrix(smoothed_state_covariances[:, dut_index])  # Sanity check for covariance matrix
@@ -565,7 +543,7 @@ def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts,
     return smoothed_states, smoothed_state_covariances, kalman_smoothing_gains, chi2
 
 
-@njit
+@njit(cache=True)
 def _vec_vec_mul(X, Y):
     '''Helper function to multiply 3D vector with 3D vector. Multiplication is done on last two axes.
     '''
@@ -577,7 +555,7 @@ def _vec_vec_mul(X, Y):
     return result
 
 
-@njit
+@njit(cache=True)
 def _mat_mul(X, Y):
     '''Helper function to multiply two 3D matrices. Multiplication is done on last two axes.
     '''
@@ -595,7 +573,7 @@ def _mat_mul(X, Y):
     return result
 
 
-@njit
+@njit(cache=True)
 def _vec_mul(X, Y):
     '''Helper function to multiply 3D matrix with 3D vector. Multiplication is done on last two axes.
     '''
@@ -609,7 +587,7 @@ def _vec_mul(X, Y):
     return result
 
 
-@njit
+@njit(cache=True)
 def _mat_trans(X):
     '''Helper function to calculate transpose of 3D matrix. Transposition is done on last two axes.
     '''
@@ -622,7 +600,7 @@ def _mat_trans(X):
     return result
 
 
-@njit
+@njit(cache=True)
 def _mat_inverse(X, atol=1e-4, rtol=1e-6):
     '''Helper function to calculate inverese of 3D matrix. Inversion is done on last two axes.
     '''
@@ -637,7 +615,7 @@ def _mat_inverse(X, atol=1e-4, rtol=1e-6):
         tol_inv = atol + rtol * np.absolute(inv_c)
         if np.any(np.absolute(X[i] - X_c) > tol_X) or np.any(np.absolute(inv[i] - inv_c) > tol_inv):
             # print(X[i], i)
-            #raise RuntimeError('Matrix inversion failed!')
+            # raise RuntimeError('Matrix inversion failed!')
             print('Matrix inversion failed!')
     return inv
 
@@ -653,7 +631,7 @@ def check_covariance_matrix(cov):
         cov[non_psd_selection] = _make_matrix_psd(cov[non_psd_selection])
 
 
-@njit
+@njit(cache=True)
 def _make_matrix_psd(A, atol=1e-5, rtol=1e-8):
     """Find the nearest positive-definite matrix to input
 
@@ -741,7 +719,7 @@ def _calculate_scatter_gain_matrix(reference_state):
     # dV'/dtheta1, 1, 0
     G[:, 3, 0] = (b1 * g3 - b3 * g1) / (g3 * g3)  # Eq (12)
     # dV'/dtheta2, 1, 1
-    G[:, 3, 1] = (b2* g3 - b3 * g2) / (g3 * g3)  # Eq (13)
+    G[:, 3, 1] = (b2 * g3 - b3 * g2) / (g3 * g3)  # Eq (13)
     # Scattering angles affect the track
     # do not affect impact point
     # dU/dtheta1, 2, 0
@@ -755,10 +733,11 @@ def _calculate_scatter_gain_matrix(reference_state):
 
     return G
 
+
 def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_position, rotation_matrix, rotation_matrix_next):
     ''' Reference: V. Karimaki "Straight Line Fit for Pixel and Strip Detectors with Arbitrary Plane Orientations", CMS Note. (http://cds.cern.ch/record/687146/files/note99_041.pdf)
-        Calculates change of local coordinates (u, v, u', w') from one dut to next dut (wrt. to reference state). Thus, this gives the 
-        transition of local coordinates from one dut to next dut (e.i. transition matrix for local track state).
+        Calculates change of local coordinates (u, v, u', w') from one dut to next dut (wrt. to reference state). Thus, this gives the
+        transition of local coordinates from one dut to next dut (i.e. transition matrix for local track state).
         Assumes that rotation is given from local into global coordinates.
     '''
 
@@ -774,7 +753,6 @@ def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_positi
     direc[:, 0] = reference_state[:, 2]
     direc[:, 1] = reference_state[:, 3]
     direc[:, 2] = 1.0
-
 
     u = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
     u[:, 0] = 1.0
@@ -810,7 +788,7 @@ def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_positi
     J[:, 2, 0] = 0.0
     # dU'/dv
     J[:, 2, 1] = 0.0
-  
+
     # dV'/du'
     J[:, 3, 2] = (Rot[:, 0, 1] * brw - brv * Rot[:, 0, 2]) / (brw * brw)
     # dV'/dv'
@@ -819,7 +797,7 @@ def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_positi
     J[:, 3, 0] = 0.0
     # dV'/dV
     J[:, 3, 1] = 0.0
-    
+
     # dU/du
     J[:, 0, 0] = Rot[:, 0, 0] - Rot[:, 0, 2] * Up  # Eq (15)
     # dU/dv
@@ -828,7 +806,7 @@ def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_positi
     J[:, 0, 2] = t * J[:, 0, 0]  # Eq (17)
     # dU/dv'
     J[:, 0, 3] = t * J[:, 0, 1]  # Eq (18)
-  
+
     # dV/du
     J[:, 1, 0] = Rot[:, 0, 1] - Rot[:, 0, 2] * Vp  # Eq (15)
     # dV/dv
@@ -838,8 +816,8 @@ def _calculate_track_jacobian_new(reference_state, dut_position, next_dut_positi
     # dV/dv'
     J[:, 1, 3] = t * J[:, 1, 1]  # Eq (18)
 
-
     return J
+
 
 class KalmanFilter(object):
     def smooth(self, dut_planes, reference_states, z_sorted_dut_indices, momentum, beta, observations, select_fit_duts,
@@ -957,8 +935,8 @@ class KalmanFilter(object):
                     Cb = filtered_state_covariances_b[:, dut_index]
                     xf = filtered_states_f[:, dut_index]
                     Cf = filtered_state_covariances_f[:, dut_index]
-                    Cf_inv  =_mat_inverse(Cf)
-                    Cb_inv  =_mat_inverse(Cb)
+                    Cf_inv = _mat_inverse(Cf)
+                    Cb_inv = _mat_inverse(Cb)
                     smoothed_state_covariances[:, dut_index] = _mat_inverse(Cf_inv + Cb_inv)
                     smoothed_states[:, dut_index] = _vec_mul(smoothed_state_covariances[:, dut_index], (_vec_mul(Cf_inv, xf) + _vec_mul(Cb_inv, xb)))
 
