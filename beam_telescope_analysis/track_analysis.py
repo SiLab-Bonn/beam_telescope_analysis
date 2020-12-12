@@ -325,7 +325,6 @@ def _find_tracks_loop(event_numbers, indices, z_sorted_dut_indices, x, y, z, sel
                     if analyze_event_number != event_numbers[track_index2]:
                         break
                     else:
-                        #print(select_extrapolation_duts)
                         _find_tracks(
                             event_numbers=event_numbers,
                             indices=indices,
@@ -1032,616 +1031,6 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
     return output_tracks_file
 
-#@save_arguments
-# @profile
-def align_tracks_kalman(telescope_configuration, input_track_candidates_file, output_alignment_file=None, align_parameters=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, exclude_dut_hit=False, select_align_duts=None, use_reference_dut = None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=25.0, use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
-    '''Calculate tracks and set tracks quality flag for selected DUTs.
-    Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
-
-    Parameters
-    ----------
-    telescope_configuration : string
-        Filename of the telescope configuration file.
-    input_track_candidates_file : string
-        Filename of the input track candidate file.
-    output_tracks_file : string
-        Filename of the output tracks file.
-    max_events : uint
-        Maximum number of randomly chosen events. If None, all events are taken.
-    select_duts : list
-        Specify the fit DUTs for which tracks will be fitted and a track array will be generated.
-        If None, for all DUTs are selected.
-    select_hit_duts : list or list of lists
-        Specifying DUTs that are required to have a hit for each selected DUT.
-        If None, no DUT is required to have a hit.
-    select_fit_duts : list or list of lists
-        Specifying DUTs that are used for the track fit for each selected DUT.
-        If None, all DUTs are used for the track fit.
-        Note: This parameter needs to be set correctly. Usually not all available DUTs should be used for track fitting.
-        The list usually only contains DUTs, which are part of the telescope.
-    min_track_hits : uint or list
-        Minimum number of track hits for each selected DUT.
-        If None or list item is None, the minimum number of track hits is the length of select_fit_duts.
-    exclude_dut_hit : bool or list
-        Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
-        If False (default), use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
-        If True, do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
-    select_align_duts : list
-        Specify the DUTs for which a residual offset correction is to be carried out.
-        Note: This functionality is only used for the alignment of the DUTs.
-    method : string
-        Available methods are 'kalman', which uses a Kalman Filter for track calculation, and 'fit', which uses a simple
-        straight line fit for track calculation.
-    beam_energy : float
-        Energy of the beam in MeV, e.g., 2500.0 MeV for ELSA beam. Only used for the Kalman Filter.
-    particle_mass : float
-        Mass of the particle in MeV, e.g., 0.511 MeV for electrons. Only used for the Kalman Filter.
-    scattering_planes : list of Dut objects
-        Specifies additional scattering planes in case of DUTs which are not used or additional material in the way of the tracks.
-        Scattering planes must contain the following attributes:
-            name: name of the scattering plane
-            material_budget: material budget of the scattering plane
-            translation_x/translation_y/translation_z: x/y/z position of the plane (in um)
-            rotation_alpha/rotation_beta/rotation_gamma: alpha/beta/gamma angle of scattering plane (in radians)
-        The material budget is defined as the thickness devided by the radiation length.
-        If scattering_planes is None, no scattering plane will be added. Only available when using the Kalman Filter.
-        See the example on how to create scattering planes in the example script folder.
-    quality_distances : 2-tuple or list of 2-tuples
-        X and y distance (in um) for each DUT to calculate the quality flag. The selected track and corresponding hit
-        must have a smaller distance to have the quality flag to be set to 1.
-        If None, set distance to infinite.
-    isolation_distances : 2-tuple or list of 2-tuples
-        X and y distance (in um) for each DUT to calculate the isolated track/hit flag. Any other occurence of tracks or hits from the same event
-        within this distance will prevent the flag from beeing set.
-        If None, set distance to 0.
-    use_limits : bool
-        If True, use column and row limits from pre-alignment for selecting the data.
-    keep_data : bool
-        Keep all track candidates in data and add track info only to fitted tracks. Necessary for purity calculations.
-    full_track_info : bool
-        If True, the track vector and position of all DUTs is appended to track table in order to get the full track information.
-        If False, only the track vector and position of the actual fit DUT is appended to track table.
-    chunk_size : uint
-        Chunk size of the data when reading from file.
-
-    Returns
-    -------
-    output_tracks_file : string
-        Filename of the output tracks file.
-    '''
-    telescope = Telescope(telescope_configuration)
-    n_duts = len(telescope)
-
-    logging.info('=== Fitting tracks of %d DUTs ===' % n_duts)
-
-    if not beam_energy:
-        raise ValueError('Beam energy not given (in MeV).')
-
-    if not particle_mass:
-        raise ValueError('Particle mass not given (in MeV).')
-
-    if select_duts is None:
-        select_duts = list(range(n_duts))  # standard setting: fit tracks for all DUTs
-    elif not isinstance(select_duts, Iterable):
-        select_duts = [select_duts]
-    # Check for duplicates
-    if len(select_duts) != len(set(select_duts)):
-        raise ValueError("Found douplicate in select_duts.")
-    # Check if any iterable in iterable
-    if any(map(lambda val: isinstance(val, Iterable), select_duts)):
-        raise ValueError("Item in parameter select_duts is iterable.")
-
-    # Create track, hit selection
-    if select_fit_duts is None:  # If None: use all DUTs
-        select_fit_duts = list(range(n_duts))
-        # # copy each item
-        # for hit_duts in select_hit_duts:
-        #     select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
-    # Check iterable and length
-    if not isinstance(select_fit_duts, Iterable):
-        raise ValueError("Parameter select_fit_duts is not an iterable.")
-    elif not select_fit_duts:  # empty iterable
-        raise ValueError("Parameter select_fit_duts has no items.")
-    # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_fit_duts)):
-        select_fit_duts = [select_fit_duts[:] for _ in select_duts]
-    # if None use all DUTs
-    for index, item in enumerate(select_fit_duts):
-        if item is None:
-            select_fit_duts[index] = list(range(n_duts))
-    # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_fit_duts)):
-        raise ValueError("Not all items in parameter select_fit_duts are iterable.")
-    # Finally check length of all arrays
-    if len(select_fit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter select_fit_duts has the wrong length.")
-    for index, fit_dut in enumerate(select_fit_duts):
-        if len(fit_dut) < 2:  # check the length of the items
-            raise ValueError("Item in parameter select_fit_duts has length < 2.")
-
-    # Create track, hit selection
-    if select_hit_duts is None:  # If None, require no hit
-        # select_hit_duts = list(range(n_duts))
-        select_hit_duts = []
-    # Check iterable and length
-    if not isinstance(select_hit_duts, Iterable):
-        raise ValueError("Parameter select_hit_duts is not an iterable.")
-    # elif not select_hit_duts:  # empty iterable
-    #     raise ValueError("Parameter select_hit_duts has no items.")
-    # Check if only non-iterable in iterable
-    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_hit_duts)):
-        select_hit_duts = [select_hit_duts[:] for _ in select_duts]
-    # If None, require no hit
-    for index, item in enumerate(select_hit_duts):
-        if item is None:
-            select_hit_duts[index] = []
-    # Check if only iterable in iterable
-    if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
-        raise ValueError("Not all items in parameter select_hit_duts are iterable.")
-    # Finally check length of all arrays
-    if len(select_hit_duts) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter select_hit_duts has the wrong length.")
-
-    # Check iterable and length
-    if not isinstance(exclude_dut_hit, Iterable):
-        exclude_dut_hit = [exclude_dut_hit] * len(select_duts)
-    elif not exclude_dut_hit:  # empty iterable
-        raise ValueError("Parameter exclude_dut_hit has no items.")
-    # Finally check length of all array
-    if len(exclude_dut_hit) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter exclude_dut_hit has the wrong length.")
-    # Check if only bools in iterable
-    if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
-        raise ValueError("Not all items in parameter exclude_dut_hit are boolean.")
-
-    # Check iterable and length
-    if not isinstance(min_track_hits, Iterable):
-        min_track_hits = [min_track_hits] * len(select_duts)
-    # Finally check length of all arrays
-    if len(min_track_hits) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter min_track_hits has the wrong length.")
-
-    fitted_duts = []
-
-    description= [('translation_x', np.float64),
-                  ('translation_y', np.float64),
-                  ('translation_z', np.float64),
-                  ('rotation_alpha', np.float64),
-                  ('rotation_beta', np.float64),
-                  ('rotation_gamma', np.float64),
-                  ('translation_x_err', np.float64),
-                  ('translation_y_err', np.float64),
-                  ('translation_z_err', np.float64),
-                  ('rotation_alpha_err', np.float64),
-                  ('rotation_beta_err', np.float64),
-                  ('rotation_gamma_err', np.float64),
-                  ('translation_x_delta', np.float64),
-                  ('translation_y_delta', np.float64),
-                  ('translation_z_delta', np.float64),
-                  ('rotation_alpha_delta', np.float64),
-                  ('rotation_beta_delta', np.float64),
-                  ('rotation_gamma_delta', np.float64),
-                  ('annealing_factor', np.float64)]
-    description = np.dtype(description)
-
-    alignment_tables = []
-    i = 0
-
-    with tb.open_file(input_track_candidates_file, mode='r') as in_file_h5:
-        with tb.open_file(output_alignment_file, mode='a') as out_file_h5:
-            for fit_dut_index, actual_fit_dut in enumerate(select_duts):  # Loop over the DUTs where tracks shall be fitted for
-                # Test whether other DUTs have identical tracks
-                # if yes, save some CPU time and fit only once.
-                # This following list contains all DUT indices that will be fitted
-                # during this step of the loop.
-                if actual_fit_dut in fitted_duts:
-                    continue
-                # calculate all DUTs with identical tracks to save processing time
-                actual_fit_duts = []
-                for curr_fit_dut_index, curr_fit_dut in enumerate(select_duts):
-                    if (curr_fit_dut == actual_fit_dut or
-                        (((exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is False and set(select_fit_duts[curr_fit_dut_index]) == set(select_fit_duts[fit_dut_index])) or
-                          (exclude_dut_hit[curr_fit_dut_index] is False and exclude_dut_hit[fit_dut_index] is True and set(select_fit_duts[curr_fit_dut_index]) == (set(select_fit_duts[fit_dut_index]) - set([actual_fit_dut]))) or
-                          (exclude_dut_hit[curr_fit_dut_index] is True and exclude_dut_hit[fit_dut_index] is False and (set(select_fit_duts[curr_fit_dut_index]) - set([curr_fit_dut])) == set(select_fit_duts[fit_dut_index])) or
-                          (exclude_dut_hit[curr_fit_dut_index] is True and exclude_dut_hit[fit_dut_index] is True and (set(select_fit_duts[curr_fit_dut_index]) - set([curr_fit_dut])) == (set(select_fit_duts[fit_dut_index]) - set([actual_fit_dut])))) and
-                         set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and
-                         min_track_hits[curr_fit_dut_index] == min_track_hits[fit_dut_index])):
-                        actual_fit_duts.append(curr_fit_dut)
-                # continue with fitting
-                logging.info('== Fit tracks for %s ==', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
-
-                # select hit DUTs based on input parameters
-                # hit DUTs are always enforced
-                hit_duts = select_hit_duts[fit_dut_index]
-                dut_hit_mask = 0  # DUTs required to have hits
-                for dut_index in hit_duts:
-                    dut_hit_mask |= ((1 << dut_index))
-                logging.info('Require hits in %d DUTs for track selection: %s', len(hit_duts), ', '.join([telescope[curr_dut].name for curr_dut in hit_duts]))
-
-                # select fit DUTs based on input parameters
-                # exclude actual DUTs from fit DUTs if exclude_dut_hit parameter is set (for, e.g., unbiased residuals)
-                fit_duts = list(set(select_fit_duts[fit_dut_index]) - set([actual_fit_dut])) if exclude_dut_hit[fit_dut_index] else select_fit_duts[fit_dut_index]
-                if min_track_hits[fit_dut_index] is None:
-                    actual_min_track_hits = len(fit_duts)
-                else:
-                    actual_min_track_hits = min_track_hits[fit_dut_index]
-                if actual_min_track_hits < 2:
-                    raise ValueError('The number of required hits is smaller than 2. Cannot fit tracks for %s.', telescope[actual_fit_dut].name)
-                dut_fit_mask = 0  # DUTs to be used for the fit
-                for dut_index in fit_duts:
-                    dut_fit_mask |= ((1 << dut_index))
-                if actual_min_track_hits > len(fit_duts):
-                    raise RuntimeError("min_track_hits for DUT%d is larger than the number of fit DUTs" % (actual_fit_dut,))
-                logging.info('Require at least %d hits in %d DUTs for track selection: %s', actual_min_track_hits, len(fit_duts), ', '.join([telescope[curr_dut].name for curr_dut in fit_duts]))
-
-                # selecting DUTs for residual correction
-                if select_align_duts is not None and select_align_duts:
-                    logging.info("Correct residual offset for %d DUTs: %s", len(select_align_duts), ', '.join([telescope[curr_dut].name for curr_dut in select_align_duts]))
-
-                if scattering_planes is not None:
-                    logging.info('Adding the following scattering planes: %s', ', '.join([scp.name for scp in scattering_planes]))
-
-                iter = 0
-
-                # Actual *change* of alignment parameters and covariance
-                actual_align_state = np.zeros(shape=(len(telescope), 6), dtype=np.float64)
-                actual_align_cov = np.zeros(shape=(len(telescope), 6, 6), dtype=np.float64)
-
-                # TODO: Make this dynamic
-                deviation_cuts = [0.04, 0.04, 0.005, 0.01, 0.005, 0.01]
-                alpha = np.zeros(shape=len(telescope), dtype=np.float64)
-                
-                # Number of processed tracks for every DUT
-                n_tracks_processed = np.zeros(shape=(len(telescope)), dtype=np.int)
-
-                # Get initial alignment
-                initial_rotation_matrix = np.zeros(shape=(len(telescope), 3, 3), dtype=np.float64)
-                initial_position_vector = np.zeros(shape=(len(telescope), 3), dtype=np.float64)
-                for align_index, dut_index in enumerate(select_duts):
-                    dut = telescope[dut_index]
-                    # Initial (global) postion
-                    initial_position_vector[dut_index, 0] = dut.translation_x
-                    initial_position_vector[dut_index, 1] = dut.translation_y
-                    initial_position_vector[dut_index, 2] = dut.translation_z
-                    # Initial rotation matrix
-                    initial_rotation_matrix[dut_index] = geometry_utils.rotation_matrix(
-                                alpha=dut.rotation_alpha,
-                                beta=dut.rotation_beta,
-                                gamma=dut.rotation_gamma)
-                    if use_reference_dut == dut_index:
-                        # do not align reference dut
-                        continue
-                    # Errors on initial aligment parameters
-                    # Set to zero if aligment par should be excluded
-                    if 'translation_x' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 0, 0] = np.square(100.0)  # 100 um error
-                    # else:
-                    #     actual_align_cov[dut_index, 0, 0] = np.square(0.0)
-                    if 'translation_y' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 1, 1] = np.square(100.0)  # 100 um error
-                    # else:
-                    #     actual_align_cov[dut_index, 1, 1] = np.square(0.0)
-                    if 'translation_z' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 2, 2] = np.square(100.0)  # 100 um error
-                    # else:
-                    #     actual_align_cov[dut_index, 2, 2] = np.square(0.0)
-                    if 'rotation_alpha' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 3, 3] = np.square(5e-2)  # 50 mrad error
-                    # else:
-                    #     actual_align_cov[dut_index, 3, 3] = np.square(0.0)
-                    if 'rotation_beta' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 4, 4] = np.square(5e-2)  # 50 mrad error
-                    # else:
-                    #     actual_align_cov[dut_index, 4, 4] = np.square(0.0)
-                    if 'rotation_gamma' in align_parameters[align_index]:
-                        actual_align_cov[dut_index, 5, 5] = np.square(5e-3)  # 5 mrad error
-                    # else:
-                    #     actual_align_cov[dut_index, 5, 5] = np.square(0.0)
-
-                # if max_events:
-                #     pbar = tqdm(total=max_events, ncols=80)
-                # else:
-                n_tracks = in_file_h5.root.TrackCandidates.shape[0]
-                pbar = tqdm(total=n_tracks, ncols=80)
-
-                for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=chunk_size):
-                    # Select only tracks for which hit requirement is fulfilled
-                    track_candidates_chunk = track_candidates_chunk[track_candidates_chunk['hit_flag'] & dut_hit_mask == dut_hit_mask]
-                    total_n_tracks = track_candidates_chunk.shape[0]
-
-                    # Per chunk variables
-                    chi2s = np.zeros(shape=(total_n_tracks), dtype=np.float64)  # track chi2s
-                    aligment_parameters = np.full(shape=(len(telescope), total_n_tracks), dtype=description, fill_value=np.nan)
-
-                    # Loop over tracks in chunk
-                    for track_index, track in enumerate(track_candidates_chunk):
-                        track_hits = np.full((1, n_duts, 6), fill_value=np.nan, dtype=np.float64)
-                        fit_array_index = 0
-
-                        # Compute aligned position and apply the alignment 
-                        for dut_index in select_duts:
-                            dut = telescope[dut_index]
-                            # Calculate new alignment (takes initial alignment and actual *change* of parameters)
-                            new_rotation_matrix, new_position_vector = _ApplyAlignment(initial_rotation_matrix[dut_index], initial_position_vector[dut_index], actual_align_state[dut_index])
-                            alpha_average, beta_average, gamma_average = geometry_utils.euler_angles(R=new_rotation_matrix)  # Get euler angles from rotation matrix
-
-                            # Write new aligment
-                            dut._translation_x = float(new_position_vector[0])
-                            dut._translation_y = float(new_position_vector[1])
-                            dut._translation_z = float(new_position_vector[2])
-                            dut._rotation_alpha = float(alpha_average)
-                            dut._rotation_beta = float(beta_average)
-                            dut._rotation_gamma = float(gamma_average)
-                            
-                            aligment_parameters[dut_index, track_index]['translation_x'] = dut.translation_x
-                            aligment_parameters[dut_index, track_index]['translation_y'] = dut.translation_y
-                            aligment_parameters[dut_index, track_index]['translation_z'] = dut.translation_z
-                            aligment_parameters[dut_index, track_index]['rotation_alpha'] = dut.rotation_alpha
-                            aligment_parameters[dut_index, track_index]['rotation_beta'] = dut.rotation_beta
-                            aligment_parameters[dut_index, track_index]['rotation_gamma'] = dut.rotation_gamma
-
-                            C = actual_align_cov[dut_index]
-                            aligment_parameters[dut_index, track_index]['translation_x_err'] = np.sqrt(C[0, 0])
-                            aligment_parameters[dut_index, track_index]['translation_y_err'] = np.sqrt(C[1, 1])
-                            aligment_parameters[dut_index, track_index]['translation_z_err'] = np.sqrt(C[2, 2])
-                            aligment_parameters[dut_index, track_index]['rotation_alpha_err'] = np.sqrt(C[3, 3])
-                            aligment_parameters[dut_index, track_index]['rotation_beta_err'] = np.sqrt(C[4, 4])
-                            aligment_parameters[dut_index, track_index]['rotation_gamma_err'] = np.sqrt(C[5, 5])
-
-                            # Get local track hits
-                            track_hits[:, dut_index, 0] = track['x_dut_%s' % dut_index]
-                            track_hits[:, dut_index, 1] = track['y_dut_%s' % dut_index]
-                            track_hits[:, dut_index, 2] = track['z_dut_%s' % dut_index]
-                            track_hits[:, dut_index, 3] = track['x_err_dut_%s' % dut_index]
-                            track_hits[:, dut_index, 4] = track['y_err_dut_%s' % dut_index]
-                            track_hits[:, dut_index, 5] = track['z_err_dut_%s' % dut_index]
-
-                            # Calculate deterministic annealing (scales covariance matrix) in order to take into account misalignmen
-                            alpha[dut_index] = _calculate_annealing(k=n_tracks_processed[dut_index], annealing_factor=20000, annealing_tracks=10000)
-                            # Store annealing factor
-                            aligment_parameters[dut_index, track_index]['annealing_factor'] = alpha[dut_index]
-
-                        # Call Kalman Filter
-                        offsets, slopes, chi2, x_err, y_err, cov, cov_obs = _fit_tracks_kalman_loop(track_hits, telescope, fit_duts, beam_energy, particle_mass, scattering_planes, alpha)
-
-                        # Store chi2
-                        chi2s[track_index] = chi2
-
-                        # Data quality check I: Check chi2 of track
-                        # BS: check prob of chi2, if too low chi2 prob, skip track for aligment
-                        # prob = TMath::Prob(trk.GetChiSqu(), trk.GetNDF());
-                        # if (prob < pValueCut) { 
-                        #     continue
-                        if chi2 > track_chi2:
-                            continue
-
-                        # Actual track states
-                        p0 = np.zeros(shape=(len(telescope), 4), dtype=np.float64)
-                        p0[:, 0] = offsets[0, :, 0]
-                        p0[:, 1] = offsets[0, :, 1]
-                        p0[:, 2] = slopes[0, :, 0]
-                        p0[:, 3] = slopes[0, :, 1]
-                        # Covariance matrix (x, y, dx, dy) of track estimates
-                        C0 = cov[0, :, : ,:]  # just get rid of first dim (only one track)
-
-                        # Covariance matrix (x, y, dx, dy) of observations
-                        V = cov_obs[0, :, :, :]
-
-                        # Measurement matrix
-                        H = np.zeros(shape=(len(telescope), 2, 4), dtype=np.float64)
-                        H[:, 0, 0] = 1.0
-                        H[:, 1, 1] = 1.0
-
-                        # Actual alignment parameters and its covariance
-                        a0 = actual_align_state
-                        E0 = actual_align_cov
-
-                        # Updated alignment parameters and its covariance
-                        E1 = np.zeros_like(E0)
-                        a1 = np.zeros_like(a0)
-
-                        # Update all alignables
-                        for dut_index, dut in enumerate(telescope):
-                            R = geometry_utils.rotation_matrix(
-                                    alpha=dut.rotation_alpha,
-                                    beta=dut.rotation_beta,
-                                    gamma=dut.rotation_gamma)
-
-                            # Calculate update for alignment parameters
-                            a1[dut_index, :], E1[dut_index, :] = _calculate_alignment_parameters(H[dut_index], V[dut_index], C0[dut_index], p0[dut_index], a0[dut_index], E0[dut_index], R, track_hits[0, dut_index, :2])
-                            
-                            abs_pos_err = 10.0  # 5 um position error
-                            abs_angle_err = 2e-4  # 200 urad angle error 
-                            abs_z_err = 100.0
-                            
-                            # Data quality check II: Check change of aligment parameters
-                            filter_event = False
-                            for par_name, par in zip(['translation_x', 'translation_y', 'translation_z', 'rotation_alpha', 'rotation_beta', 'rotation_gamma'], range(a1.shape[1])):  # loop over all paramters for alignable
-                                if deviation_cuts[par] > 0.0:
-                                    if np.sqrt(E0[dut_index, par, par]) == 0:
-                                        aligment_parameters[dut_index, track_index][par_name + '_delta'] = 0.0
-                                    else:
-                                        aligment_parameters[dut_index, track_index][par_name + '_delta'] = np.abs(a1[dut_index, par] - a0[dut_index, par]) / np.sqrt(E0[dut_index, par, par])
-                                    if np.abs(a1[dut_index, par] - a0[dut_index, par]) > deviation_cuts[par] * np.sqrt(E0[dut_index, par, par]):
-                                        filter_event = True
-                                        break
-
-                            if filter_event:
-                                continue
-
-                            # Update actual alignment state
-                            actual_align_state[dut_index] = a1[dut_index]
-                            actual_align_cov[dut_index] = E1[dut_index]
-                            n_tracks_processed[dut_index] += 1
-
-                        pbar.update(1)
-
-
-                    # Do not forget to save configuration to .yaml file. TODO: Could be also done at the very end.
-                    telescope.save_configuration()
-
-                    # Save alignment results for plotting
-                    for align_index, dut_index in enumerate(select_duts):
-                        # dut = telescope[dut_index]
-                        try:  # Check if table exists already, then append data
-                            alignment_table = out_file_h5.get_node('/Alignment_DUT%i' % dut_index)
-                        except tb.NoSuchNodeError:  # Table does not exist, thus create new
-                            alignment_table = out_file_h5.create_table(
-                                where=out_file_h5.root,
-                                name='Alignment_DUT%i' % dut_index,
-                                description=aligment_parameters[dut_index].dtype,
-                                title='Alignment_DUT%i' % dut_index,
-                                filters=tb.Filters(
-                                    complib='blosc',
-                                    complevel=5,
-                                    fletcher32=False))
-
-                        alignment_table.append(aligment_parameters[dut_index])
-                        alignment_table.attrs.deviation_cuts = deviation_cuts
-                        alignment_table.attrs.n_tracks_processed = n_tracks_processed[dut_index]
-                        alignment_table.flush()
-
-                        # alignment_tables.append(alignment_table)
-
-                        # alignment_tables[align_index].append(aligment_parameters[dut_index])
-                        # alignment_tables[align_index].attrs.deviation_cuts = deviation_cuts
-                        # alignment_tables[align_index].attrs.n_tracks_processed = n_tracks_processed[dut_index]
-                        # alignment_tables[align_index].flush()
-                    
-                    # Store chi2 values
-                    try:  # Check if table exists already, then append data
-                        out_chi2s = out_file_h5.get_node('/TrackChi2')
-                    except tb.NoSuchNodeError:  # Table does not exist, thus create new
-                        out_chi2s = out_file_h5.create_earray(
-                            where=out_file_h5.root,
-                            name='TrackChi2',
-                            title='Track Chi2',
-                            atom=tb.Atom.from_dtype(chi2s.dtype),
-                            shape=(0,),
-                            filters=tb.Filters(
-                                complib='blosc',
-                                complevel=5,
-                                fletcher32=False))
-
-                    out_chi2s.append(chi2s)
-                    out_chi2s.flush()
-                    out_chi2s.attrs.max_track_chi2 = track_chi2
-
-                pbar.close()
-                fitted_duts.extend(actual_fit_duts)
-
-
-    output_pdf_file = output_alignment_file[:-3] + '.pdf'
-    plot_utils.plot_kf_alignment(output_alignment_file, telescope, output_pdf_file)
-
-
-def _ApplyAlignment(initial_rotation_matrix, initial_position_vector, actual_align_state):
-    dx = actual_align_state[0]  
-    dy = actual_align_state[1]      
-    dz = actual_align_state[2]
-    # TODO: prevent angles from jumping around -pi / pi , can be done by limiting rotations to pi/2 ? 
-    dalpha = actual_align_state[3] 
-    dbeta  = actual_align_state[4] 
-    dgamma = actual_align_state[5]
-
-    # Compute a 'delta' frame from corrections 
-    deltaFrame = _create_karimaki_delta(dx,dy,dz,dalpha,dbeta,dgamma)
-
-    # Merge nominal frame and delta frame 
-    return _combine_karimaki(initial_rotation_matrix, initial_position_vector, deltaFrame)
-
-
-def _create_karimaki_delta(dx,dy,dz,dalpha,dbeta,dgamma):
-    # Small rotation by dalpha, dbeta, dgamma around
-    # local sensor u-axis, (new) v-axis and (new) w- 
-    # axis respectively.
-    
-
-    # Use full rotation matrix here, since in the paper small angle approximation is used
-    # DeltaR according to https://cds.cern.ch/record/619975/files/cr03_022.pdf, Eq. 4
-    deltaRot = geometry_utils.rotation_matrix(
-                                alpha=dalpha,
-                                beta=dbeta,
-                                gamma=dgamma)
-
-    # Using small angle approximation (main diagonals are 1), Eq 18
-    # DeltaR according to https://cds.cern.ch/record/619975/files/cr03_022.pdf, Eq. 4
-    # deltaRot = np.eye(3, 3, dtype=np.float64)
-    # deltaRot[1, 0] = dgamma
-    # deltaRot[0, 1] = -dgamma
-    # deltaRot[2, 0] = dbeta
-    # deltaRot[0, 2] = -dbeta
-    # deltaRot[2, 1] = dalpha
-    # deltaRot[1, 2] = -dalpha
-    
-           
-    # Shift of sensor center by dx,dy,dz in global 
-    # coord. system. 
-    global_offset = np.array([dx, dy, dz])
-
-    return deltaRot, global_offset
-
-def _combine_karimaki(initial_rotation_matrix, initial_position_vector, deltaFrame):
-    Rot_combined = np.matmul(deltaFrame[0].T, initial_rotation_matrix)
-    # print(deltaFrame[0], initial_rotation_matrix, 'MUTLTIPLASPLASPLAPLSALPSPAL', Rot_combined)
-    # pos_combined = np.matmul(deltaFrame[0], (deltaFrame[1] + initial_position_vector))
-    pos_combined = deltaFrame[1] + initial_position_vector
-    return Rot_combined, pos_combined
-
-
-def _calculate_annealing(k, annealing_factor, annealing_tracks):
-    # According to Scheme C from https://iopscience.iop.org/article/10.1088/0954-3899/29/3/309
-    if k < annealing_tracks:
-        alpha = annealing_factor ** ((annealing_tracks - k) / annealing_tracks)
-    else:
-        alpha = 1.0
-
-    return alpha
-
-def _calculate_alignment_parameters(H, V, C0, p0, a0, E0, R, m):
-    '''
-    '''
-    # Jacobian of aligment parameters
-    D = _jacobian_aligment(p0, R)
-    # Weight matrix
-    W = np.linalg.inv((V + np.matmul(H, np.matmul(C0, H.T)) + np.matmul(D, np.matmul(E0, D.T))))
-
-    # Update aligment parameter states and covariance
-    a1 = a0 + np.matmul(np.matmul(E0,  np.matmul(D.T, W)), (m -  np.matmul(H, p0)))
-    E1 = E0 - np.matmul(E0, np.matmul(D.T, np.matmul(W, np.matmul(D, E0.T))))
-
-    return a1, E1
-
-
-def _jacobian_aligment(p0, R):
-    ''' https://cds.cern.ch/record/619975/files/cr03_022.pdf
-    '''
-    tu = p0[2]  # 0
-    tv = p0[3]  # 1
-    u  = p0[0]  # 2
-    v  = p0[1]  # 3 
-  
-    # The jacobian matrix, Eq (17)
-    jaq = np.zeros(shape=(2, 6), dtype=np.float64);   
-    jaq[0, 0] = -1      # dfu / ddu
-    jaq[1, 0] = 0       # dfv / ddu
-    jaq[0, 1] = 0       # dfu / ddv
-    jaq[1, 1] = -1      # dfv / ddv
-    jaq[0, 2] = +tu     # dfu / ddw
-    jaq[1, 2] = +tv     # dfv / ddw
-    jaq[0, 3] = -v * tu   # dfu / ddalpha
-    jaq[1, 3] = -v * tv   # dfv / ddalpha
-    jaq[0, 4] = u * tu    # dfu / ddbeta
-    jaq[1, 4] = u * tv    # dfv / ddbeta
-    jaq[0, 5] = -v      # dfu / ddgamma
-    jaq[1, 5] = u       # dfv / ddgamma
-
-      
-    A = np.eye(6, dtype=np.float64)
-    A[:3, :3] = R.T
-    
-    # Apply chain rule
-    return np.matmul(jaq, A)
 
 def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, select_tracks_for_storage, telescope, offsets, slopes, track_chi2s, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
     dut_stats = []
@@ -1709,30 +1098,6 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
                 y=intersections_global[:, 1],
                 z=intersections_global[:, 2])
         elif method == "kalman":
-            # Set the offset to the track intersection with the tilted plane
-            # intersections_global = geometry_utils.get_line_intersections_with_dut(
-            #     line_origins=offsets[:, dut_index],
-            #     line_directions=slopes[:, dut_index],
-            #     translation_x=dut.translation_x,
-            #     translation_y=dut.translation_y,
-            #     translation_z=dut.translation_z,
-            #     rotation_alpha=dut.rotation_alpha,
-            #     rotation_beta=dut.rotation_beta,
-            #     rotation_gamma=dut.rotation_gamma)
-            # slopes_x_local, slopes_y_local, slopes_z_local = dut.global_to_local_position(
-            #     x=slopes[:, dut_index, 0],
-            #     y=slopes[:, dut_index, 1],
-            #     z=slopes[:, dut_index, 2],
-            #     translation_x=0.0,
-            #     translation_y=0.0,
-            #     translation_z=0.0,
-            #     rotation_alpha=dut.rotation_alpha,
-            #     rotation_beta=dut.rotation_beta,
-            #     rotation_gamma=dut.rotation_gamma)
-
-        
-
-
             intersection_x_local = offsets[:, dut_index, 0]
             intersection_y_local = offsets[:, dut_index, 1]
             intersection_z_local = np.zeros(shape=(intersection_x_local.shape[0]), dtype=np.float64)  # by definition
@@ -2106,7 +1471,6 @@ def line_fit_3d(positions):
     return offset, slope  # , chi2
 
 
-
 def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy, particle_mass, scattering_planes, alpha):
     '''
     Loop over the selected tracks. In this function all matrices for the Kalman Filter are calculated track by track
@@ -2214,7 +1578,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     observation_matrices = np.zeros((chunk_size, n_duts, 2, 4), dtype=np.float64)
     observation_matrices[:, :, 0, 0] = 1.0
     observation_matrices[:, :, 1, 1] = 1.0
-    # Express observation covariance matrices. 
+    # Express observation covariance matrices.
     observation_covariances = np.zeros((chunk_size, n_duts, 2, 2), dtype=np.float64)
     # Take cluster hit position error as measurement error for duts which have a hit.
     # For DUTs without hit, need no error since they will not be included in the track fit.
@@ -2327,7 +1691,6 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     n_hits = np.count_nonzero(~np.isnan(chi2[:, select_fit_duts]), axis=1)
     chi2 = np.nansum(chi2[:, select_fit_duts], axis=1) / (2 * n_hits - 4)
 
-
     # # Plot kalman track
     # show = True
     # if show:
@@ -2366,7 +1729,6 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #     if telescope[max_z_dut_index].translation_z < actual_dut.translation_z:
     #         max_z_dut_index = dut_index
 
-        
     #     # Measurements in global coordinate system (x, y, z)
     #     hit_x_local, hit_y_local, hit_z_local = track_hits[0, dut_index, 0], track_hits[0, dut_index, 1], track_hits[0, dut_index, 2]
     #     hit_x, hit_y, hit_z = actual_dut.local_to_global_position(
@@ -2419,7 +1781,6 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #     y_track_b.extend(track_y)
     #     z_track_b.extend(track_z)
 
-
     #     if dut_index != 10:
     #         # Track slope (smoother)
     #         track_offset_x, track_offset_y, track_offset_z = actual_dut.local_to_global_position(
@@ -2439,7 +1800,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #             rotation_beta=actual_dut.rotation_beta,
     #             rotation_gamma=actual_dut.rotation_gamma)
     #         slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]  
+    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]
     #         ax.plot3D(*linepts.T, color='red', ls='--')
 
     #         # Track slope (forward filter)
@@ -2460,7 +1821,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #             rotation_beta=actual_dut.rotation_beta,
     #             rotation_gamma=actual_dut.rotation_gamma)
     #         slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]  
+    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]
     #         ax.plot3D(*linepts.T, color='green', ls='--')
 
     #         # Track slope (backward filter)
@@ -2481,7 +1842,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #             rotation_beta=actual_dut.rotation_beta,
     #             rotation_gamma=actual_dut.rotation_gamma)
     #         slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-    #         linepts = offset * 1.e-3 + slope * np.mgrid[20:0:2j][:, np.newaxis]  
+    #         linepts = offset * 1.e-3 + slope * np.mgrid[20:0:2j][:, np.newaxis]
     #         ax.plot3D(*linepts.T, color='yellow', ls='--')
 
     #         # Track slope (forward pred)
@@ -2502,7 +1863,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #             rotation_beta=actual_dut.rotation_beta,
     #             rotation_gamma=actual_dut.rotation_gamma)
     #         slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]  
+    #         linepts = offset * 1.e-3 + slope * np.mgrid[-20:0:2j][:, np.newaxis]
     #         ax.plot3D(*linepts.T, color='green', ls='dotted')
 
     #         # Track slope (backward pred)
@@ -2523,9 +1884,8 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     #             rotation_beta=actual_dut.rotation_beta,
     #             rotation_gamma=actual_dut.rotation_gamma)
     #         slope = np.column_stack((track_slope_x, track_slope_y, track_slope_z))
-    #         linepts = offset * 1.e-3 + slope * np.mgrid[20:0:2j][:, np.newaxis]  
+    #         linepts = offset * 1.e-3 + slope * np.mgrid[20:0:2j][:, np.newaxis]
     #         ax.plot3D(*linepts.T, color='yellow', ls='dotted')
-
 
     # # Plot measurements
     # ax.plot(x, y, z, 'x', color='black')
@@ -2543,9 +1903,6 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
 
     # if show:
     #     plt.show()
-
-
-
 
     return offsets, slopes, chi2, x_err, y_err, cov, observation_covariances
 
