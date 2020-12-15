@@ -134,4 +134,4 @@ if __name__ == "__main__":
     # Single file processing
     # Input raw data filename
     raw_data_file = 'pymosa_raw_data.h5'
-    process_dut(input_file=raw_data_file, trigger_data_format=2)
+    process_dut(raw_data_file=raw_data_file, trigger_data_format=2)
