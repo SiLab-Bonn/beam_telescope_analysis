@@ -861,7 +861,7 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
 
                 initialize = True  # initialize the histograms
                 for tracks_chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
-                    chi2s = tracks_chunk["track_chi2_red"]  # use reduced chi2
+                    chi2s = tracks_chunk["track_chi_red"]  # use reduced chi2
                     # Plot track chi2 and angular distribution
                     chi2s = chi2s[np.isfinite(chi2s)]
                     if initialize:
