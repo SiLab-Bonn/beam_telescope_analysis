@@ -861,7 +861,7 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
 
                 initialize = True  # initialize the histograms
                 for tracks_chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
-                    chi2s = tracks_chunk["track_chi2"]
+                    chi2s = tracks_chunk["track_chi2_red"]  # use reduced chi2
                     # Plot track chi2 and angular distribution
                     chi2s = chi2s[np.isfinite(chi2s)]
                     if initialize:
@@ -873,7 +873,7 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                             range_full = [0.0, 1.0]
                         hist_full, edges_full = np.histogram(chi2s, range=range_full, bins=250)
                         hist_narrow, edges_narrow = np.histogram(chi2s, range=[0, 250], bins=250)
-                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=40)
+                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=100)
                     else:
                         hist_full += np.histogram(chi2s, bins=edges_full)[0]
                         hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]

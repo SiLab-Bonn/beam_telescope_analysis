@@ -1590,7 +1590,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                 actual_align_cov = np.zeros(shape=(len(telescope), 6, 6), dtype=np.float64)
 
                 # TODO: Make this dynamic
-                deviation_cuts = [0.04, 0.04, 0.005, 0.015, 0.015, 0.005]
+                deviation_cuts = [0.04, 0.04, 0.01, 0.005, 0.005, 0.005]
                 alpha = np.zeros(shape=len(telescope), dtype=np.float64)
 
                 # Number of processed tracks for every DUT
@@ -1661,13 +1661,16 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                             alignment_values[dut_index, track_index]['annealing_factor'] = alpha[dut_index]
 
                         # Run Kalman Filter
-                        offsets, slopes, chi2, x_err, y_err, cov, cov_obs = _fit_tracks_kalman_loop(track_hits, telescope, fit_duts, beam_energy, particle_mass, scattering_planes, alpha)
+                        try:
+                            offsets, slopes, chi2s_reg, chi2s_red, chi2s_prob, x_err, y_err, cov, cov_obs = _fit_tracks_kalman_loop(track_hits, telescope, fit_duts, beam_energy, particle_mass, scattering_planes, alpha)
+                        except Exception as e:
+                            print(e, 'TRACK FITTING')
+                            continue
                         # Store chi2
-                        chi2s[track_index] = chi2
+                        chi2s[track_index] = chi2s_red
 
                         # Data quality check I: Check chi2 of track
-                        # TODO: check prob of chi2, if too low chi2 prob, skip track for alignment
-                        if chi2 > track_chi2:
+                        if chi2s_prob < track_chi2:
                             continue
 
                         # Actual track states
@@ -1754,6 +1757,16 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
     output_pdf_file = output_alignment_file[:-3] + '.pdf'
     # Plot alignment result
     plot_utils.plot_kf_alignment(output_alignment_file, telescope, output_pdf_file)
+
+    # output_residuals_file = os.path.splitext(merged_file)[0] + '_residuals_aligned_selected_tracks_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
+    # calculate_residuals(
+    #     telescope_configuration=output_telescope_configuration,
+    #     input_tracks_file=output_selected_tracks_file,
+    #     output_residuals_file=output_residuals_file,
+    #     select_duts=actual_align_duts,
+    #     use_limits=use_limits,
+    #     plot=True,
+    #     chunk_size=chunk_size)
 
 
 def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
@@ -2097,9 +2110,8 @@ def calculate_initial_alignment(telescope, select_duts, alignment_parameters, ac
             actual_align_cov[dut_index, 0, 0] = np.square(100.0)  # 100 um error
         if 'translation_y' in alignment_parameters[align_index]:
             actual_align_cov[dut_index, 1, 1] = np.square(100.0)  # 100 um error
-        actual_align_cov[3, 0, 0] = np.square(50.0)  # 100 um error
         if 'translation_z' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 2, 2] = np.square(100.0)  # 100 um error
+            actual_align_cov[dut_index, 2, 2] = np.square(1000.0)  # 500 um error
         if 'rotation_alpha' in alignment_parameters[align_index]:
             actual_align_cov[dut_index, 3, 3] = np.square(5e-2)  # 50 mrad error
         if 'rotation_beta' in alignment_parameters[align_index]:
