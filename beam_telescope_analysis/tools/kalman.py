@@ -907,6 +907,10 @@ class KalmanFilter(object):
             # initial_state = smoothed_states[:, 0, :]
             # initial_state_covariance = smoothed_state_covariances[:, 0, :, :]
 
+        # Final check for valid chi2
+        if np.any(smoothed_chi2[~np.isnan(smoothed_chi2)] < 0.0):
+            raise RuntimeError('Some chi-square values are negative (during smoothing step)!')
+
         # Linearization around reference state vector is used. Thus, add the reference state to the final result.
         smoothed_states += reference_states
         filtered_states_f += reference_states
