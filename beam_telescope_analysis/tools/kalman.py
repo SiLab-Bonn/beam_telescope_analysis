@@ -251,7 +251,7 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
             actual_dut_position = np.array([actual_dut.translation_x, actual_dut.translation_y, actual_dut.translation_z])
 
             # Transition matrix: 0: not defined/needed, 1: 0->1, 2: 1->2 (k: k-1 --> k)
-            Js[:, dut_index, :, :] = _calculate_track_jacobian_new(
+            Js[:, dut_index, :, :] = _calculate_track_jacobian(
                 reference_state=reference_states[:, dut_index - 1, :],  # use reference state from before
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),  # extrapolates to this position
@@ -385,7 +385,7 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
             actual_dut_position = np.array([actual_dut.translation_x, actual_dut.translation_y, actual_dut.translation_z])
 
             # Transition matrix: 7: not defined/needed, 6: 7->6, 5: 6->5 (k: k + 1 --> k)
-            Js[:, dut_index, :, :] = _calculate_track_jacobian_new(
+            Js[:, dut_index, :, :] = _calculate_track_jacobian(
                 reference_state=reference_states[:, dut_index + 1, :],  # use reference state from before (backward)
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),
@@ -591,7 +591,7 @@ def _smooth(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts,
             dut_used_in_fit=True if dut_index in select_fit_duts else False)
 
         chi2[~valid_hit_selection, dut_index] = np.nan  # No hit, thus no chi2
-        # check_covariance_matrix(smoothed_state_covariances[:, dut_index])  # Sanity check for covariance matrix
+        check_covariance_matrix(smoothed_state_covariances[:, dut_index])  # Sanity check for covariance matrix
 
     # Final check for valid chi2
     if np.any(chi2[~np.isnan(chi2)] < 0.0):
@@ -783,15 +783,15 @@ def _calculate_scatter_gain_matrix(reference_state):
     return G
 
 
-def _calculate_track_jacobian_new(reference_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
+def _calculate_track_jacobian(reference_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
     ''' Reference: V. Karimaki "Straight Line Fit for Pixel and Strip Detectors with Arbitrary Plane Orientations", CMS Note. (http://cds.cern.ch/record/687146/files/note99_041.pdf)
         Calculates change of local coordinates (u, v, u', v') from one DUT (u, v, w) to next DUT (U, V, W) (wrt. to reference state).
         Assumes that rotation is given from local into global coordinates.
     '''
 
     # Coordinate transformation into local system of next dut
-    R = _mat_mul(_mat_trans(rotation_matrix_target_dut), rotation_matrix)
-    O = _vec_mul(_mat_trans(rotation_matrix),  target_dut_position - dut_position)
+    R = _mat_mul((rotation_matrix_target_dut), _mat_trans(rotation_matrix))
+    x0 = _vec_mul((rotation_matrix),  target_dut_position - dut_position)
 
     x_point = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
     x_point[:, 0] = reference_state[:, 0]
@@ -803,140 +803,55 @@ def _calculate_track_jacobian_new(reference_state, dut_position, target_dut_posi
     direc[:, 1] = reference_state[:, 3]
     direc[:, 2] = 1.0
 
-    u = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
-    u[:, 0] = 1.0
-    u[:, 1] = 0.0
-    u[:, 2] = 0.0
-
-    v = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
-    v[:, 0] = 0.0
-    v[:, 1] = 1.0
-    v[:, 2] = 0.0
+    target_direc = _vec_mul(R, direc)
 
     w = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
     w[:, 0] = 0.0
     w[:, 1] = 0.0
     w[:, 2] = 1.0
 
-    bru = _vec_vec_mul(direc, _vec_mul(R, u))
-    brv = _vec_vec_mul(direc, _vec_mul(R, v))
-    brw = _vec_vec_mul(direc, _vec_mul(R, w))
+    s = _vec_vec_mul(_vec_mul(R, (x0 - x_point)), w) / target_direc[:, 2]
 
-    t = _vec_vec_mul(O - x_point, _vec_mul(R, w)) / brw
-
-    Up = bru / brw
-    Vp = brv / brw
+    up = target_direc[:, 0] / target_direc[:, 2]
+    vp = target_direc[:, 1] / target_direc[:, 2]
 
     J = np.zeros(shape=(reference_state.shape[0], 4, 4), dtype=np.float64)
 
     # dU'/du'
-    J[:, 2, 2] = (R[:, 0, 0] * brw - bru * R[:, 0, 2]) / (brw * brw)
+    J[:, 2, 2] = (R[:, 0, 0] * target_direc[:, 2] - target_direc[:, 0] * R[:, 0, 2]) / (target_direc[:, 2] * target_direc[:, 2])
     # dU'/dv'
-    J[:, 2, 3] = (R[:, 1, 0] * brw - bru * R[:, 1, 2]) / (brw * brw)
+    J[:, 2, 3] = (R[:, 1, 0] * target_direc[:, 2] - target_direc[:, 0] * R[:, 1, 2]) / (target_direc[:, 2] * target_direc[:, 2])
     # dU'/du
     J[:, 2, 0] = 0.0
     # dU'/dv
     J[:, 2, 1] = 0.0
 
     # dV'/du'
-    J[:, 3, 2] = (R[:, 0, 1] * brw - brv * R[:, 0, 2]) / (brw * brw)
+    J[:, 3, 2] = (R[:, 0, 1] * target_direc[:, 2] - target_direc[:, 1] * R[:, 0, 2]) / (target_direc[:, 2] * target_direc[:, 2])
     # dV'/dv'
-    J[:, 3, 3] = (R[:, 1, 1] * brw - brv * R[:, 1, 2]) / (brw * brw)
+    J[:, 3, 3] = (R[:, 1, 1] * target_direc[:, 2] - target_direc[:, 1] * R[:, 1, 2]) / (target_direc[:, 2] * target_direc[:, 2])
     # dV'/du
     J[:, 3, 0] = 0.0
     # dV'/dV
     J[:, 3, 1] = 0.0
 
     # dU/du
-    J[:, 0, 0] = R[:, 0, 0] - R[:, 0, 2] * Up  # Eq (15)
+    J[:, 0, 0] = R[:, 0, 0] - R[:, 0, 2] * up  # Eq (15)
     # dU/dv
-    J[:, 0, 1] = R[:, 1, 0] - R[:, 1, 2] * Up  # Eq (16)
+    J[:, 0, 1] = R[:, 1, 0] - R[:, 1, 2] * up  # Eq (16)
     # dU/du'
-    J[:, 0, 2] = t * J[:, 0, 0]  # Eq (17)
+    J[:, 0, 2] = s * J[:, 0, 0]  # Eq (17)
     # dU/dv'
-    J[:, 0, 3] = t * J[:, 0, 1]  # Eq (18)
+    J[:, 0, 3] = s * J[:, 0, 1]  # Eq (18)
 
     # dV/du
-    J[:, 1, 0] = R[:, 0, 1] - R[:, 0, 2] * Vp  # Eq (15)
+    J[:, 1, 0] = R[:, 0, 1] - R[:, 0, 2] * vp  # Eq (15)
     # dV/dv
-    J[:, 1, 1] = R[:, 1, 1] - R[:, 1, 2] * Vp  # Eq (16)
+    J[:, 1, 1] = R[:, 1, 1] - R[:, 1, 2] * vp  # Eq (16)
     # dV/du'
-    J[:, 1, 2] = t * J[:, 1, 0]  # Eq (17)
+    J[:, 1, 2] = s * J[:, 1, 0]  # Eq (17)
     # dV/dv'
-    J[:, 1, 3] = t * J[:, 1, 1]  # Eq (18)
-
-    return J
-
-
-def _calculate_track_jacobian_b(reference_state, dut_position, next_dut_position, rotation_matrix, rotation_matrix_next):
-    ''' Reference: V. Karimaki "Straight Line Fit for Pixel and Strip Detectors with Arbitrary Plane Orientations", CMS Note. (http://cds.cern.ch/record/687146/files/note99_041.pdf)
-        Calculates change of local coordinates (u, v, u', v') from one DUT (u, v, w) to next DUT (U, V, W) (wrt. to reference state).
-        Assumes that rotation is given from local into global coordinates.
-    '''
-
-    # Coordinate transformation into local system of next dut
-    Rot = _mat_mul(_mat_trans(rotation_matrix_next), rotation_matrix)
-    Origin = _vec_mul(_mat_trans(rotation_matrix),  next_dut_position - dut_position)
-
-    x_point = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
-    x_point[:, 0] = reference_state[:, 0]
-    x_point[:, 1] = reference_state[:, 1]
-    x_point[:, 2] = 0.0
-
-    direc = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
-    direc[:, 0] = reference_state[:, 2]
-    direc[:, 1] = reference_state[:, 3]
-    direc[:, 2] = 1.0
-
-    fDir = _vec_mul(Rot, direc)
-
-    w = np.zeros(shape=(reference_state.shape[0], 3), dtype=np.float64)
-    w[:, 0] = 0.0
-    w[:, 1] = 0.0
-    w[:, 2] = 1.0
-
-    SX = _vec_vec_mul(_vec_mul(Rot, (Origin - x_point)), w) / fDir[:, 2]
-
-    Up = fDir[:, 0] / fDir[:, 2]
-    Vp = fDir[:, 1] / fDir[:, 2]
-
-    J = np.zeros(shape=(reference_state.shape[0], 4, 4), dtype=np.float64)
-
-    # dU'/du'
-    J[:, 2, 2] = (Rot[:, 0, 0] * fDir[:, 2] - fDir[:, 0] * Rot[:, 0, 2]) / (fDir[:, 2] * fDir[:, 2])
-    # dU'/dv'
-    J[:, 3, 2] = (Rot[:, 1, 0] * fDir[:, 2] - fDir[:, 0] * Rot[:, 1, 2]) / (fDir[:, 2] * fDir[:, 2])
-    # dU'/du
-    J[:, 0, 2] = 0.0
-    # dU'/dv
-    J[:, 1, 2] = 0.0
-
-    # dV'/du'
-    J[:, 2, 3] = (Rot[:, 0, 1] * fDir[:, 2] - fDir[:, 1] * Rot[:, 0, 2]) / (fDir[:, 2] * fDir[:, 2])
-    # dV'/dv'
-    J[:, 3, 3] = (Rot[:, 1, 1] * fDir[:, 2] - fDir[:, 1] * Rot[:, 1, 2]) / (fDir[:, 2] * fDir[:, 2])
-    # dV'/du
-    J[:, 0, 3] = 0.0
-    # dV'/dV
-    J[:, 1, 3] = 0.0
-
-    # dU/du
-    J[:, 0, 0] = Rot[:, 0, 0] - Rot[:, 0, 2] * Up  # Eq (15)
-    # dU/dv
-    J[:, 1, 0] = Rot[:, 1, 0] - Rot[:, 1, 2] * Up  # Eq (16)
-    # dU/du'
-    J[:, 2, 0] = SX * J[:, 0, 0]  # Eq (17)
-    # dU/dv'
-    J[:, 3, 0] = SX * J[:, 0, 1]  # Eq (18)
-
-    # dV/du
-    J[:, 0, 1] = Rot[:, 0, 1] - Rot[:, 0, 2] * Vp  # Eq (15)
-    # dV/dv
-    J[:, 1, 1] = Rot[:, 1, 1] - Rot[:, 1, 2] * Vp  # Eq (16)
-    # dV/du'
-    J[:, 2, 1] = SX * J[:, 1, 0]  # Eq (17)
-    # dV/dv'
-    J[:, 3, 1] = SX * J[:, 1, 1]  # Eq (18)
+    J[:, 1, 3] = s * J[:, 1, 1]  # Eq (18)
 
     return J
 
