@@ -7,36 +7,6 @@ from numba import njit
 from beam_telescope_analysis.tools import geometry_utils
 
 
-def _extrapolate_state(track_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
-    ''' Extrapolate track state. Track state is calculated in local system of destination plane.
-    '''
-
-    # Intersection point on reference surface
-    x_point = np.column_stack((track_state[:, 0], track_state[:, 1], np.zeros_like(track_state[:, 0])))
-
-    # Track direction on reference surface
-    direc = np.column_stack((track_state[:, 2], track_state[:, 3], np.ones_like(track_state[:, 2])))
-
-    # Coordinate trafo from local system of plane k to local system of plane k+1
-    R = _mat_mul(_mat_trans(rotation_matrix_target_dut), rotation_matrix)
-    O = _vec_mul(_mat_trans(rotation_matrix), (target_dut_position - dut_position))
-
-    # Track direction on final surface
-    fDir = _vec_mul(R, direc)
-
-    # Surface normal vector in beam direction
-    W = np.tile(np.array([0.0, 0.0, 1.0]), reps=(direc.shape[0], 1))
-
-    # Step lenght
-    SX = _vec_vec_mul(_vec_mul(R, (O - x_point)), W) / fDir[:, 2]
-    SX = np.column_stack((SX, SX, SX))  # Proper shape
-
-    # Intersection point with fSurf. Basically Eq(6,7) in http://cds.cern.ch/record/687146/files/note99_041.pdf.
-    fPoint = _vec_mul(R, (x_point + SX * direc - O))
-
-    return np.column_stack((fPoint[:, 0], fPoint[:, 1], fDir[:, 0] / fDir[:, 2], fDir[:, 1] / fDir[:, 2]))
-
-
 @njit(cache=True)
 def _filter_predict_f(track_jacobian, local_scatter_gain_matrix, transition_covariance, current_filtered_state, current_filtered_state_covariance):
     """Calculates the (forward) predicted state and its covariance matrix. Prediction is done on whole track chunk with size chunk_size.
@@ -726,6 +696,36 @@ def _make_matrix_psd(A, atol=1e-5, rtol=1e-8):
             if np.any(np.absolute(A[i] - A3[i]) > tol_A3):  # Check if corrected (psd) matrix did not change too much.
                 raise RuntimeError('Output matrix differs too much from input matrix during nearest PSD')
     return A3
+
+
+def _extrapolate_state(track_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
+    ''' Extrapolate track state. Track state is calculated in local system of destination plane.
+    '''
+
+    # Intersection point on reference surface
+    x_point = np.column_stack((track_state[:, 0], track_state[:, 1], np.zeros_like(track_state[:, 0])))
+
+    # Track direction on reference surface
+    direc = np.column_stack((track_state[:, 2], track_state[:, 3], np.ones_like(track_state[:, 2])))
+
+    # Coordinate trafo from local system of plane k to local system of plane k+1
+    R = _mat_mul(_mat_trans(rotation_matrix_target_dut), rotation_matrix)
+    x0 = _vec_mul(_mat_trans(rotation_matrix), (target_dut_position - dut_position))
+
+    # Track direction on final surface
+    target_direc = _vec_mul(R, direc)
+
+    # Surface normal vector in beam direction
+    w = np.tile(np.array([0.0, 0.0, 1.0]), reps=(direc.shape[0], 1))
+
+    # Step lenght
+    s = _vec_vec_mul(_vec_mul(R, (x0 - x_point)), w) / target_direc[:, 2]
+    s = np.column_stack((s, s, s))  # Proper shape
+
+    # Intersection point with target dut. Basically Eq(6,7) in http://cds.cern.ch/record/687146/files/note99_041.pdf.
+    target_point = _vec_mul(R, (x_point + s * direc - x0))
+
+    return np.column_stack((target_point[:, 0], target_point[:, 1], target_direc[:, 0] / target_direc[:, 2], target_direc[:, 1] / target_direc[:, 2]))
 
 
 def _calculate_scatter_gain_matrix(reference_state):
