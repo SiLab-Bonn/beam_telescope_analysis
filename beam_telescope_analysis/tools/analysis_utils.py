@@ -26,7 +26,7 @@ from tqdm import tqdm
 from beam_telescope_analysis import analysis_functions
 
 # A public secret representing public, read only owncloud folder
-SCIBO_PUBLIC_FOLDER = 'NzfAx2zAQll5YXB'
+SCIBO_PUBLIC_FOLDER = 'lfCJ6Z3bFBaL094'
 
 
 @njit
