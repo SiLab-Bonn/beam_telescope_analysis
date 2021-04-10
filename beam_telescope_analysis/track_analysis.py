@@ -1622,12 +1622,21 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
 
     # Express initial state covariance matrices
     initial_state_covariance = np.zeros((chunk_size, 4, 4), dtype=np.float64)
-    # Error on initial slope is roughly divergence of beam (1 mrad).
+
+    # Error on initial slope. Values are optimized such that influence of initial state on final result is negligible
     initial_state_covariance[:, 2, 2] = 1e-2 * alpha[z_sorted_dut_indices[0]]
     initial_state_covariance[:, 3, 3] = 1e-2 * alpha[z_sorted_dut_indices[0]]
-    # Position error of initial state
+    # Position error of initial state. Values are optimized such that influence of initial state on final result is negligible
     initial_state_covariance[:, 0, 0] = 4e2 * alpha[z_sorted_dut_indices[0]]
     initial_state_covariance[:, 1, 1] = 4e2 * alpha[z_sorted_dut_indices[0]]
+
+    # # Idea: Use beam constraints (beam spread + divergence for alignment). Not working unfortunately
+    # # Error on initial slope is roughly divergence of beam (1 mrad).
+    # initial_state_covariance[:, 2, 2] = np.square(5e-3)  # 2 mrad beam diveragence
+    # initial_state_covariance[:, 3, 3] = np.square(5e-3)  # 2 mrad beam diveragence
+    # # Position error of initial state is beam spread
+    # initial_state_covariance[:, 0, 0] = np.square(200.0)  # 2 mm beam spread
+    # initial_state_covariance[:, 1, 1] = np.square(200.0)  # 2 mm beam spread
 
     # Express observation matrix, only observe (x,y)
     observation_matrices = np.zeros((chunk_size, n_duts, 2, 4), dtype=np.float64)
@@ -1637,8 +1646,8 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     observation_covariances = np.zeros((chunk_size, n_duts, 2, 2), dtype=np.float64)
     # Take cluster hit position error as measurement error for duts which have a hit.
     # For DUTs without hit, need no error since they will not be included in the track fit.
-    observation_covariances[:, :, 0, 0] = np.square(track_hits[:, :, 3]) * alpha * 1.0
-    observation_covariances[:, :, 1, 1] = np.square(track_hits[:, :, 4]) * alpha * 1.0
+    observation_covariances[:, :, 0, 0] = np.square(track_hits[:, :, 3]) * alpha
+    observation_covariances[:, :, 1, 1] = np.square(track_hits[:, :, 4]) * alpha
     # Set observation errors of DUTs with no hits to zero.
     observation_covariances[np.isnan(observation_covariances)] = 0.0
 
