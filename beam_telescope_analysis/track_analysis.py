@@ -1372,9 +1372,6 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, track_chi
         tracks_array['cluster_ID_dut_%d' % index_dut] = track_candidates_chunk['cluster_ID_dut_%d' % index_dut]
         tracks_array['cluster_shape_dut_%d' % index_dut] = track_candidates_chunk['cluster_shape_dut_%d' % index_dut]
         tracks_array['n_cluster_dut_%d' % index_dut] = track_candidates_chunk['n_cluster_dut_%d' % index_dut]
-        tracks_array['tdc_value_dut_%d' % index_dut] = track_candidates_chunk['tdc_value_dut_%d' % index_dut]
-        tracks_array['tdc_timestamp_dut_%d' % index_dut] = track_candidates_chunk['tdc_timestamp_dut_%d' % index_dut]
-        tracks_array['tdc_status_dut_%d' % index_dut] = track_candidates_chunk['tdc_status_dut_%d' % index_dut]
 
     if keep_data:
         for index, dimension in enumerate(['x', 'y', 'z']):
