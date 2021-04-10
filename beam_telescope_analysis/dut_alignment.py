@@ -1610,6 +1610,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
 
                     # Per chunk variables
                     chi2s = np.zeros(shape=(total_n_tracks_valid_hits), dtype=np.float64)  # track chi2s
+                    chi2s_probs = np.zeros(shape=(total_n_tracks_valid_hits), dtype=np.float64)  # track pvalues
                     alignment_values = np.full(shape=(len(telescope), total_n_tracks_valid_hits), dtype=kfa_alignment_descr, fill_value=np.nan)  # alignment values
 
                     # Loop over tracks in chunk
@@ -1666,8 +1667,9 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                         except Exception as e:
                             print(e, 'TRACK FITTING')
                             continue
-                        # Store chi2
+                        # Store chi2 and pvalue
                         chi2s[track_index] = chi2s_red
+                        chi2s_probs[track_index] = chi2s_prob
 
                         # Data quality check I: Check chi2 of track
                         if chi2s_prob < track_chi2:
@@ -1735,6 +1737,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                     # Store chi2 values
                     try:  # Check if table exists already, then append data
                         out_chi2s = out_file_h5.get_node('/TrackChi2')
+                        out_chi2s_probs = out_file_h5.get_node('/TrackpValue')
                     except tb.NoSuchNodeError:  # Table does not exist, thus create new
                         out_chi2s = out_file_h5.create_earray(
                             where=out_file_h5.root,
@@ -1746,9 +1749,21 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                                 complib='blosc',
                                 complevel=5,
                                 fletcher32=False))
+                        out_chi2s_probs = out_file_h5.create_earray(
+                            where=out_file_h5.root,
+                            name='TrackpValue',
+                            title='Track pValue',
+                            atom=tb.Atom.from_dtype(chi2s.dtype),
+                            shape=(0,),
+                            filters=tb.Filters(
+                                complib='blosc',
+                                complevel=5,
+                                fletcher32=False))
 
                     out_chi2s.append(chi2s)
                     out_chi2s.flush()
+                    out_chi2s_probs.append(chi2s_probs)
+                    out_chi2s_probs.flush()
                     out_chi2s.attrs.max_track_chi2 = track_chi2
 
                 pbar.close()

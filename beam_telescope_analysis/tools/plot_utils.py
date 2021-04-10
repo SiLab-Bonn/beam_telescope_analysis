@@ -862,6 +862,7 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 initialize = True  # initialize the histograms
                 for tracks_chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     chi2s = tracks_chunk["track_chi_red"]  # use reduced chi2
+                    track_pvalue = tracks_chunk["track_chi_prob"]  # pvalue
                     # Plot track chi2 and angular distribution
                     chi2s = chi2s[np.isfinite(chi2s)]
                     if initialize:
@@ -921,6 +922,17 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
                 ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
+                output_pdf.savefig(fig)
+
+                # Plot pvalue distribution
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                ax.hist(track_pvalue, bins=np.linspace(0.0, 1.0, 100))
+                ax.set_xlabel('Track pValue')
+                ax.set_ylabel('#')
+                ax.grid()
+                ax.set_title('pValue distribution for %s' % dut_name)
                 output_pdf.savefig(fig)
 
 
@@ -3180,9 +3192,11 @@ def plot_kf_alignment(output_alignment_file, telescope, output_pdf_file):
             from matplotlib import colors, cm
             cmap = cm.get_cmap('tab10')
 
-            # Read Chi2
+            # Read Chi2 and p-value
             track_chi2_table = in_file_h5.get_node('/TrackChi2')
             track_chi2 = track_chi2_table[:]
+            pvalue_table = in_file_h5.get_node('/TrackpValue')
+            track_pvalue = pvalue_table[:]
             max_track_chi2 = track_chi2_table._v_attrs.max_track_chi2
 
             n_tracks_processed = []  # number of procssed tracks for all DUTs
@@ -3267,7 +3281,7 @@ def plot_kf_alignment(output_alignment_file, telescope, output_pdf_file):
 
                     except tb.NoSuchNodeError: # in case DUT has not been aligned do not plot
                         continue
-                    
+
             # Plot chi2 distribution
             fig = Figure()
             _ = FigureCanvas(fig)
@@ -3288,6 +3302,16 @@ def plot_kf_alignment(output_alignment_file, telescope, output_pdf_file):
             ax.set_xlim(0.0, 20.0)
             ax.axvline(x=max_track_chi2, ls='--', color='grey')
             ax.set_xlabel('Track $\chi^2$/ndf')
+            ax.set_ylabel('#')
+            ax.grid()
+            output_pdf.savefig(fig)
+
+            # Plot pvalue distribution
+            fig = Figure()
+            _ = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            ax.hist(track_pvalue, bins=np.linspace(0.0, 1.0,100))
+            ax.set_xlabel('Track pValue')
             ax.set_ylabel('#')
             ax.grid()
             output_pdf.savefig(fig)
