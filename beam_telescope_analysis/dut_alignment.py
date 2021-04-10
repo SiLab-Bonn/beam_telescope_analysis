@@ -1292,7 +1292,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         for index, shapes in enumerate(cluster_shapes):
             if shapes is None:
                 cluster_shapes[index] = default_cluster_shapes
-        query_string = [((('(track_chi2 < %f)' % track_chi2[index]) if track_chi2[index] else '') + (' & ' if (track_chi2[index] and cluster_shapes[index]) else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes[index]]).format(dut_index) + ')') if cluster_shapes[index] else '')) for index, dut_index in enumerate(actual_align_duts)]
+        query_string = [((('(track_chi_red < %f)' % track_chi2[index]) if track_chi2[index] else '') + (' & ' if (track_chi2[index] and cluster_shapes[index]) else '') + (('(' + ' | '.join([('(cluster_shape_dut_{0} == %d)' % cluster_shape) for cluster_shape in cluster_shapes[index]]).format(dut_index) + ')') if cluster_shapes[index] else '')) for index, dut_index in enumerate(actual_align_duts)]
         data_selection.select_tracks(
             telescope_configuration=output_telescope_configuration,
             input_tracks_file=output_tracks_file,
