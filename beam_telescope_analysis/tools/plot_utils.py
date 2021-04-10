@@ -1244,7 +1244,7 @@ def pixels_plot_2d(fig, ax, regions, vertices, values, z_min=0, z_max=None):
     return ax.figure
 
 
-def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_frame_hist, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, efficiency_chunks, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiencies, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, efficiency_regions_efficiencies_chunks, chunk_indices, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, efficiency_regions_analyze_cluster_shapes, mask_zero=True, output_pdf=None, z_limits_charge=(0, 255)):
+def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_2d_hist, count_tracks_with_hit_2d_hist, stat_2d_x_residuals_hist, stat_2d_y_residuals_hist, stat_2d_residuals_hist, count_1d_charge_hist, stat_2d_charge_hist, count_1d_frame_hist, stat_2d_cluster_size_hist, count_1d_total_angle_hist, count_1d_total_angle_hist_edges, count_1d_alpha_angle_hist, count_1d_alpha_angle_hist_edges, count_1d_beta_angle_hist, count_1d_beta_angle_hist_edges, stat_2d_frame_hist, stat_2d_total_angle_hist, stat_2d_alpha_angle_hist, stat_2d_beta_angle_hist, stat_2d_efficiency_hist, stat_pixel_efficiency_hist, count_pixel_hits_2d_hist, efficiency, efficiency_chunks, actual_dut_index, dut_extent, hist_extent, plot_range, efficiency_regions, efficiency_regions_names, efficiency_regions_efficiencies, efficiency_regions_count_1d_charge_hist, efficiency_regions_count_1d_frame_hist, efficiency_regions_count_1d_cluster_size_hist, efficiency_regions_count_1d_total_angle_hist, efficiency_regions_count_1d_total_angle_hist_edges, efficiency_regions_count_1d_alpha_angle_hist, efficiency_regions_count_1d_alpha_angle_hist_edges, efficiency_regions_count_1d_beta_angle_hist, efficiency_regions_count_1d_beta_angle_hist_edges, efficiency_regions_count_1d_cluster_shape_hist, efficiency_regions_stat_pixel_efficiency_hist, efficiency_regions_count_in_pixel_hits_2d_hist, efficiency_regions_count_in_pixel_tracks_2d_hist, efficiency_regions_count_in_pixel_tracks_with_hit_2d_hist, efficiency_regions_stat_in_pixel_efficiency_2d_hist, efficiency_regions_stat_in_pixel_x_residuals_2d_hist, efficiency_regions_stat_in_pixel_y_residuals_2d_hist, efficiency_regions_stat_in_pixel_residuals_2d_hist, efficiency_regions_stat_in_pixel_charge_2d_hist, efficiency_regions_stat_in_pixel_frame_2d_hist, efficiency_regions_stat_in_pixel_cluster_size_2d_hist, efficiency_regions_count_in_pixel_cluster_shape_2d_hist, efficiency_regions_stat_in_pixel_cluster_shape_2d_hist, chunk_indices, efficiency_regions_in_pixel_hist_extent, efficiency_regions_in_pixel_plot_range, efficiency_regions_analyze_cluster_shapes, mask_zero=True, output_pdf=None, z_limits_charge=(0, 255)):
     actual_dut = telescope[actual_dut_index]
     if not output_pdf:
         return
@@ -1262,10 +1262,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
 
     # for better readability allow masking of entries that are zero
     count_hits_2d_hist_masked = np.ma.array(count_hits_2d_hist, mask=(count_hits_2d_hist == 0))
-    stat_2d_cs_vs_alpha_angle_local_hist_masked = np.ma.array(stat_2d_cs_vs_alpha_angle_local_hist, mask=(stat_2d_cs_vs_alpha_angle_local_hist == 0))
-    stat_2d_cs_vs_beta_angle_local_hist_masked = np.ma.array(stat_2d_cs_vs_beta_angle_local_hist, mask=(stat_2d_cs_vs_beta_angle_local_hist == 0))
-    stat_2d_cluster_shape_vs_alpha_angle_local_hist_masked = np.ma.array(stat_2d_cluster_shape_vs_alpha_angle_local_hist, mask=(stat_2d_cluster_shape_vs_alpha_angle_local_hist == 0))
-    stat_2d_cluster_shape_vs_beta_angle_local_hist_masked = np.ma.array(stat_2d_cluster_shape_vs_beta_angle_local_hist, mask=(stat_2d_cluster_shape_vs_beta_angle_local_hist == 0))
     count_tracks_2d_hist_masked = np.ma.array(count_tracks_2d_hist, mask=(count_tracks_2d_hist == 0))
     count_tracks_with_hit_2d_hist_masked = np.ma.array(count_tracks_with_hit_2d_hist, mask=(count_tracks_with_hit_2d_hist == 0))
 
@@ -1707,56 +1703,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     ax.set_ylim(plot_range[1])
     output_pdf.savefig(fig)
 
-    stat_2d_cs_vs_alpha_angle_local_hist_extend = [1, stat_2d_cs_vs_alpha_angle_local_hist_masked.shape[0], min(count_1d_alpha_angle_hist_edges), max(count_1d_alpha_angle_hist_edges)]
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    z_max = np.max(stat_2d_cs_vs_alpha_angle_local_hist_masked.compressed())  # np.ceil(np.percentile(stat_2d_cs_vs_alpha_angle_local_hist_masked.compressed(), q=95.0))
-    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, stat_2d_cs_vs_alpha_angle_local_hist_masked.T, stat_2d_cs_vs_alpha_angle_local_hist_extend, title='Cluster size vs alpha track angle\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="Cluster size", y_axis_title="Alpha track angle [mrad]", z_max=z_max)
-    output_pdf.savefig(fig)
-
-    stat_2d_cs_vs_beta_angle_local_hist_extend = [1, stat_2d_cs_vs_beta_angle_local_hist_masked.shape[0], min(count_1d_beta_angle_hist_edges), max(count_1d_beta_angle_hist_edges)]
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    z_max = np.max(stat_2d_cs_vs_beta_angle_local_hist_masked.compressed())  # np.ceil(np.percentile(stat_2d_cs_vs_beta_angle_local_hist_masked.compressed(), q=95.0))
-    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, stat_2d_cs_vs_beta_angle_local_hist_masked.T, stat_2d_cs_vs_beta_angle_local_hist_extend, title='Cluster size vs beta track angle\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="Cluster size", y_axis_title="Beta track angle [mrad]", z_max=z_max)
-    output_pdf.savefig(fig)
-
-    analyze_cluster_shapes_1d = [1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15, 95, 783, 4959]
-    cluster_shape_hist = stat_2d_cluster_shape_vs_alpha_angle_local_hist_masked[analyze_cluster_shapes_1d, :]
-    analyze_cluster_shapes_1d = np.r_[analyze_cluster_shapes_1d, -1]
-    x = np.arange(analyze_cluster_shapes_1d.shape[0])
-    stat_2d_cluster_shape_vs_alpha_angle_local_hist_extend = [-0.5, cluster_shape_hist.shape[0] - 0.5, min(count_1d_alpha_angle_hist_edges), max(count_1d_alpha_angle_hist_edges)]
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    z_max = np.max(cluster_shape_hist.compressed())  # np.ceil(np.percentile(cluster_shape_hist.compressed(), q=95.0))
-    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, cluster_shape_hist.T, stat_2d_cluster_shape_vs_alpha_angle_local_hist_extend, title='Cluster shape vs alpha track angle\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="Cluster shape", y_axis_title="Alpha track angle [mrad]", z_max=z_max)
-    ax.xaxis.set_ticks(x)
-    fig.subplots_adjust(bottom=0.2)
-    ax.set_xticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes_1d])
-    output_pdf.savefig(fig)
-
-    analyze_cluster_shapes_1d = [1, 3, 5, 6, 9, 13, 14, 7, 11, 19, 261, 15, 95, 783, 4959]
-    cluster_shape_hist = stat_2d_cluster_shape_vs_beta_angle_local_hist_masked[analyze_cluster_shapes_1d, :]
-    analyze_cluster_shapes_1d = np.r_[analyze_cluster_shapes_1d, -1]
-    x = np.arange(analyze_cluster_shapes_1d.shape[0])
-    stat_2d_cluster_shape_vs_beta_angle_local_hist_extend = [-0.5, cluster_shape_hist.shape[0] - 0.5, min(count_1d_beta_angle_hist_edges), max(count_1d_beta_angle_hist_edges)]
-    fig = Figure()
-    _ = FigureCanvas(fig)
-    ax = fig.add_subplot(111)
-    z_max = np.max(cluster_shape_hist.compressed())  # np.ceil(np.percentile(cluster_shape_hist.compressed(), q=95.0))
-    # ax.scatter(local_x, local_y, marker='.', s=mesh_point_size, alpha=mesh_alpha, color=mesh_color)
-    plot_2d_pixel_hist(fig, ax, cluster_shape_hist.T, stat_2d_cluster_shape_vs_beta_angle_local_hist_extend, title='Cluster shape vs beta track angle\nfor %s\n(%d Hits)' % (actual_dut.name, n_hits), x_axis_title="Cluster shape", y_axis_title="Beta track angle [mrad]", z_max=z_max)
-    ax.xaxis.set_ticks(x)
-    fig.subplots_adjust(bottom=0.2)
-    ax.set_xticklabels([cluster_shape_strings[i] for i in analyze_cluster_shapes_1d])
-    output_pdf.savefig(fig)
-
     if np.any(~stat_2d_efficiency_hist.mask):
         fig = Figure()
         _ = FigureCanvas(fig)
@@ -1958,23 +1904,6 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
             ax.set_xlim(plot_range[0])
             ax.set_ylim(plot_range[1])
             output_pdf.savefig(fig)
-
-            # Chunk stats for every region
-            for region_index in range(len(efficiency_regions)):
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                ax.plot(chunk_indices, np.array(efficiency_regions_efficiencies_chunks[region_index]) * 100.0, label='Region efficiency per chunk')
-                ax.grid()
-                ax.set_ylabel("Efficiency [%]")
-                ax.set_xlabel("Index")
-                ax.set_title('Efficiency per chunk for region %d%s' % (region_index + 1, (": " + efficiency_regions_names[region_index].title()) if efficiency_regions_names[region_index] else ""))
-                ax.legend()
-                output_pdf.savefig(fig)
-                ax.plot(chunk_indices, np.array(efficiency_chunks) * 100.0, label='Global efficiency per chunk')
-                ax.set_ylim(0.0, 100.0)
-                ax.legend()
-                output_pdf.savefig(fig)
 
             for region_index in range(len(efficiency_regions)):
                 fig = Figure()

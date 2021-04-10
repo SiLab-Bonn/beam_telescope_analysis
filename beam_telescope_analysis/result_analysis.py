@@ -994,7 +994,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                 else:
                     count_pixel_hits_2d_hist = None
 
-
                 # Select actual disabled pixel mask of DUT
                 disabled_pixel_mask = disabled_pixel_masks[index]
 
@@ -1009,6 +1008,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     hit_x_local, hit_y_local = tracks_chunk['x_dut_%d' % actual_dut_index], tracks_chunk['y_dut_%d' % actual_dut_index]
                     intersection_x_local, intersection_y_local = tracks_chunk['offset_x'], tracks_chunk['offset_y']
                     charge = tracks_chunk['charge_dut_%d' % actual_dut_index]
+                    frame = tracks_chunk['frame_dut_%d' % actual_dut_index]
+                    cluster_size = tracks_chunk['n_hits_dut_%d' % actual_dut_index]
+                    cluster_shape = tracks_chunk['cluster_shape_dut_%d' % actual_dut_index]
 
                     # Bad practice, but only possibility to compensate shift from alignment
                     if local_offset_x is not None:
@@ -1675,7 +1677,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     efficiency_regions_count_in_pixel_cluster_shape_2d_hist=count_in_pixel_cluster_shape_2d_hists,
                     efficiency_regions_stat_in_pixel_cluster_shape_2d_hist=stat_in_pixel_cluster_shape_2d_hists,
                     chunk_indices=chunk_indices,
-                    efficiency_regions_efficiencies_chunks=efficiency_regions_efficiencies_chunks,
                     efficiency_regions_in_pixel_hist_extent=in_pixel_hist_extent,
                     efficiency_regions_in_pixel_plot_range=in_pixel_plot_range,
                     efficiency_regions_analyze_cluster_shapes=efficiency_regions_analyze_cluster_shapes,
