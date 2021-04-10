@@ -738,6 +738,8 @@ class KalmanFilter(object):
         n_dim_state = track_seed.shape[1]
         reference_states = np.zeros(shape=(chunk_size, n_duts, 4))  # [contains x, y, x', y']
 
+        use_beam_constraints = False  # not working unfortunately
+
         # Extrapolate track_seed and store as reference state.
         # The reference state is used as expansion point for linearization of Kalman Filter (Data Analysis Techniques for HEP, R. Fruehwirth et al., page 252)
         for i, dut_index in enumerate(z_sorted_dut_indices):
@@ -750,6 +752,10 @@ class KalmanFilter(object):
                     gamma=seed_dut.rotation_gamma)
                 seed_dut_position = np.array([seed_dut.translation_x, seed_dut.translation_y, seed_dut.translation_z])
                 reference_states[:, dut_index, :] = track_seed
+
+                if use_beam_constraints:
+                    track_seed = np.tile(np.array([seed_dut_position[0], seed_dut_position[1], 0.0, 0.0]), reps=(reference_states.shape[0], 1))
+                    reference_states[:, dut_index, :] = track_seed
             else:
                 rotation_matrix_actual_dut = geometry_utils.rotation_matrix(
                     alpha=actual_dut.rotation_alpha,
@@ -798,6 +804,7 @@ class KalmanFilter(object):
                     gamma=seed_dut.rotation_gamma)
                 seed_dut_position = np.array([seed_dut.translation_x, seed_dut.translation_y, seed_dut.translation_z])
                 reference_states[:, i, :] = track_seed
+
             else:
                 rotation_matrix_actual_dut = geometry_utils.rotation_matrix(
                     alpha=actual_dut.rotation_alpha,
