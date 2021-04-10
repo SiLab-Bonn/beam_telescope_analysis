@@ -906,7 +906,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, output_alignment_file=None, select_duts=None, alignment_parameters=None, use_reference_dut=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, annealing_factor=20000, annealing_tracks=10000, use_limits=True, plot=True, chunk_size=1000000):
+def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, output_alignment_file=None, select_duts=None, alignment_parameters=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, cluster_shapes=None, annealing_factor=20000, annealing_tracks=10000, use_limits=True, plot=True, chunk_size=1000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -1203,8 +1203,8 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
             output_alignment_file=output_alignment_file,
             input_track_candidates_file=prealigned_track_candidates_file,
             select_duts=align_duts,
-            use_reference_dut=use_reference_dut,
             alignment_parameters=alignment_parameters[index],
+            select_telescope_duts=select_telescope_duts,
             select_fit_duts=select_fit_duts[index],
             select_hit_duts=select_hit_duts[index],
             beam_energy=beam_energy,
@@ -1361,7 +1361,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         os.remove(output_track_candidates_file)
 
 
-def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input_track_candidates_file, alignment_parameters, use_reference_dut, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, beam_energy=2500, particle_mass=0.511, scattering_planes=None, track_chi2=25.0, use_limits=True, iteration_index=0, exclude_dut_hit=False, annealing_factor=20000, annealing_tracks=10000, plot=True, chunk_size=100000):
+def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input_track_candidates_file, alignment_parameters, select_telescope_duts, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, beam_energy=2500, particle_mass=0.511, scattering_planes=None, track_chi2=25.0, use_limits=True, iteration_index=0, exclude_dut_hit=False, annealing_factor=20000, annealing_tracks=10000, plot=True, chunk_size=5000):
     '''Calculate tracks and set tracks quality flag for selected DUTs.
     Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
 
@@ -1590,7 +1590,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                 actual_align_cov = np.zeros(shape=(len(telescope), 6, 6), dtype=np.float64)
 
                 # TODO: Make this dynamic
-                deviation_cuts = [0.04, 0.04, 0.01, 0.005, 0.005, 0.005]
+                deviation_cuts = [0.05, 0.05, 0.005, 0.003, 0.003, 0.005]
                 alpha = np.zeros(shape=len(telescope), dtype=np.float64)
 
                 # Number of processed tracks for every DUT
@@ -1598,7 +1598,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
 
                 # Calculate initial alignment
                 # TODO: make initial errors as input
-                initial_rotation_matrix, initial_position_vector, actual_align_cov = calculate_initial_alignment(telescope, select_duts, alignment_parameters, actual_align_cov, use_reference_dut)
+                initial_rotation_matrix, initial_position_vector, actual_align_cov = calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov)
 
                 n_tracks = in_file_h5.root.TrackCandidates.shape[0]
                 pbar = tqdm(total=n_tracks, ncols=80)
@@ -1727,13 +1727,6 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                         alignment_table.attrs.n_tracks_processed = n_tracks_processed[dut_index]
                         alignment_table.flush()
 
-                        # alignment_tables.append(alignment_table)
-
-                        # alignment_tables[align_index].append(alignment_values[dut_index])
-                        # alignment_tables[align_index].attrs.deviation_cuts = deviation_cuts
-                        # alignment_tables[align_index].attrs.n_tracks_processed = n_tracks_processed[dut_index]
-                        # alignment_tables[align_index].flush()
-
                     # Store chi2 values
                     try:  # Check if table exists already, then append data
                         out_chi2s = out_file_h5.get_node('/TrackChi2')
@@ -1772,16 +1765,6 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
     output_pdf_file = output_alignment_file[:-3] + '.pdf'
     # Plot alignment result
     plot_utils.plot_kf_alignment(output_alignment_file, telescope, output_pdf_file)
-
-    # output_residuals_file = os.path.splitext(merged_file)[0] + '_residuals_aligned_selected_tracks_%s_tmp_%d.h5' % (alignment_duts, iteration_step)
-    # calculate_residuals(
-    #     telescope_configuration=output_telescope_configuration,
-    #     input_tracks_file=output_selected_tracks_file,
-    #     output_residuals_file=output_residuals_file,
-    #     select_duts=actual_align_duts,
-    #     use_limits=use_limits,
-    #     plot=True,
-    #     chunk_size=chunk_size)
 
 
 def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
@@ -2099,7 +2082,7 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
     telescope.save_configuration()
 
 
-def calculate_initial_alignment(telescope, select_duts, alignment_parameters, actual_align_cov, use_reference_dut):
+def calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov):
     ''' Calculate initial alignment paramters for KFA
     '''
 
@@ -2117,22 +2100,24 @@ def calculate_initial_alignment(telescope, select_duts, alignment_parameters, ac
                     alpha=dut.rotation_alpha,
                     beta=dut.rotation_beta,
                     gamma=dut.rotation_gamma)
-        if use_reference_dut == dut_index:
-            # do not align reference dut
-            continue
         # Errors on initial aligment parameters
         if 'translation_x' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 0, 0] = np.square(100.0)  # 100 um error
+            actual_align_cov[dut_index, 0, 0] = np.square(50.0)  # 50 um error
         if 'translation_y' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 1, 1] = np.square(100.0)  # 100 um error
+            actual_align_cov[dut_index, 1, 1] = np.square(50.0)  # 50 um error
         if 'translation_z' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 2, 2] = np.square(1000.0)  # 500 um error
+            actual_align_cov[dut_index, 2, 2] = np.square(10000.0)  # 1 cm error
         if 'rotation_alpha' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 3, 3] = np.square(5e-2)  # 50 mrad error
+            actual_align_cov[dut_index, 3, 3] = np.square(20e-3)  # 20 mrad error
         if 'rotation_beta' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 4, 4] = np.square(5e-2)  # 50 mrad error
+            actual_align_cov[dut_index, 4, 4] = np.square(20e-3)  # 20 mrad error
         if 'rotation_gamma' in alignment_parameters[align_index]:
-            actual_align_cov[dut_index, 5, 5] = np.square(5e-3)  # 5 mrad error
+            actual_align_cov[dut_index, 5, 5] = np.square(20e-3)  # 20 mrad error
+
+        # Fix first and last telescope plane. FIXME: this is not optimal due to shearing effects.
+        # In principle only z needs to be fixed to avoid telescope stretching and very first plane (+ usage of beam alignment).
+        actual_align_cov[select_telescope_duts[0], :, :] = np.square(0.0)
+        actual_align_cov[select_telescope_duts[-1], :, :] = np.square(0.0)
 
     return initial_rotation_matrix, initial_position_vector, actual_align_cov
 
@@ -2147,10 +2132,6 @@ def _update_alignment_parameters(telescope, H, V, C0, p0, a0, E0, track_hits, a1
         # Calculate update for alignment parameters
         a1[dut_index, :], E1[dut_index, :] = _calculate_alignment_parameters(H[dut_index], V[dut_index], C0[dut_index], p0[dut_index],
                                                                              a0[dut_index], E0[dut_index], R, track_hits[0, dut_index, :2])
-
-        abs_pos_err = 10.0  # 5 um position error
-        abs_angle_err = 2e-4  # 200 urad angle error
-        abs_z_err = 100.0
 
         # Data quality check II: Check change of aligment parameters
         filter_event = False
@@ -2241,17 +2222,17 @@ def _calculate_alignment_parameters(H, V, C0, p0, a0, E0, R, m):
 def _jacobian_aligment(p0, R):
     ''' https://cds.cern.ch/record/619975/files/cr03_022.pdf
     '''
-    tu = p0[2]  # 0
-    tv = p0[3]  # 1
-    u = p0[0]  # 2
-    v = p0[1]  # 3
+    tu = p0[2]
+    tv = p0[3]
+    u = p0[0]
+    v = p0[1]
 
     # The jacobian matrix, Eq (17)
     jaq = np.zeros(shape=(2, 6), dtype=np.float64)
-    jaq[0, 0] = -1      # dfu / ddu
-    jaq[1, 0] = 0       # dfv / ddu
-    jaq[0, 1] = 0       # dfu / ddv
-    jaq[1, 1] = -1      # dfv / ddv
+    jaq[0, 0] = -1.0      # dfu / ddu
+    jaq[1, 0] = 0.0       # dfv / ddu
+    jaq[0, 1] = 0.0       # dfu / ddv
+    jaq[1, 1] = -1.0      # dfv / ddv
     jaq[0, 2] = +tu     # dfu / ddw
     jaq[1, 2] = +tv     # dfv / ddw
     jaq[0, 3] = -v * tu   # dfu / ddalpha
