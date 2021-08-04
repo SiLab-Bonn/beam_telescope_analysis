@@ -204,7 +204,8 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
             predicted_states[:, dut_index] = initial_state
             predicted_state_covariances[:, dut_index] = initial_state_covariance
         else:
-            previous_dut = dut_planes[dut_index - 1]  # we use filter from previous plane [dut_index - 1] and extrapolate/predict onto actual plane [dut_index]
+            previuos_dut_index = z_sorted_dut_indices[i - 1]  # index of previous DUT
+            previous_dut = dut_planes[previuos_dut_index]  # we use filter from previous plane and extrapolate/predict onto actual plane
             actual_dut = dut_planes[dut_index]  # we want to get prediction onto actual plane [dut_index]
 
             # Local to global transformation
@@ -222,22 +223,22 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
 
             # Transition matrix: 0: not defined/needed, 1: 0->1, 2: 1->2 (k: k-1 --> k)
             Js[:, dut_index, :, :] = _calculate_track_jacobian(
-                reference_state=reference_states[:, dut_index - 1, :],  # use reference state from before
+                reference_state=reference_states[:, previuos_dut_index, :],  # use reference state from before
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),  # extrapolates to this position
                 rotation_matrix=np.tile(rotation_matrix_previous_dut, reps=(reference_state.shape[0], 1, 1)),
                 rotation_matrix_target_dut=np.tile(rotation_matrix_actual_dut, reps=(reference_state.shape[0], 1, 1)))
 
             # According to Wolin et al. paper
-            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, dut_index - 1, :])  # use reference state from before
+            Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, previuos_dut_index, :])  # use reference state from before
 
             # Calculate prediction from filter
             predicted_states[:, dut_index], predicted_state_covariances[:, dut_index] = _filter_predict_f(
                 track_jacobian=Js[:, dut_index, :, :],
                 local_scatter_gain_matrix=Gl_det,
-                transition_covariance=transition_covariances[:, dut_index - 1],
-                current_filtered_state=filtered_states[:, dut_index - 1],
-                current_filtered_state_covariance=filtered_state_covariances[:, dut_index - 1])
+                transition_covariance=transition_covariances[:, previuos_dut_index],
+                current_filtered_state=filtered_states[:, previuos_dut_index],
+                current_filtered_state_covariance=filtered_state_covariances[:, previuos_dut_index])
 
             check_covariance_matrix(predicted_state_covariances[:, dut_index])  # Sanity check for covariance matrix
 
@@ -337,9 +338,10 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
             predicted_states[:, dut_index] = initial_state
             predicted_state_covariances[:, dut_index] = initial_state_covariance
         else:
-            previous_dut = dut_planes[dut_index + 1]  # we use filter from previous plane [dut_index - 1] and extrapolate/predict onto actual plane [dut_index]
+            previuos_dut_index = z_sorted_dut_indices[::-1][i - 1]  # index of previous DUT
+            previous_dut = dut_planes[previuos_dut_index]  # we use filter from previous plane and extrapolate/predict onto actual plane
             actual_dut = dut_planes[dut_index]  # we want to get prediction onto actual plane [dut_index]
-            check_covariance_matrix(transition_covariances[:, dut_index + 1])  # Sanity check for covariance matrix
+            check_covariance_matrix(transition_covariances[:, previuos_dut_index])  # Sanity check for covariance matrix
 
             # Local to global transformation
             rotation_matrix_previous_dut = geometry_utils.rotation_matrix(
@@ -356,7 +358,7 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
 
             # Transition matrix: 7: not defined/needed, 6: 7->6, 5: 6->5 (k: k + 1 --> k)
             Js[:, dut_index, :, :] = _calculate_track_jacobian(
-                reference_state=reference_states[:, dut_index + 1, :],  # use reference state from before (backward)
+                reference_state=reference_states[:, previuos_dut_index, :],  # use reference state from before (backward)
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),
                 rotation_matrix=np.tile(rotation_matrix_previous_dut, reps=(reference_state.shape[0], 1, 1)),
@@ -371,8 +373,8 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
                 track_jacobian=Js[:, dut_index, :, :],
                 local_scatter_gain_matrix=Gl_det,
                 transition_covariance=transition_covariances[:, dut_index],  # x_k depends only on the scatterings w_k at plane k and not(!!) on the scatterings at plane k+1
-                current_filtered_state=filtered_states[:, dut_index + 1],
-                current_filtered_state_covariance=filtered_state_covariances[:, dut_index + 1])
+                current_filtered_state=filtered_states[:, previuos_dut_index],
+                current_filtered_state_covariance=filtered_state_covariances[:, previuos_dut_index])
 
         valid_hit_selection = ~np.isnan(observations[:, dut_index, 0])
         if dut_index in select_fit_duts:
