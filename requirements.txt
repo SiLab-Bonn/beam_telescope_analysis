@@ -10,3 +10,4 @@ dill
 tqdm
 pixel_clusterizer>=3.1.5
 pylandau>2.0.0
+requests
