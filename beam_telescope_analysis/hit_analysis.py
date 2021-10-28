@@ -1143,37 +1143,42 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         chunk_size=chunk_size)
 
     def pos_error_func_with_index(clusters, dut, d, pxi, pyi):
-        # Set errors for big clusters, where delta electrons reduce resolution
-        # Set error on all clusters
-        clusters['err_column'] = (clusters['err_column'] + 1) / math.sqrt(12)
-        clusters['err_row'] = (clusters['err_row'] + 1) / math.sqrt(12)
-        # TODO: do this not in all cases
-        # if cluster_size_hist[4] > cluster_size_hist[4]:
-        # Set errors for small clusters, where charge sharing enhances resolution
-        # for 1x1, 1x2, 2x1, 2x2 clusters use specific formula
-        # set different pixel shapes
-        # TODO: check factor of 2
-        sel = (clusters['cluster_shape'] == 1)
-        clusters['err_column'][sel] = pxi / np.sqrt(12) / dut.column_size
-        clusters['err_row'][sel] = pxi / np.sqrt(12) / dut.row_size
-        sel = (clusters['cluster_shape'] == 3)
-        clusters['err_column'][sel] = 2 * d / np.sqrt(12) / dut.column_size
-        clusters['err_row'][sel] = pyi / np.sqrt(12) / dut.row_size
-        sel = (clusters['cluster_shape'] == 5)
-        clusters['err_column'][sel] = pxi / np.sqrt(12) / dut.column_size
-        clusters['err_row'][sel] = 2 * d / np.sqrt(12) / dut.row_size
-        sel = (clusters['cluster_shape'] == 7) | (clusters['cluster_shape'] == 11) | (clusters['cluster_shape'] == 13) | (clusters['cluster_shape'] == 14)
-        clusters['err_column'][sel] = 2 * d * 2 / np.sqrt(12) / dut.column_size  # use 2 / sqrt(12) to compensate for the shape
-        clusters['err_row'][sel] = 2 * d * 2 / np.sqrt(12) / dut.row_size  # use 2 / sqrt(12) to compensate for the shape
-        sel = (clusters['cluster_shape'] == 15)
-        clusters['err_column'][sel] = 2 * d / np.sqrt(12) / dut.column_size
-        clusters['err_row'][sel] = 2 * d / np.sqrt(12) / dut.row_size
+        # FIXME: this code is not working
+        # # Set errors for big clusters, where delta electrons reduce resolution
+        # # Set error on all clusters
+        # clusters['err_column'] = (clusters['err_column'] + 1) / math.sqrt(12)
+        # clusters['err_row'] = (clusters['err_row'] + 1) / math.sqrt(12)
+        # # TODO: do this not in all cases
+        # # if cluster_size_hist[4] > cluster_size_hist[4]:
+        # # Set errors for small clusters, where charge sharing enhances resolution
+        # # for 1x1, 1x2, 2x1, 2x2 clusters use specific formula
+        # # set different pixel shapes
+        # # TODO: check factor of 2
+        # sel = (clusters['cluster_shape'] == 1)
+        # clusters['err_column'][sel] = pxi / np.sqrt(12) / dut.column_size
+        # clusters['err_row'][sel] = pyi / np.sqrt(12) / dut.row_size
+        # sel = (clusters['cluster_shape'] == 3)
+        # clusters['err_column'][sel] = 2 * d / np.sqrt(12) / dut.column_size
+        # clusters['err_row'][sel] = pyi / np.sqrt(12) / dut.row_size
+        # sel = (clusters['cluster_shape'] == 5)
+        # clusters['err_column'][sel] = pxi / np.sqrt(12) / dut.column_size
+        # clusters['err_row'][sel] = 2 * d / np.sqrt(12) / dut.row_size
+        # sel = (clusters['cluster_shape'] == 7) | (clusters['cluster_shape'] == 11) | (clusters['cluster_shape'] == 13) | (clusters['cluster_shape'] == 14)
+        # clusters['err_column'][sel] = 2 * d * 2 / np.sqrt(12) / dut.column_size  # use 2 / sqrt(12) to compensate for the shape
+        # clusters['err_row'][sel] = 2 * d * 2 / np.sqrt(12) / dut.row_size  # use 2 / sqrt(12) to compensate for the shape
+        # sel = (clusters['cluster_shape'] == 15)
+        # clusters['err_column'][sel] = 2 * d / np.sqrt(12) / dut.column_size
+        # clusters['err_row'][sel] = 2 * d / np.sqrt(12) / dut.row_size
+
+        # Use intrinsic resolution (p/sqrt(12)) as error on cluster position for all clusters
+        clusters['err_column'] = dut.column_size / np.sqrt(12) / dut.column_size
+        clusters['err_row'] = dut.row_size / np.sqrt(12) / dut.row_size
         return clusters
 
     def pos_error_func_with_position(clusters, dut):
-        # Set errors for all clusters
-        clusters['err_x'] = (clusters['err_x'] + dut.column_size) / math.sqrt(12)
-        clusters['err_y'] = (clusters['err_y'] + dut.row_size) / math.sqrt(12)
+        # Use intrinsic resolution (p/sqrt(12)) as error on cluster position
+        clusters['err_x'] = dut.column_size / np.sqrt(12)
+        clusters['err_y'] = dut.row_size / np.sqrt(12)
         return clusters
 
     if use_positions:
@@ -1195,8 +1200,8 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
         # Calculate paramters from cluster shape histogram
         total_n_small_clusters = np.sum(cluster_shape_hist[[1, 3, 5, 7, 11, 13, 14, 15]])
         ratio_pxi_pyi = cluster_shape_hist[5] / cluster_shape_hist[3]
-        ration_cs_1_all = cluster_shape_hist[1] / total_n_small_clusters
-        pyi = math.sqrt(dut.column_size * dut.row_size * ration_cs_1_all / ratio_pxi_pyi)
+        ratio_cs_1_all = cluster_shape_hist[1] / total_n_small_clusters
+        pyi = math.sqrt(dut.column_size * dut.row_size * ratio_cs_1_all / ratio_pxi_pyi)
         pxi = ratio_pxi_pyi * pyi
         d = (dut.column_size - pxi + dut.row_size - pyi) / 4
 
@@ -1212,8 +1217,6 @@ def cluster_hits(dut, input_hit_file, output_cluster_file=None, input_mask_file=
                 'pxi': pxi,
                 'pyi': pyi},
             chunk_size=chunk_size)
-
-    # Copy masks to result cluster file
 
     # Copy nodes to result file
     if input_mask_file is not None:
