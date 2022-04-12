@@ -1574,14 +1574,11 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     elif isinstance(scattering_planes, dict):
         scattering_planes = [scattering_planes]
 
-    alignment = []
     material_budget = []
     all_dut_planes = [dut for dut in telescope]
     all_dut_planes.extend(scattering_planes)
     for dut in all_dut_planes:
-        alignment.append([dut.translation_x, dut.translation_y, dut.translation_z, dut.rotation_alpha, dut.rotation_beta, dut.rotation_gamma])
         material_budget.append(dut.material_budget)
-    alignment = np.array(alignment)
     material_budget = np.array(material_budget)
 
     # calculating DUT indices list with z-order
@@ -1689,14 +1686,13 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     if np.any(chi2_s[~np.isnan(chi2_s)] < 0.0):
         raise RuntimeError("Not all chi-square values are positive!")
 
-    # Sum up all chi2 and divide by number of degrees of freedom - 1 (Ndof - 1 = 2 * n_hits - 5, (x,y) = 2 observables, (x, y, x', y') = 4 state vector comp.).
+    # Sum up all chi2 and divide by number of degrees of freedom (Ndof = 2 * n_hits - 4, (x,y) = 2 observables, (x, y, x', y') = 4 state vector comp.).
     n_hits = np.count_nonzero(~np.isnan(chi2_s[:, select_fit_duts]), axis=1)
-    n_dof = (2 * n_hits - 5)  # degrees of freedom
+    n_dof = (2 * n_hits - 4)  # degrees of freedom
     chi2s = np.nansum(chi2_s[:, select_fit_duts], axis=1)
     chi2s_red = np.nansum(chi2_s[:, select_fit_duts], axis=1) / n_dof  # reduced chi2
-    chi2s_prob = 1.0 - chi2.cdf(chi2s, n_dof)  # cummulative chi2 probability (for falsly rejecting true hypothesis)
-
-    return offsets, slopes, chi2s, chi2s_red, chi2s_prob, x_err, y_err, cov, observation_covariances
+    chi2s_prob = 1.0 - chi2.cdf(chi2s, n_dof)  # cummulative chi2 probability, propability of rejecting a true hyptothesis (p-value = probability that observation given a null hypothesis is true!)
+    return offsets, slopes, chi2s, chi2s_red, chi2s_prob, x_err, y_err, cov, observation_covariances, observation_matrices
 
 
 def _kalman_fit_3d(dut_planes, track_seed, z_sorted_dut_indices, hits, momentum, beta, select_fit_duts, transition_covariances, observation_matrices, observation_covariances, initial_state_mean, initial_state_covariance):

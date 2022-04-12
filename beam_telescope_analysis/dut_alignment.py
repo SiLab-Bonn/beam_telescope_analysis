@@ -67,7 +67,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
     local_to_global : bool
         If True, convert from local to global coordinates.
     align_to_beam : bool
-        If True, use telescope aligment to align to the beam (beam along z axis).
+        If True, use telescope alignment to align to the beam (beam along z axis).
     chunk_size : uint
         Chunk size of the data when reading from file.
 
@@ -1500,8 +1500,8 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
         out_chi2s_probs.flush()
         out_chi2s.attrs.max_track_chi2 = track_chi2
 
-    def _alignment_loop(actual_align_state, actual_align_cov):
-        ''' Helper function which loops over track chunks and performs the alignnment
+    def _alignment_loop(actual_align_state, actual_align_cov, initial_rotation_matrix, initial_position_vector):
+        ''' Helper function which loops over track chunks and performs the alignnment.
         '''
         # Init progressbar
         n_tracks = in_file_h5.root.TrackCandidates.shape[0]
@@ -1510,12 +1510,12 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
         # Number of processed tracks for every DUT
         n_tracks_processed = np.zeros(shape=(len(telescope)), dtype=np.int)
 
-        # TODO: Make this dynamic
-        deviation_cuts = [0.05, 0.05, 0.05, 0.05, 0.05, 0.04]  # [0.05, 0.05, 0.04, 0.04, 0.04, 0.04] and check with 0.055
+        # Maximum allowed relative change for each alignment parameter. Can be adjusted.
+        deviation_cuts = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
         alpha = np.zeros(shape=len(telescope), dtype=np.float64)  # annealing factor
 
         # Loop in chunks over tracks. After each chunk, alignment values are stored.
-        for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=1000):
+        for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=10000):
             # Select only tracks for which hit requirement is fulfilled
             track_candidates_chunk_valid_hits = track_candidates_chunk[track_candidates_chunk['hit_flag'] & dut_hit_mask == dut_hit_mask]
             total_n_tracks_valid_hits = track_candidates_chunk_valid_hits.shape[0]
@@ -1540,12 +1540,12 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                     track_hits[:, dut_index, 5] = track['z_err_dut_%s' % dut_index]
 
                     # Calculate new alignment (takes initial alignment and actual *change* of parameters)
-                    new_rotation_matrix, new_position_vector = update_alignment(initial_rotation_matrix[dut_index], initial_position_vector[dut_index], actual_align_state[dut_index])
-                    if dut_index == 3:
-                        print(new_rotation_matrix, 'Rot', actual_align_state[dut_index], initial_rotation_matrix[dut_index])
-                    alpha_average, beta_average, gamma_average = geometry_utils.euler_angles(R=new_rotation_matrix)  # Get euler angles from rotation matrix
+                    new_rotation_matrix, new_position_vector = _update_alignment(initial_rotation_matrix[dut_index], initial_position_vector[dut_index], actual_align_state[dut_index])
 
-                    # Set new aligment to DUT
+                    # Get euler angles from rotation matrix
+                    alpha_average, beta_average, gamma_average = geometry_utils.euler_angles(R=new_rotation_matrix)
+
+                    # Set new alignment to DUT
                     dut._translation_x = float(new_position_vector[0])
                     dut._translation_y = float(new_position_vector[1])
                     dut._translation_z = float(new_position_vector[2])
@@ -1575,7 +1575,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
 
                 # Run Kalman Filter
                 try:
-                    offsets, slopes, chi2s_reg, chi2s_red, chi2s_prob, x_err, y_err, cov, cov_obs = _fit_tracks_kalman_loop(track_hits, telescope, fit_duts, beam_energy, particle_mass, scattering_planes, alpha)
+                    offsets, slopes, chi2s_reg, chi2s_red, chi2s_prob, x_err, y_err, cov, cov_obs, obs_mat = _fit_tracks_kalman_loop(track_hits, telescope, fit_duts, beam_energy, particle_mass, scattering_planes, alpha)
                 except Exception as e:
                     print(e, 'TRACK FITTING')
                     continue
@@ -1592,17 +1592,15 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                 p0 = np.column_stack((offsets[0, :, 0], offsets[0, :, 1],
                                       slopes[0, :, 0], slopes[0, :, 1]))
                 # Covariance matrix (x, y, dx, dy) of track estimates
-                C0 = cov[0, :, :, :]  # just get rid of first dim (only one track)
+                C0 = cov[0, :, :, :]
                 # Covariance matrix (x, y, dx, dy) of observations
                 V = cov_obs[0, :, :, :]
                 # Measurement matrix
-                H = np.zeros(shape=(len(telescope), 2, 4), dtype=np.float64)
-                H[:, 0, 0] = 1.0
-                H[:, 1, 1] = 1.0
+                H = obs_mat[0, :, :, :]
 
                 # Actual alignment parameters and its covariance
-                a0 = actual_align_state
-                E0 = actual_align_cov
+                a0 = actual_align_state.copy()
+                E0 = actual_align_cov.copy()
 
                 # Updated alignment parameters and its covariance
                 E1 = np.zeros_like(E0)
@@ -1779,10 +1777,9 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                 actual_align_cov = np.zeros(shape=(len(telescope), 6, 6), dtype=np.float64)
 
                 # Calculate initial alignment
-                initial_rotation_matrix, initial_position_vector, actual_align_cov = calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov, alignment_parameters_errors)
-
+                initial_rotation_matrix, initial_position_vector, actual_align_cov = _calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov, alignment_parameters_errors)
                 # Loop over tracks in chunks and perform alignment.
-                _alignment_loop(actual_align_state, actual_align_cov)
+                _alignment_loop(actual_align_state, actual_align_cov, initial_rotation_matrix, initial_position_vector)
 
                 fitted_duts.extend(actual_fit_duts)
 
@@ -2106,11 +2103,9 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
     telescope.save_configuration()
 
 
-def calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov, alignment_parameters_errors):
-    ''' Calculate initial alignment paramters for KFA
+def _calculate_initial_alignment(telescope, select_duts, select_telescope_duts, alignment_parameters, actual_align_cov, alignment_parameters_errors):
+    ''' Calculate initial alignment parameters. Setting initial covariance to zero excludes alignment parameter from alignment.
     '''
-
-    # Get initial alignment
     initial_rotation_matrix = np.zeros(shape=(len(telescope), 3, 3), dtype=np.float64)
     initial_position_vector = np.zeros(shape=(len(telescope), 3), dtype=np.float64)
     for dut_index, dut in enumerate(telescope):
@@ -2123,7 +2118,8 @@ def calculate_initial_alignment(telescope, select_duts, select_telescope_duts, a
                     alpha=dut.rotation_alpha,
                     beta=dut.rotation_beta,
                     gamma=dut.rotation_gamma)
-        # Errors on initial aligment parameters
+
+        # Errors on initial alignment parameters
         if dut_index in select_duts:
             if 'translation_x' in alignment_parameters[dut_index]:
                 actual_align_cov[dut_index, 0, 0] = np.square(alignment_parameters_errors[0])  # 50 um error
@@ -2138,15 +2134,20 @@ def calculate_initial_alignment(telescope, select_duts, select_telescope_duts, a
             if 'rotation_gamma' in alignment_parameters[dut_index]:
                 actual_align_cov[dut_index, 5, 5] = np.square(alignment_parameters_errors[5])  # 20 mrad error
 
-    # Fix first and last telescope plane. FIXME: this is not optimal due to shearing effects.
+    # Fix first and last telescope plane (only rotation_gamma is not fixed).
     # In principle only z needs to be fixed to avoid telescope stretching and very first plane (+ usage of beam alignment).
-    actual_align_cov[select_telescope_duts[0], :, :] = np.square(0.0)
-    actual_align_cov[select_telescope_duts[-1], :, :] = np.square(0.0)
+    for k in [0, 1, 2, 3, 4]:  # leave rotation_gamma floating
+        actual_align_cov[select_telescope_duts[0], k, k] = 0.0
+        actual_align_cov[select_telescope_duts[-1], k, k] = 0.0
+
+    # actual_align_cov[4, 5, 5] = 0.0  # 20 mrad error
 
     return initial_rotation_matrix, initial_position_vector, actual_align_cov
 
 
 def _update_alignment_parameters(telescope, H, V, C0, p0, a0, E0, track_hits, a1, E1, alignment_values, deviation_cuts, actual_align_state, actual_align_cov, n_tracks_processed, track_index):
+    ''' Update alignment parameters and check for change. If rel. change too large, change is rejected.
+    '''
     for dut_index, dut in enumerate(telescope):
         R = geometry_utils.rotation_matrix(
                 alpha=dut.rotation_alpha,
@@ -2157,69 +2158,76 @@ def _update_alignment_parameters(telescope, H, V, C0, p0, a0, E0, track_hits, a1
         a1[dut_index, :], E1[dut_index, :] = _calculate_alignment_parameters(H[dut_index], V[dut_index], C0[dut_index], p0[dut_index],
                                                                              a0[dut_index], E0[dut_index], R, track_hits[0, dut_index, :2])
 
-        # Data quality check II: Check change of aligment parameters
-        filter_event = False
-        for par_name, par in zip(['translation_x', 'translation_y', 'translation_z', 'rotation_alpha', 'rotation_beta', 'rotation_gamma'], range(a1.shape[1])):  # loop over all parameters for alignable
+        # Data quality check II: Check change of alignment parameters
+        filter_track = False
+        for par, par_name in enumerate(['translation_x', 'translation_y', 'translation_z', 'rotation_alpha', 'rotation_beta', 'rotation_gamma']):  # loop over all parameters for alignable
             if deviation_cuts[par] > 0.0:
                 if np.sqrt(E0[dut_index, par, par]) == 0:
                     alignment_values[dut_index, track_index][par_name + '_delta'] = 0.0
                 else:
                     alignment_values[dut_index, track_index][par_name + '_delta'] = np.abs(a1[dut_index, par] - a0[dut_index, par]) / np.sqrt(E0[dut_index, par, par])
                 if np.abs(a1[dut_index, par] - a0[dut_index, par]) > deviation_cuts[par] * np.sqrt(E0[dut_index, par, par]):
-                    filter_event = True
+                    filter_track = True
                     break
 
-        if filter_event:
+        if filter_track:
             continue
 
         # Update actual alignment state
-        actual_align_state[dut_index] = a1[dut_index]
-        actual_align_cov[dut_index] = E1[dut_index]
+        actual_align_state[dut_index] = a1[dut_index].copy()
+        actual_align_cov[dut_index] = E1[dut_index].copy()
         n_tracks_processed[dut_index] += 1
 
     return actual_align_state, actual_align_cov, alignment_values, n_tracks_processed
 
 
-def update_alignment(initial_rotation_matrix, initial_position_vector, actual_align_state):
+def _update_alignment(initial_rotation_matrix, initial_position_vector, actual_align_state):
+    ''' Update alignment by applying corrections to initial alignment.
+    '''
+    # Extract alignment parameters
     dx = actual_align_state[0]
     dy = actual_align_state[1]
     dz = actual_align_state[2]
-    # TODO: prevent angles from jumping around -pi / pi , can be done by limiting rotations to pi/2 ?
     dalpha = actual_align_state[3]
     dbeta = actual_align_state[4]
     dgamma = actual_align_state[5]
 
     # Compute a 'delta' frame from corrections
-    deltaFrame = _create_karimaki_delta(dx, dy, dz, dalpha, dbeta, dgamma)
+    delta_frame = _create_karimaki_delta(dx, dy, dz, dalpha, dbeta, dgamma)
 
-    # Merge nominal frame and delta frame
-    return _combine_karimaki(initial_rotation_matrix, initial_position_vector, deltaFrame)
+    # Merge initial alignment and corrections ('delta')
+    return _combine_karimaki(initial_rotation_matrix, initial_position_vector, delta_frame)
 
 
 def _create_karimaki_delta(dx, dy, dz, dalpha, dbeta, dgamma):
+    ''' Reference: https://cds.cern.ch/record/619975/files/cr03_022.pdf, Eq. 4
+        Use full rotation matrix here, instead of small angle approximation used in paper.
+    '''
+
     # Small rotation by dalpha, dbeta, dgamma around
-    # local sensor u-axis, (new) v-axis and (new) w-axis respectively.
-    # Use full rotation matrix here, since in the paper small angle approximation is used
-    # DeltaR according to https://cds.cern.ch/record/619975/files/cr03_022.pdf, Eq. 4
-    deltaRot = geometry_utils.rotation_matrix(
+    delta_rot = geometry_utils.rotation_matrix(
                                 alpha=dalpha,
                                 beta=dbeta,
                                 gamma=dgamma).T
 
     # Shift of sensor center by dx,dy,dz in global coord. system.
-    global_offset = np.array([dx, dy, dz])
+    delta_offset = np.array([dx, dy, dz])
 
-    return deltaRot, global_offset
+    return delta_rot, delta_offset
 
 
-def _combine_karimaki(initial_rotation_matrix, initial_position_vector, deltaFrame):
-    Rot_combined = np.matmul(deltaFrame[0], initial_rotation_matrix)
-    pos_combined = deltaFrame[1] + initial_position_vector
-    return Rot_combined, pos_combined
+def _combine_karimaki(initial_rotation_matrix, initial_position_vector, delta_frame):
+    ''' Apply corrections ('delta') to initial alignment.
+        Reference: https://cds.cern.ch/record/619975/files/cr03_022.pdf
+    '''
+    combined_rot = np.matmul(delta_frame[0], initial_rotation_matrix)
+    combined_offset = delta_frame[1] + initial_position_vector
+    return combined_rot, combined_offset
 
 
 def _calculate_annealing(k, annealing_factor, annealing_tracks):
-    # According to Scheme C from https://iopscience.iop.org/article/10.1088/0954-3899/29/3/309
+    '''Geometrical annealing scheme according to https://iopscience.iop.org/article/10.1088/0954-3899/29/3/309.
+    '''
     if k < annealing_tracks:
         alpha = annealing_factor ** ((annealing_tracks - k) / annealing_tracks)
     else:
@@ -2229,45 +2237,49 @@ def _calculate_annealing(k, annealing_factor, annealing_tracks):
 
 
 def _calculate_alignment_parameters(H, V, C0, p0, a0, E0, R, m):
+    ''' Update formulars for alignment parameters and its covariance.
+        Reference: https://iopscience.iop.org/article/10.1088/0954-3899/29/3/309
     '''
-    '''
-    # Jacobian of aligment parameters
-    D = _jacobian_aligment(p0, R)
+    # Jacobian of aligmnent parameters
+    D = _jacobian_alignment(p0, R)
+
     # Weight matrix
     W = np.linalg.inv((V + np.matmul(H, np.matmul(C0, H.T)) + np.matmul(D, np.matmul(E0, D.T))))
 
-    # Update aligment parameter states and covariance
+    # Update alignment parameter states and covariance
     a1 = a0 + np.matmul(np.matmul(E0,  np.matmul(D.T, W)), (m - np.matmul(H, p0)))
     E1 = E0 - np.matmul(E0, np.matmul(D.T, np.matmul(W, np.matmul(D, E0.T))))
 
     return a1, E1
 
 
-def _jacobian_aligment(p0, R):
-    ''' https://cds.cern.ch/record/619975/files/cr03_022.pdf
+def _jacobian_alignment(p0, R):
+    ''' Derivative of measuremnts with respect to global alignment parameters.
+        Reference: https://cds.cern.ch/record/619975/files/cr03_022.pdf
     '''
-    tu = p0[2]
-    tv = p0[3]
+    # Extract position and slope from track state
     u = p0[0]
     v = p0[1]
+    tu = p0[2]
+    tv = p0[3]
 
-    # The jacobian matrix, Eq (17)
+    # Jacobian matrix
     jaq = np.zeros(shape=(2, 6), dtype=np.float64)
     jaq[0, 0] = -1.0      # dfu / ddu
     jaq[1, 0] = 0.0       # dfv / ddu
     jaq[0, 1] = 0.0       # dfu / ddv
     jaq[1, 1] = -1.0      # dfv / ddv
-    jaq[0, 2] = +tu     # dfu / ddw
-    jaq[1, 2] = +tv     # dfv / ddw
+    jaq[0, 2] = tu        # dfu / ddw
+    jaq[1, 2] = tv        # dfv / ddw
     jaq[0, 3] = -v * tu   # dfu / ddalpha
     jaq[1, 3] = -v * tv   # dfv / ddalpha
     jaq[0, 4] = u * tu    # dfu / ddbeta
     jaq[1, 4] = u * tv    # dfv / ddbeta
-    jaq[0, 5] = -v      # dfu / ddgamma
-    jaq[1, 5] = u       # dfv / ddgamma
+    jaq[0, 5] = -v        # dfu / ddgamma
+    jaq[1, 5] = u         # dfv / ddgamma
 
     A = np.eye(6, dtype=np.float64)
     A[:3, :3] = R
 
-    # Apply chain rule
+    # Apply chain rule to transform into global coordinate system
     return np.matmul(jaq, A)
