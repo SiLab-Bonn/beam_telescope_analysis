@@ -226,8 +226,8 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
                 reference_state=reference_states[:, previuos_dut_index, :],  # use reference state from before
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),  # extrapolates to this position
-                rotation_matrix=np.tile(rotation_matrix_previous_dut, reps=(reference_state.shape[0], 1, 1)),
-                rotation_matrix_target_dut=np.tile(rotation_matrix_actual_dut, reps=(reference_state.shape[0], 1, 1)))
+                rotation_matrix=np.tile(rotation_matrix_previous_dut.T, reps=(reference_state.shape[0], 1, 1)),
+                rotation_matrix_target_dut=np.tile(rotation_matrix_actual_dut.T, reps=(reference_state.shape[0], 1, 1)))
 
             # According to Wolin et al. paper
             Gl_det = _calculate_scatter_gain_matrix(reference_state=reference_states[:, previuos_dut_index, :])  # use reference state from before
@@ -361,8 +361,8 @@ def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
                 reference_state=reference_states[:, previuos_dut_index, :],  # use reference state from before (backward)
                 dut_position=np.tile(previous_dut_position, reps=(reference_state.shape[0], 1)),
                 target_dut_position=np.tile(actual_dut_position, reps=(reference_state.shape[0], 1)),
-                rotation_matrix=np.tile(rotation_matrix_previous_dut, reps=(reference_state.shape[0], 1, 1)),
-                rotation_matrix_target_dut=np.tile(rotation_matrix_actual_dut, reps=(reference_state.shape[0], 1, 1)))
+                rotation_matrix=np.tile(rotation_matrix_previous_dut.T, reps=(reference_state.shape[0], 1, 1)),
+                rotation_matrix_target_dut=np.tile(rotation_matrix_actual_dut.T, reps=(reference_state.shape[0], 1, 1)))
 
             # According to Wolin et al. paper
             # x_k depends only on the scatterings w_k at plane k and not(!!) on the scatterings at plane k+1
@@ -660,36 +660,36 @@ def _calculate_track_jacobian(reference_state, dut_position, target_dut_position
     J = np.zeros(shape=(reference_state.shape[0], 4, 4), dtype=np.float64)
 
     # dU'/du'
-    J[:, 2, 2] = (R[:, 0, 0] * target_direc[:, 2] - target_direc[:, 0] * R[:, 0, 2]) / (target_direc[:, 2] * target_direc[:, 2])
+    J[:, 2, 2] = (R[:, 0, 0] * target_direc[:, 2] - target_direc[:, 0] * R[:, 2, 0]) / (target_direc[:, 2] * target_direc[:, 2])
     # dU'/dv'
-    J[:, 2, 3] = (R[:, 1, 0] * target_direc[:, 2] - target_direc[:, 0] * R[:, 1, 2]) / (target_direc[:, 2] * target_direc[:, 2])
+    J[:, 2, 3] = (R[:, 0, 1] * target_direc[:, 2] - target_direc[:, 0] * R[:, 2, 1]) / (target_direc[:, 2] * target_direc[:, 2])
     # dU'/du
     J[:, 2, 0] = 0.0
     # dU'/dv
     J[:, 2, 1] = 0.0
 
     # dV'/du'
-    J[:, 3, 2] = (R[:, 0, 1] * target_direc[:, 2] - target_direc[:, 1] * R[:, 0, 2]) / (target_direc[:, 2] * target_direc[:, 2])
+    J[:, 3, 2] = (R[:, 1, 0] * target_direc[:, 2] - target_direc[:, 1] * R[:, 2, 0]) / (target_direc[:, 2] * target_direc[:, 2])
     # dV'/dv'
-    J[:, 3, 3] = (R[:, 1, 1] * target_direc[:, 2] - target_direc[:, 1] * R[:, 1, 2]) / (target_direc[:, 2] * target_direc[:, 2])
+    J[:, 3, 3] = (R[:, 1, 1] * target_direc[:, 2] - target_direc[:, 1] * R[:, 2, 1]) / (target_direc[:, 2] * target_direc[:, 2])
     # dV'/du
     J[:, 3, 0] = 0.0
     # dV'/dV
     J[:, 3, 1] = 0.0
 
     # dU/du
-    J[:, 0, 0] = R[:, 0, 0] - R[:, 0, 2] * up  # Eq (15)
+    J[:, 0, 0] = R[:, 0, 0] - R[:, 2, 0] * up  # Eq (15)
     # dU/dv
-    J[:, 0, 1] = R[:, 1, 0] - R[:, 1, 2] * up  # Eq (16)
+    J[:, 0, 1] = R[:, 0, 1] - R[:, 2, 1] * up  # Eq (16)
     # dU/du'
     J[:, 0, 2] = s * J[:, 0, 0]  # Eq (17)
     # dU/dv'
     J[:, 0, 3] = s * J[:, 0, 1]  # Eq (18)
 
     # dV/du
-    J[:, 1, 0] = R[:, 0, 1] - R[:, 0, 2] * vp  # Eq (15)
+    J[:, 1, 0] = R[:, 1, 0] - R[:, 2, 0] * vp  # Eq (15)
     # dV/dv
-    J[:, 1, 1] = R[:, 1, 1] - R[:, 1, 2] * vp  # Eq (16)
+    J[:, 1, 1] = R[:, 1, 1] - R[:, 2, 1] * vp  # Eq (16)
     # dV/du'
     J[:, 1, 2] = s * J[:, 1, 0]  # Eq (17)
     # dV/dv'
