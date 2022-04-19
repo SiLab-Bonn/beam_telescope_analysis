@@ -979,11 +979,18 @@ def plot_residuals(histogram, edges, fit, cov, xlabel, title, output_pdf=None):
         # fixing bin width in plotting
         width = (edges[1:] - edges[:-1])
         ax.bar(x, histogram, width=width, log=plot_log, align='center')
+        box_curve = False
         if np.any(fit):
+            fit_legend_entry = 'Gauss fit: \n$A=%.1f\pm %.1f$\n$\mathrm{\mu}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]\n$\mathrm{\sigma}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5))
+            if len(fit) == 4:
+                box_curve = True
+                fit_legend_entry = 'Gauss-Box fit: \n$A=%.1f\pm %.1f$\n$\mathrm{\mu}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]\n$\mathrm{\sigma}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]\n$\mathrm{w}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5), np.absolute(fit[3]), np.absolute(cov[3][3] ** 0.5))
             ax.plot([fit[1], fit[1]], [0, ax.get_ylim()[1]], color='r', label='Entries: %d\n$\mathrm{RMS}=%.1f$ [$\mathrm{\mu}$m]' % (histogram.sum(), beam_telescope_analysis.tools.analysis_utils.get_rms_from_histogram(histogram, x)))
-            gauss_fit_legend_entry = 'Gauss fit: \n$A=%.1f\pm %.1f$\n$\mathrm{\mu}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]\n$\mathrm{\sigma}=%.1f\pm %.1f$ [$\mathrm{\mu}$m]' % (fit[0], np.absolute(cov[0][0] ** 0.5), fit[1], np.absolute(cov[1][1] ** 0.5), np.absolute(fit[2]), np.absolute(cov[2][2] ** 0.5))
             x_gauss = np.arange(np.floor(np.min(edges)), np.ceil(np.max(edges)), step=0.1)
-            ax.plot(x_gauss, beam_telescope_analysis.tools.analysis_utils.gauss(x_gauss, *fit), 'r--', label=gauss_fit_legend_entry, linewidth=2)
+            if box_curve:
+                ax.plot(x_gauss, beam_telescope_analysis.tools.analysis_utils.gauss_box_erf(x_gauss, *fit), 'r--', label=fit_legend_entry, linewidth=2)
+            else:
+                ax.plot(x_gauss, beam_telescope_analysis.tools.analysis_utils.gauss(x_gauss, *fit), 'r--', label=fit_legend_entry, linewidth=2)
             ax.legend(loc=0)
         ax.set_xlim([edges[0], edges[-1]])
         output_pdf.savefig(fig)

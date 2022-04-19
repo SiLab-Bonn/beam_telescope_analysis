@@ -322,11 +322,17 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 stat_local_y_residuals_x_pos_hist[count_local_y_residuals_x_pos_hist == 0] = np.nan
                 stat_local_x_residuals_y_pos_hist[count_local_x_residuals_y_pos_hist == 0] = np.nan
 
-                # Plotting local residuals
-                fit_local_x_res, cov_local_x_res = analysis_utils.fit_residuals(
-                    hist=local_x_residuals_hist,
-                    edges=local_x_residuals_hist_edges,
-                )
+                # Fit local residuals
+                if actual_dut.column_size < 80.0:  # Gauss
+                    fit_local_x_res, cov_local_x_res = analysis_utils.fit_residuals_gauss(
+                        hist=local_x_residuals_hist,
+                        edges=local_x_residuals_hist_edges)
+                else:  # Box
+                    fit_local_x_res, cov_local_x_res = analysis_utils.fit_residuals_gauss_box_erf(
+                        hist=local_x_residuals_hist,
+                        edges=local_x_residuals_hist_edges,
+                        w=actual_dut.column_size)
+                # Plot local residuals
                 plot_utils.plot_residuals(
                     histogram=local_x_residuals_hist,
                     edges=local_x_residuals_hist_edges,
@@ -349,11 +355,17 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                 out_local_x_res.attrs.fit_coeff = fit_local_x_res
                 out_local_x_res.attrs.fit_cov = cov_local_x_res
                 out_local_x_res[:] = local_x_residuals_hist
-
-                fit_local_y_res, cov_local_y_res = analysis_utils.fit_residuals(
-                    hist=local_y_residuals_hist,
-                    edges=local_y_residuals_hist_edges,
-                )
+                # Fit local residuals
+                if actual_dut.row_size < 80.0:  # Gauss
+                    fit_local_y_res, cov_local_y_res = analysis_utils.fit_residuals_gauss(
+                        hist=local_y_residuals_hist,
+                        edges=local_y_residuals_hist_edges)
+                else:  # Box
+                    fit_local_y_res, cov_local_y_res = analysis_utils.fit_residuals_gauss_box_erf(
+                        hist=local_y_residuals_hist,
+                        edges=local_y_residuals_hist_edges,
+                        w=actual_dut.row_size)
+                # Plot local residuals
                 plot_utils.plot_residuals(
                     histogram=local_y_residuals_hist,
                     edges=local_y_residuals_hist_edges,
