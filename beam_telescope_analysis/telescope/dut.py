@@ -12,9 +12,9 @@ class Dut(object):
     '''
 
     # List of member variables that are allowed to be changed/set (e.g., during initialization).
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
         self.name = name  # string
         self.translation_x = translation_x  # in um
         self.translation_y = translation_y  # in um
@@ -133,6 +133,17 @@ class Dut(object):
     def material_budget(self, material_budget):
         self._material_budget = float(material_budget)
 
+    @property
+    def intrinsic_resolution(self):
+        return self._intrinsic_resolution
+
+    @intrinsic_resolution.setter
+    def intrinsic_resolution(self, intrinsic_resolution):
+        if intrinsic_resolution is None:
+            self._intrinsic_resolution = None
+        else:
+            self._intrinsic_resolution = (float(intrinsic_resolution[0]), float(intrinsic_resolution[1]))  # intrinsic resolution in x- and y-dim
+
     # DUT methods
     @classmethod
     def from_dut(cls, dut, **kwargs):
@@ -197,10 +208,10 @@ class Dut(object):
 class RectangularPixelDut(Dut):
     ''' DUT with rectangular pixels.
     '''
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "column_size", "row_size", "n_columns", "n_rows"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution", "column_size", "row_size", "n_columns", "n_rows"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_size, row_size, n_columns, n_rows, x_limit=None, y_limit=None, material_budget=None):
-        super(RectangularPixelDut, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, column_size, row_size, n_columns, n_rows, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(RectangularPixelDut, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution)
         self.column_size = column_size
         self.row_size = row_size
         self.n_columns = n_columns
@@ -391,24 +402,32 @@ class RectangularPixelDutWithDoubleColumns(RectangularPixelDut):
 
 
 class FEI4(RectangularPixelDutWithDoubleColumns):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=250.0, n_columns=336, n_rows=80)
+
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
         super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
 
 
 class RD53A(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
+
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
         super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
 class RD53A_8x8(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(RD53A_8x8, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(RD53A_8x8, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
     def map_to_primitive_cell(self, x, y, z=None):
         ''' Primitve cell is a pixel.
@@ -420,19 +439,98 @@ class RD53A_8x8(RectangularPixelDut):
         y_primitve_cell = np.mod(y + self.y_extent()[0], self.row_size * 8.0)
         return x_primitve_cell, y_primitve_cell
 
+    def get_primitive_cell_size(self):
+        return self.column_size * 8.0, self.row_size * 8.0
+
+
+class ITkPix(RectangularPixelDut):
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(ITkPix, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=50.0, n_columns=400, n_rows=384)
+
+    # def index_to_local_position(self, column, row):
+    #     if isinstance(column, (list, tuple)) or isinstance(row, (list, tuple)):
+    #         column = np.array(column, dtype=np.float64)
+    #         row = np.array(row, dtype=np.float64)
+    #     # from index to local coordinates
+    #     x = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+    #     y = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+    #     z = np.full_like(column, fill_value=np.nan, dtype=np.float64)
+    #     # check for hit index or cluster index is out of range
+    #     hit_selection = np.logical_and(
+    #         np.logical_and(column >= 0.5, column <= self.n_columns + 0.5),
+    #         np.logical_and(row >= 0.5, row <= self.n_rows + 0.5))
+    #     if not np.all(hit_selection):
+    #         raise ValueError("Column/row out of limits.")
+    #     x = self.column_size * (2 * column + (row % 2))  - 10037.5
+    #     y = self.row_size * (row // 2) - 19200.0 / 2.0
+
+    #     print(self.column_size, self.row_size, self.n_columns, self.n_rows, 'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW')
+
+
+    #     # x = self.column_size * (column - 0.5 - (0.5 * self.n_columns))
+    #     # y = self.row_size * (row - 0.5 - (0.5 * self.n_rows))
+    #     z = np.zeros_like(x)  # all DUTs have their origin in x=y=z=0
+    #     print(x, y, column, row)
+    #     return x, y, z
+
+    # def local_position_to_index(self, x, y, z=None):
+    #     # raise
+    #     if isinstance(x, (list, tuple)) or isinstance(y, (list, tuple)):
+    #         x = np.array(x, dtype=np.float64)
+    #         y = np.array(y, dtype=np.float64)
+    #     if z is not None:
+    #         if isinstance(z, (list, tuple)):
+    #             z = np.array(z, dtype=np.float64)
+    #         # check for valid z coordinates
+    #         if not np.allclose(np.nan_to_num(z), 0.0):
+    #             raise RuntimeError('The local z positions contain values z!=0.')
+    #     column = np.full_like(x, fill_value=np.nan, dtype=np.float64)
+    #     row = np.full_like(x, fill_value=np.nan, dtype=np.float64)
+    #     # check for hit index or cluster index is out of range
+    #     hit_selection = np.logical_and(
+    #         np.logical_and(x >= (-0.5 * self.n_columns) * self.column_size, x <= (0.5 * self.n_columns) * self.column_size),
+    #         np.logical_and(y >= (-0.5 * self.n_rows) * self.row_size, y <= (0.5 * self.n_rows) * self.row_size))
+    #     if not np.all(hit_selection):
+    #         raise ValueError("x/y position out of limits.")
+    #     column = (x / self.column_size) + 0.5 + (0.5 * self.n_columns)
+    #     row = (y / self.row_size) + 0.5 + (0.5 * self.n_rows)
+    #     return column, row
+
+
+class ITkPix_8x8(RectangularPixelDut):
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
+
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(ITkPix_8x8, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=50.0, n_columns=400, n_rows=384)
+
+    def map_to_primitive_cell(self, x, y, z=None):
+        ''' Primitve cell is a pixel.
+        '''
+        # check for valid z coordinates
+        if z is not None and not np.allclose(np.nan_to_num(z), 0.0):
+            raise RuntimeError('The local z positions contain values z!=0.')
+        x_primitve_cell = np.mod(x + self.x_extent()[0], self.column_size * 8.0)
+        y_primitve_cell = np.mod(y + self.y_extent()[0], self.row_size * 8.0)
+        return x_primitve_cell, y_primitve_cell
+
+    def get_primitive_cell_size(self):
+        return self.column_size * 8.0, self.row_size * 8.0
+
 
 class TJMonopix1(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(TJMonopix1, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=40.0, row_size=36.0, n_columns=112, n_rows=224)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(TJMonopix1, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=40.0, row_size=36.0, n_columns=112, n_rows=224)
 
 
 class TJMonopix1_2x2(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(TJMonopix1_2x2, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=40.0, row_size=36.0, n_columns=112, n_rows=224)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(TJMonopix1_2x2, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=40.0, row_size=36.0, n_columns=112, n_rows=224)
 
     def map_to_primitive_cell(self, x, y, z=None):
         ''' Primitive cell is a 2x2 matrix.
@@ -446,53 +544,53 @@ class TJMonopix1_2x2(RectangularPixelDut):
 
 
 class PSI46(RectangularPixelDutWithDoubleColumns):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(PSI46, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=150.0, row_size=100.0, n_columns=52, n_rows=80)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(PSI46, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=150.0, row_size=100.0, n_columns=52, n_rows=80)
 
 
 class Mimosa26(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(Mimosa26, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=18.4, row_size=18.4, n_columns=1152, n_rows=576)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=(3.5, 3.5)):
+        super(Mimosa26, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=18.4, row_size=18.4, n_columns=1152, n_rows=576)
 
 
 class DepfetH5z85(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(DepfetH5z85, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=85.0, n_columns=64, n_rows=64)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(DepfetH5z85, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=85.0, n_columns=64, n_rows=64)
 
 
 class DepfetH5z55(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(DepfetH5z55, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=55.0, n_columns=64, n_rows=64)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(DepfetH5z55, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=55.0, n_columns=64, n_rows=64)
 
 
 class Timepix3(RectangularPixelDut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(Timepix3, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=55.0, row_size=55.0, n_columns=256, n_rows=256)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(Timepix3, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=55.0, row_size=55.0, n_columns=256, n_rows=256)
 
 
 class ScatteringPlane(Dut):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(ScatteringPlane, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
+        super(ScatteringPlane, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution)
 
 
 class Diamond3DpCVD(FEI4):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "sensor_position"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution", "sensor_position"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
         self.sensor_position = sensor_position
-        super(Diamond3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
+        super(Diamond3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution)
 
     @property
     def sensor_position(self):
@@ -608,11 +706,11 @@ class Diamond3DpCVD(FEI4):
 
 
 class DiamondPseudo3DpCVD(FEI4):
-    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "sensor_position"]
+    dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution", "sensor_position"]
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None):
+    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, sensor_position, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
         self.sensor_position = sensor_position
-        super(DiamondPseudo3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget)
+        super(DiamondPseudo3DpCVD, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution)
 
     @property
     def sensor_position(self):

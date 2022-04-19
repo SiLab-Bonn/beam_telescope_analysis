@@ -1616,32 +1616,45 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
 
     # Express initial state covariance matrices
     initial_state_covariance = np.zeros((chunk_size, 4, 4), dtype=np.float64)
+    # Error on initial slope is roughly divergence of beam (1 mrad).
+    initial_state_covariance[:, 2, 2] = np.square(3e-3)
+    initial_state_covariance[:, 3, 3] = np.square(3e-3)
+    # Position error of initial state
+    initial_state_covariance[:, 0, 0] = 2e2
+    initial_state_covariance[:, 1, 1] = 2e2
 
-    # Error on initial slope. Values are optimized such that influence of initial state on final result is negligible
-    initial_state_covariance[:, 2, 2] = 1e-2 * alpha[z_sorted_dut_indices[0]]
-    initial_state_covariance[:, 3, 3] = 1e-2 * alpha[z_sorted_dut_indices[0]]
-    # Position error of initial state. Values are optimized such that influence of initial state on final result is negligible
-    initial_state_covariance[:, 0, 0] = 4e2 * alpha[z_sorted_dut_indices[0]]
-    initial_state_covariance[:, 1, 1] = 4e2 * alpha[z_sorted_dut_indices[0]]
+    # # use collimated beam model
+    # beam_size_x = 10000.0  # 1 cm
+    # beam_size_y = 10000.0  # 1 cm
+    # beam_div_x = 5e-3  # 5 mrad
+    # beam_div_y = 5e-3  # 5 mrad
+    # coeff_x = 0.0  # correlation coeff between size and div
+    # coeff_y = 0.0  # correlation coeff between size and div
 
-    # # Idea: Use beam constraints (beam spread + divergence for alignment). Not working unfortunately
-    # # Error on initial slope is roughly divergence of beam (1 mrad).
-    # initial_state_covariance[:, 2, 2] = np.square(5e-3)  # 2 mrad beam diveragence
-    # initial_state_covariance[:, 3, 3] = np.square(5e-3)  # 2 mrad beam diveragence
-    # # Position error of initial state is beam spread
-    # initial_state_covariance[:, 0, 0] = np.square(200.0)  # 2 mm beam spread
-    # initial_state_covariance[:, 1, 1] = np.square(200.0)  # 2 mm beam spread
+    # initial_state_covariance[:, 0, 0] = np.square(beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 1, 1] = np.square(beam_size_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 2, 2] = np.square(beam_div_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 3, 3] = np.square(beam_div_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 0, 2] = np.square(coeff_x * beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 2, 0] = np.square(coeff_x * beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 1, 3] = np.square(coeff_y * beam_size_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 3, 1] = np.square(coeff_y * beam_size_y) * alpha[z_sorted_dut_indices[0]]
 
     # Express observation matrix, only observe (x,y)
     observation_matrices = np.zeros((chunk_size, n_duts, 2, 4), dtype=np.float64)
     observation_matrices[:, :, 0, 0] = 1.0
     observation_matrices[:, :, 1, 1] = 1.0
+
     # Express observation covariance matrices.
     observation_covariances = np.zeros((chunk_size, n_duts, 2, 2), dtype=np.float64)
-    # Take cluster hit position error as measurement error for duts which have a hit.
-    # For DUTs without hit, need no error since they will not be included in the track fit.
-    observation_covariances[:, :, 0, 0] = np.square(track_hits[:, :, 3]) * alpha
-    observation_covariances[:, :, 1, 1] = np.square(track_hits[:, :, 4]) * alpha
+    # Take cluster hit position error (effective CS1 pitch) as measurement error in case no intrinsic resolution is defined.
+    for i, dut in enumerate(all_dut_planes):
+        if dut.intrinsic_resolution is None:
+            observation_covariances[:, i, 0, 0] = np.square(track_hits[:, i, 3]) * alpha[i]
+            observation_covariances[:, i, 1, 1] = np.square(track_hits[:, i, 4]) * alpha[i]
+        else:
+            observation_covariances[:, i, 0, 0] = np.square(dut.intrinsic_resolution[0]) * alpha[i]
+            observation_covariances[:, i, 1, 1] = np.square(dut.intrinsic_resolution[1]) * alpha[i]
     # Set observation errors of DUTs with no hits to zero.
     observation_covariances[np.isnan(observation_covariances)] = 0.0
 
