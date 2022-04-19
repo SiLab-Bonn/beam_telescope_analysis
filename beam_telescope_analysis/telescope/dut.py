@@ -25,6 +25,7 @@ class Dut(object):
         self.x_limit = x_limit  # 2-tuple, in um
         self.y_limit = y_limit  # 2-tuple, in um
         self.material_budget = 0.0 if material_budget is None else material_budget  # the material budget is defined as the thickness devided by the radiation length
+        self.intrinsic_resolution = intrinsic_resolution  # Intrinsic resolution in um (if None, intrinsic resolution based on clustering is used)
 
     def __setattr__(self, name, value):
         ''' Only allow the change of attributes that are listed in the class attribute 'dut_attributes' or during init.
@@ -408,19 +409,11 @@ class FEI4(RectangularPixelDutWithDoubleColumns):
         super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=250.0, n_columns=336, n_rows=80)
 
 
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
-
-
 class RD53A(RectangularPixelDut):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
         super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
-
-
-    def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None):
-        super(RD53A, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, column_size=50.0, row_size=50.0, n_columns=400, n_rows=192)
 
 
 class RD53A_8x8(RectangularPixelDut):
