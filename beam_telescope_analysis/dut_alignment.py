@@ -1361,8 +1361,8 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
             chunk_size=chunk_size)
 
         # Delete temporary files
-        # os.remove(output_tracks_file)
-        # os.remove(output_selected_tracks_file)
+        os.remove(output_tracks_file)
+        os.remove(output_selected_tracks_file)
 
     # Delete temporary files
     if output_track_candidates_file is not None:
