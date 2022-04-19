@@ -861,7 +861,8 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
 
                 initialize = True  # initialize the histograms
                 for tracks_chunk, _ in beam_telescope_analysis.tools.analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
-                    chi2s = tracks_chunk["track_chi_red"]  # use reduced chi2
+                    chi2s = tracks_chunk["track_chi2"]
+                    chi2s_red = tracks_chunk["track_chi_red"]  # reduced chi2
                     track_pvalue = tracks_chunk["track_chi_prob"]  # pvalue
                     # Plot track chi2 and angular distribution
                     chi2s = chi2s[np.isfinite(chi2s)]
@@ -873,12 +874,15 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                         except IndexError:  # array empty
                             range_full = [0.0, 1.0]
                         hist_full, edges_full = np.histogram(chi2s, range=range_full, bins=250)
-                        hist_narrow, edges_narrow = np.histogram(chi2s, range=[0, 250], bins=250)
-                        hist_very_narrow, edges_very_narrow = np.histogram(chi2s, range=[0, 10], bins=100)
+                        hist_narrow, edges_narrow = np.histogram(chi2s, range=[0, 20], bins=100)
+                        hist_chi2_red, edges_chi2_red = np.histogram(chi2s_red, range=[0, 10], bins=50)
+                        hist_pvalue, edges_pvalue = np.histogram(track_pvalue, range=[0, 1], bins=50)
                     else:
                         hist_full += np.histogram(chi2s, bins=edges_full)[0]
                         hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]
                         hist_very_narrow += np.histogram(chi2s, bins=edges_very_narrow)[0]
+                        hist_chi2_red += np.histogram(chi2s_red, bins=edges_chi2_red)[0]
+                        hist_pvalue += np.histogram(track_pvalue, bins=edges_pvalue)[0]
 
                 plot_log = np.any(chi2s)
 
@@ -890,10 +894,10 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_full, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_full[0], edges_full[-1]])
-                ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
                 fig = Figure()
@@ -904,23 +908,36 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 ax.bar(x, hist_narrow, width=width, log=plot_log, align='center')
                 ax.grid()
                 ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
-                ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
+                ax.set_xlabel('$\mathrm{\chi}^2$')
                 ax.set_ylabel('#')
                 ax.set_yscale('log')
-                ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                x = (edges_very_narrow[1:] + edges_very_narrow[:-1]) / 2.0
-                width = (edges_very_narrow[1:] - edges_very_narrow[:-1])
-                ax.bar(x, hist_very_narrow, width=width, log=plot_log, align='center')
+                x = (edges_narrow[1:] + edges_narrow[:-1]) / 2.0
+                width = (edges_narrow[1:] - edges_narrow[:-1])
+                ax.bar(x, hist_narrow / hist_narrow.sum() / width, width=width, log=False, align='center')
+                x = np.arange(0, 250, 0.001)
                 ax.grid()
-                ax.set_xlim([edges_very_narrow[0], edges_very_narrow[-1]])
+                ax.set_xlim([edges_narrow[0], edges_narrow[-1]])
+                ax.set_xlabel('$\mathrm{\chi}^2$')
+                ax.set_ylabel('#')
+                ax.set_title('Track $\mathrm{\chi}^2$ for %s' % dut_name)
+                output_pdf.savefig(fig)
+
+                fig = Figure()
+                _ = FigureCanvas(fig)
+                ax = fig.add_subplot(111)
+                x = (edges_chi2_red[1:] + edges_chi2_red[:-1]) / 2.0
+                width = (edges_chi2_red[1:] - edges_chi2_red[:-1])
+                ax.bar(x, hist_chi2_red, width=width, log=False, align='center')
+                ax.grid()
+                ax.set_xlim([edges_chi2_red[0], edges_chi2_red[-1]])
                 ax.set_xlabel('$\mathrm{\chi}^2_{\mathrm{red}}$')
                 ax.set_ylabel('#')
-                ax.set_yscale('log')
                 ax.set_title('Track $\mathrm{\chi}^2_{\mathrm{red}}$ for %s' % dut_name)
                 output_pdf.savefig(fig)
 
@@ -928,11 +945,13 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                 fig = Figure()
                 _ = FigureCanvas(fig)
                 ax = fig.add_subplot(111)
-                ax.hist(track_pvalue, bins=np.linspace(0.0, 1.0, 100))
-                ax.set_xlabel('Track pValue')
+                x = (edges_pvalue[1:] + edges_pvalue[:-1]) / 2.0
+                width = (edges_pvalue[1:] - edges_pvalue[:-1])
+                ax.bar(x, hist_pvalue, width=width, align='center')
+                ax.set_xlabel('Track p-value')
                 ax.set_ylabel('#')
                 ax.grid()
-                ax.set_title('pValue distribution for %s' % dut_name)
+                ax.set_title('p-value distribution for %s' % dut_name)
                 output_pdf.savefig(fig)
 
 
