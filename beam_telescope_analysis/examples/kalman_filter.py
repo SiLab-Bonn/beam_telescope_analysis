@@ -108,7 +108,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    z_positions = [0.0, 29900.0, 60300.0, 82100.0, 118700.0, 160700.0, 197800.0]
+    z_positions = np.array([0.0, 29900.0, 60300.0, 82100.0, 118700.0, 160700.0, 197800.0])
     material_budget = [100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 100.0 / 125390.0, 250.0 / 93700]
     telescope = Telescope()
     telescope.add_dut(dut_type="Mimosa26", dut_id=0, translation_x=0, translation_y=0, translation_z=z_positions[0], rotation_alpha=0, rotation_beta=0, rotation_gamma=0, material_budget=material_budget[0], name="Telescope 1")
@@ -126,12 +126,12 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
 
     # measurements: (x, y, z, x_err, y_err, z_err), data is taken from measurement
     measurements = np.array([[[-1229.22372954, 2828.19616302, 0.0, pixel_resolution[0][0], pixel_resolution[0][1], 0.0],
-                              [-1254.51224282, 2827.4291421, 29900.0, pixel_resolution[1][0], pixel_resolution[1][1], 0.0],
-                              [-1285.6117892, 2822.34536687, 60300.0, pixel_resolution[2][0], pixel_resolution[2][1], 0.0],
-                              [-1311.31083616, 2823.56121414, 82100.0, pixel_resolution[3][0], pixel_resolution[3][1], 0.0],
-                              [-1335.8529645, 2828.43359043, 118700.0, pixel_resolution[4][0], pixel_resolution[4][1], 0.0],
-                              [-1357.81872222, 2840.86947964, 160700.0, pixel_resolution[5][0], pixel_resolution[5][1], 0.0],
-                              [-1396.35698339, 2843.76799577, 197800.0, pixel_resolution[6][0], pixel_resolution[6][1], 0.0]]])
+                              [-1254.51224282, 2827.4291421, 0.0, pixel_resolution[1][0], pixel_resolution[1][1], 0.0],
+                              [-1285.6117892, 2822.34536687, 0.0, pixel_resolution[2][0], pixel_resolution[2][1], 0.0],
+                              [-1311.31083616, 2823.56121414, 0.0, pixel_resolution[3][0], pixel_resolution[3][1], 0.0],
+                              [-1335.8529645, 2828.43359043, 0.0, pixel_resolution[4][0], pixel_resolution[4][1], 0.0],
+                              [-1357.81872222, 2840.86947964, 0.0, pixel_resolution[5][0], pixel_resolution[5][1], 0.0],
+                              [-1396.35698339, 2843.76799577, 0.0, pixel_resolution[6][0], pixel_resolution[6][1], 0.0]]])
 
     # select fit DUTs
     select_fit_duts = 126  # E.g. 61 corresponds to 0b111101 which means that DUT 1 and DUT 6 are treated as missing measurement.
@@ -145,14 +145,14 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     fit_selection = dut_list[~np.isnan(dut_list)].astype(int)
     # DUTs which are not used for fit
     no_fit_selection = list(set(range(len(telescope))) - set(fit_selection))
-
-    offsets, slopes, chi2, x_errs, y_errs = track_analysis._fit_tracks_kalman_loop(
+    offsets, slopes, chi2, _, _, x_errs, y_errs, _, _, _ = track_analysis._fit_tracks_kalman_loop(
         track_hits=measurements,
         telescope=telescope,
         select_fit_duts=fit_selection,
         beam_energy=2500.0,
         particle_mass=0.511,
-        scattering_planes=None)
+        scattering_planes=None,
+        alpha=np.array([1.0] * len(telescope)))
 
     # offsets = track_estimates_chunk[:, :len(telescope), :3]
     # slopes = track_estimates_chunk[:, :len(telescope), 3:]
@@ -172,7 +172,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     ax.grid()
 
     ax.errorbar(
-        offsets[0, :, 2] / 1000.0,
+        z_positions / 1000.0,
         offsets[0, :, 0],
         yerr=x_errs[0],
         marker='o',
@@ -181,7 +181,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
         color='green',
         zorder=3)
     ax.errorbar(
-        offsets[0, :, 2][no_fit_selection] / 1000.0,
+        z_positions[no_fit_selection] / 1000.0,
         offsets[0, :, 0][no_fit_selection],
         yerr=x_errs[0][no_fit_selection],
         marker='o',
@@ -189,7 +189,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
         color='indianred',
         zorder=4)
     ax.plot(
-        measurements[0, :, 2] / 1000.0,
+        z_positions / 1000.0,
         measurements[0, :, 0],
         marker='o',
         linestyle='-',
@@ -215,7 +215,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
     ax.grid()
 
     ax.errorbar(
-        offsets[0, :, 2] / 1000.0,
+        z_positions / 1000.0,
         offsets[0, :, 1],
         yerr=y_errs[0],
         marker='o',
@@ -224,7 +224,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
         color='green',
         zorder=3)
     ax.errorbar(
-        offsets[0, :, 2][no_fit_selection] / 1000.0,
+        z_positions[no_fit_selection] / 1000.0,
         offsets[0, :, 1][no_fit_selection],
         yerr=y_errs[0][no_fit_selection],
         marker='o',
@@ -232,7 +232,7 @@ if __name__ == '__main__':  # Main entry point is needed for multiprocessing und
         color='indianred',
         zorder=4)
     ax.plot(
-        measurements[0, :, 2] / 1000.0,
+        z_positions / 1000.0,
         measurements[0, :, 1],
         marker='o',
         linestyle='-',
