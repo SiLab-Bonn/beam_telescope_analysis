@@ -1186,7 +1186,7 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         telescope.save_configuration(configuration_file=output_telescope_configuration)
 
     if output_alignment_file is None:
-        output_alignment_file = os.path.splitext(input_merged_file)[0] + '_kfa_parameters.h5'
+        output_alignment_file = os.path.splitext(input_merged_file)[0] + '_KFA_alignment.h5'
     else:
         output_alignment_file = output_alignment_file
 
@@ -1786,6 +1786,9 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
     output_pdf_file = output_alignment_file[:-3] + '.pdf'
     # Plot alignment result
     plot_utils.plot_kf_alignment(output_alignment_file, telescope, output_pdf_file)
+
+    # Delete tmp track candidates file
+    os.remove(input_track_candidates_file)
 
 
 def align_telescope(telescope_configuration, select_telescope_duts, reference_dut=None):
