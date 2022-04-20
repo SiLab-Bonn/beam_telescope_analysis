@@ -26,9 +26,6 @@ typedef struct ClusterHitInfo{
   uint8_t isSeed;  // flag to mark seed pixel
   uint32_t clusterSize;  // the cluster size of the cluster belonging to the hit
   uint32_t nCluster;  // the number of cluster in the event
-  uint16_t tdcValue;  // the tdc value of cluster in the event
-  uint16_t tdcTimestamp;  // the tdc timestamp of cluster in the event
-  uint8_t tdcStatus;  // the tdc status of cluster in the event
 } ClusterHitInfo;
 
 //structure to store the cluster
@@ -42,9 +39,6 @@ typedef struct ClusterInfo{
   uint16_t seed_row;  // seed pixel row value
   double mean_column;  // column mean value
   double mean_row;  // row mean value
-  uint16_t tdcValue;  // the tdc value of cluster in the event
-  uint16_t tdcTimestamp;  // the tdc timestamp of cluster in the event
-  uint8_t tdcStatus;  // the tdc status of cluster in the event
   float err_column;  // column position error
   float err_row;  // row position error
   uint32_t n_cluster;  // number of all clusters in the event

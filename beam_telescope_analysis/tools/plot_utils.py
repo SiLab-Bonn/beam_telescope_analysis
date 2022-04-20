@@ -595,6 +595,7 @@ def plot_correlations(input_correlation_file, output_pdf_file=None, dut_names=No
 
 
 def plot_hough(dut_pos, data, accumulator, offset, slope, dut_pos_limit, theta_edges, rho_edges, ref_hist_extent, dut_hist_extent, ref_name, dut_name, x_direction, reduce_background, output_pdf=None):
+    cmap = copy(cm.get_cmap('viridis'))
     if not output_pdf:
         return
 

@@ -785,7 +785,6 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                          min_track_hits[curr_fit_dut_index] == min_track_hits[fit_dut_index])):
                         actual_fit_duts.append(curr_fit_dut)
 
-                # actual_fit_duts.append(actual_fit_dut)  # FOR KF ALIGNMENT?????
                 # continue with fitting
                 logging.info('== Fit tracks for %s ==', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
                 # remove existing nodes
@@ -1623,7 +1622,7 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     initial_state_covariance[:, 0, 0] = 2e2
     initial_state_covariance[:, 1, 1] = 2e2
 
-    # # use collimated beam model
+    # FIXME: this is not working. Use collimated beam model
     # beam_size_x = 10000.0  # 1 cm
     # beam_size_y = 10000.0  # 1 cm
     # beam_div_x = 5e-3  # 5 mrad

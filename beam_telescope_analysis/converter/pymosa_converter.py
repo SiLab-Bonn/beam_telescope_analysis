@@ -20,16 +20,6 @@ from beam_telescope_analysis.hit_analysis import default_hits_dtype
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
 
-beam_telescope_analysis_dtype = np.dtype([
-    ('event_number', np.int64),
-    ('frame', np.uint8),
-    ('column', np.uint16),
-    ('row', np.uint16),
-    ('charge', np.uint16),
-    ('tdc_value', np.uint16),
-    ('tdc_timestamp', np.uint16),
-    ('tdc_status', np.uint8)])
-
 
 def process_dut(raw_data_file, output_filename=None, output_filenames=None, analyze_m26_header_ids=None, trigger_data_format=2, timing_offset=None):
     ''' Process and format raw data.
@@ -110,7 +100,7 @@ def format_hit_table(input_filename, output_filenames=None, analyze_m26_header_i
                 output_hits_table = out_file_h5.create_table(
                     where=out_file_h5.root,
                     name='Hits',
-                    description=beam_telescope_analysis_dtype,
+                    description=default_hits_dtype,
                     title='Hits for test beam analysis',
                     filters=tb.Filters(
                         complib='blosc',
@@ -134,9 +124,6 @@ def format_hit_table(input_filename, output_filenames=None, analyze_m26_header_i
                     hits_data_formatted['column'] = hits_chunk[selected_hits]['column'] + 1
                     hits_data_formatted['row'] = hits_chunk[selected_hits]['row'] + 1
                     hits_data_formatted['charge'] = 0
-                    hits_data_formatted['tdc_value'] = 0
-                    hits_data_formatted['tdc_timestamp'] = 0
-                    hits_data_formatted['tdc_status'] = 0
                     # Append data to table
                     output_hits_table.append(hits_data_formatted)
                     output_hits_table.flush()
