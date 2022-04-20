@@ -186,7 +186,7 @@ def apply_alignment(telescope_configuration, input_file, output_file=None, local
     return output_file
 
 
-def prealign(telescope_configuration, input_correlation_file, output_telescope_configuration=None, select_reference_dut=0, reduce_background=True, use_location=False, plot=True):
+def prealign(telescope_configuration, input_correlation_file, output_telescope_configuration=None, select_duts=None, select_reference_dut=0, reduce_background=True, use_location=False, plot=True):
     '''Deduce a pre-alignment from the correlations, by fitting the correlations with a straight line (gives offset, slope, but no tild angles).
        The user can define cuts on the fit error and straight line offset in an interactive way.
 
@@ -198,6 +198,8 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
         Filename of the input correlation file.
     output_telescope_configuration : string
         Filename of the output telescope configuration file.
+    select_duts : iterable
+        List of duts for which the prealignment is done. If None, prealignment is done for all duts.
     select_reference_dut : uint
         DUT index of the reference plane. Default is DUT 0.
     reduce_background : bool
@@ -215,7 +217,10 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
         raise ValueError('Output telescope configuration file must be different from input telescope configuration file.')
 
     # remove reference DUT from list of all DUTs
-    select_duts = list(set(range(n_duts)) - set([select_reference_dut]))
+    if select_duts is None:
+        select_duts = list(set(range(n_duts)) - set([select_reference_dut]))
+    else:
+        select_duts = list(set(select_duts) - set([select_reference_dut]))
 
     if plot is True:
         output_pdf = PdfPages(os.path.splitext(input_correlation_file)[0] + '_prealigned.pdf', keep_empty=False)
