@@ -86,7 +86,7 @@ def _filter_predict_b(track_jacobian, local_scatter_gain_matrix, transition_cova
 
     return predicted_state, predicted_state_covariance
 
-
+@njit(cache=True)
 def _filter_correct(reference_state, observation_matrix, observation_covariance, predicted_state, predicted_state_covariance, observation):
     r"""Filters a predicted state with the Kalman Filter. Filtering
     is done on whole track chunk with size chunk_size.
@@ -138,12 +138,11 @@ def _filter_correct(reference_state, observation_matrix, observation_covariance,
     # Calculate chi2 (only if observation available)
     filtered_residuals = observation[valid_hit_selection] - _vec_mul(observation_matrix[valid_hit_selection], filtered_state[valid_hit_selection] + reference_state[valid_hit_selection])
     filtered_residuals_covariance = observation_covariance[valid_hit_selection] - _mat_mul(observation_matrix[valid_hit_selection], _mat_mul(filtered_state_covariance[valid_hit_selection], _mat_trans(observation_matrix[valid_hit_selection])))
-    check_covariance_matrix(filtered_residuals_covariance)  # Sanity check for covariance matrix
     chi2 = _vec_vec_mul(filtered_residuals, _vec_mul(_mat_inverse(filtered_residuals_covariance), filtered_residuals))
 
     return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
-
+@profile
 def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
     """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
     done which includes the observations.
@@ -494,6 +493,8 @@ def check_covariance_matrix(cov):
     ''' This function checks if the input covariance matrix is positive semi-definite (psd).
     In case it is not, it will try to make the matrix psd with the condition that the psd-correced matrix does not
     differ to much from the original one (works only if the matrix has very small negative eigenvalues, e.g. due to numerical precision, ...)
+
+    Cannot by jitted since jitted np.linalg.eigvalsh only supports 2D arrays.
     '''
     # Check for positive semi-definite covariance matrix. In case they are not psd, make them psd.
     if not np.all(np.linalg.eigvalsh(cov) >= 0.0):
@@ -540,6 +541,7 @@ def _make_matrix_psd(A, atol=1e-5, rtol=1e-8):
     return A3
 
 
+@njit(cache=True)
 def _extrapolate_state(track_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
     ''' Extrapolate track state. Track state is calculated in local system of destination plane.
     '''
@@ -558,7 +560,8 @@ def _extrapolate_state(track_state, dut_position, target_dut_position, rotation_
     target_direc = _vec_mul(R, direc)
 
     # Surface normal vector in beam direction
-    w = np.tile(np.array([0.0, 0.0, 1.0]), reps=(direc.shape[0], 1))
+    w = np.zeros(shape=(direc.shape[0], 3), dtype=np.float64)
+    w[:, 2] = 1.0
 
     # Step lenght
     s = _vec_vec_mul(_vec_mul(R, (x0 - x_point)), w) / target_direc[:, 2]
@@ -570,6 +573,7 @@ def _extrapolate_state(track_state, dut_position, target_dut_position, rotation_
     return np.column_stack((target_point[:, 0], target_point[:, 1], target_direc[:, 0] / target_direc[:, 2], target_direc[:, 1] / target_direc[:, 2]))
 
 
+@njit(cache=True)
 def _calculate_scatter_gain_matrix(reference_state):
     """ Reference: Wolin and Ho (NIM A329 (1993) 493-500)
     """
@@ -625,6 +629,7 @@ def _calculate_scatter_gain_matrix(reference_state):
     return G
 
 
+@njit(cache=True)
 def _calculate_track_jacobian(reference_state, dut_position, target_dut_position, rotation_matrix, rotation_matrix_target_dut):
     ''' Reference: V. Karimaki "Straight Line Fit for Pixel and Strip Detectors with Arbitrary Plane Orientations", CMS Note. (http://cds.cern.ch/record/687146/files/note99_041.pdf)
         Calculates change of local coordinates (u, v, u', v') from one DUT (u, v, w) to next DUT (U, V, W) (wrt. to reference state).
@@ -856,8 +861,7 @@ class KalmanFilter(object):
                 # initial_state=filtered_states_f[:, -1, :],  # Use result from FORWARD filter as initial state (here: last plane, since BACKWARD filter)
                 # initial_state_covariance=filtered_state_covariances_f[:, -1, :, :]  # Use result from FORWARD filter as initial state (here: last plane, since BACKWARD filter)
                 initial_state=initial_state,
-                initial_state_covariance=initial_state_covariance
-                )
+                initial_state_covariance=initial_state_covariance)
 
             smoothed_states = np.zeros_like(predicted_states_f)
             smoothed_state_covariances = np.zeros_like(filtered_state_covariances_f)
