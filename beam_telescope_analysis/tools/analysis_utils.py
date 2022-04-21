@@ -644,7 +644,6 @@ def gauss(x, *p):
     A, mu, sigma = p
     return A * np.exp(-(x - mu) ** 2.0 / (2.0 * sigma ** 2.0))
 
-
 def gauss2(x, *p):
     mu, sigma = p
     return (sigma * np.sqrt(2.0 * np.pi))**-1.0 * np.exp(-0.5 * ((x - mu) / sigma)**2.0)
@@ -856,7 +855,7 @@ def simple_peak_detect(x, y):
     return max_position, center, fwhm_value, fwhm_left_right
 
 
-def fit_residuals(hist, edges):
+def fit_residuals_gauss(hist, edges):
     bin_center = (edges[1:] + edges[:-1]) / 2.0
     hist_mean = get_mean_from_histogram(hist, bin_center)
     hist_std = get_rms_from_histogram(hist, bin_center)
@@ -867,6 +866,20 @@ def fit_residuals(hist, edges):
             fit, cov = curve_fit(gauss, bin_center, hist, p0=[np.amax(hist), hist_mean, hist_std])
         except (RuntimeError, TypeError):
             fit, cov = [np.amax(hist), hist_mean, hist_std], np.full((3, 3), np.nan)
+    return fit, cov
+
+
+def fit_residuals_gauss_box_erf(hist, edges, w=None):
+    bin_center = (edges[1:] + edges[:-1]) / 2.0
+    hist_mean = get_mean_from_histogram(hist, bin_center)
+    hist_std = get_rms_from_histogram(hist, bin_center)
+    if hist_std == 0:
+        fit, cov = [np.amax(hist), hist_mean, hist_std, w], np.full((4, 4), np.nan)
+    else:
+        try:
+            fit, cov = curve_fit(gauss_box_erf, bin_center, hist, p0=[np.amax(hist), hist_mean, hist_std, w])
+        except (RuntimeError, TypeError):
+            fit, cov = [np.amax(hist), hist_mean, hist_std, w], np.full((4, 4), np.nan)
     return fit, cov
 
 
@@ -904,7 +917,7 @@ def fit_residuals_vs_position(hist, xedges, yedges, mean, count, limit=None):
         if np.sum(hist[index, :]) == 0:
             mean_fit.append(np.nan)
         else:
-            mean_fit.append(fit_residuals(hist[index, :].astype(np.int32), yedges)[0][1])
+            mean_fit.append(fit_residuals_gauss(hist[index, :].astype(np.int32), yedges)[0][1])
     select &= np.isfinite(mean_fit)
     mean_fit = np.ma.masked_invalid(mean_fit)
     if np.count_nonzero(select) > 1:

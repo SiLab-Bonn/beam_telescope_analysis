@@ -75,7 +75,7 @@ def analyze_raw_data(input_filename, output_filename=None, trigger_data_format=0
         analyze_raw_data.create_cluster_size_hist = True
         analyze_raw_data.create_cluster_tot_hist = True
         analyze_raw_data.align_at_trigger = True
-        analyze_raw_data.fei4b = False
+        analyze_raw_data.fei4b = True
         analyze_raw_data.create_empty_event_hits = False
         # analyze_raw_data.n_bcid = 16
         # analyze_raw_data.max_tot_value = 13

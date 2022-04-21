@@ -394,6 +394,12 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 else:
                     pbar = tqdm(total=total_n_tracks, ncols=80)
 
+                n_tracks_hit_mask = 0
+                n_tracks_quality_mask = 0
+                n_tracks_iso_track_mask = 0
+                n_tracks_iso_hit_mask = 0
+                n_tracks_query = 0
+
                 total_n_events_stored_last = None
                 # total_n_tracks_last = None
                 last_index_chunk = None
@@ -405,23 +411,28 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                             select &= ((tracks['hit_flag'] & hit_mask) == hit_mask)
                         if no_hit_mask != 0:
                             select &= ((~tracks['hit_flag'] & no_hit_mask) == no_hit_mask)
+                        n_tracks_hit_mask += np.count_nonzero(select)
                         if quality_mask != 0:
                             # Require only quality if have a valid hit
                             quality_mask_mod = quality_mask & tracks['hit_flag']
                             quality_flags_mod = quality_mask & tracks['hit_flag']
                             select &= ((tracks['quality_flag'] & quality_mask_mod) == quality_flags_mod)
+                        n_tracks_quality_mask += np.count_nonzero(select)
                         if isolated_track_mask != 0:
                             select &= ((tracks['isolated_track_flag'] & isolated_track_mask) == isolated_track_mask)
+                        n_tracks_iso_track_mask += np.count_nonzero(select)
                         if isolated_hit_mask != 0:
                             # Require only isolated hit if have a valid hit
                             isolated_hit_mask_mod = isolated_hit_mask & tracks['hit_flag']
                             isolated_hit_flags_mod = isolated_hit_mask & tracks['hit_flag']
                             select &= ((tracks['isolated_hit_flag'] & isolated_hit_mask_mod) == isolated_hit_flags_mod)
+                        n_tracks_iso_hit_mask += np.count_nonzero(select)
                         tracks = tracks[select]
                     if query[index]:
                         tracks = table_where(
                             arr=tracks,
                             query_str=query[index])
+                        n_tracks_query += tracks.shape[0]
 
                     if max_events:
                         unique_events = np.unique(tracks["event_number"])
@@ -462,6 +473,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                     # total_n_tracks_last = total_n_tracks
                     last_index_chunk = index_chunk
                 pbar.close()
+                logging.info('Track selection summary: In total selected %.2f %% of tracks\nHit selection: %.2f\nQuality selection: %.2f %%\nIsolated tracks selection: %.2f %%\nIsolated hits selection: %.2f %%\nQuery string selection: %.2f %%' % (100.0 * n_tracks_query / total_n_tracks, 100.0 * n_tracks_hit_mask / total_n_tracks, 100.0 * n_tracks_quality_mask / n_tracks_hit_mask, 100.0 * n_tracks_iso_track_mask / n_tracks_quality_mask, 100.0 * n_tracks_iso_hit_mask / n_tracks_iso_track_mask, 100.0 * n_tracks_query / n_tracks_iso_hit_mask))
 
     return output_tracks_file
 

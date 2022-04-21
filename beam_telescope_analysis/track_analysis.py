@@ -10,7 +10,9 @@ from collections import Iterable
 import tables as tb
 import numpy as np
 from numba import njit
+from numba.typed import List
 from scipy.stats import gaussian_kde
+from scipy.stats import chi2
 from matplotlib.backends.backend_pdf import PdfPages
 
 from tqdm import tqdm
@@ -71,6 +73,11 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
             raise ValueError("Found invalid DUTs in select_extrapolation_duts: %s" % ', '.join(str(dut) for dut in (set(select_extrapolation_duts) - set(range(n_duts)))))
     else:
         raise ValueError("Invalid value for select_extrapolation_duts")
+
+    # Create typed list for numba (see http://numba.pydata.org/numba-doc/latest/reference/deprecation.html#deprecation-of-reflection-for-list-and-set-types)
+    typed_select_extrapolation_duts = List()
+    [typed_select_extrapolation_duts.append(x) for x in select_extrapolation_duts]
+    select_extrapolation_duts = typed_select_extrapolation_duts
 
 # TODO: implement max_events into SMC
 #     def work(tracklets_data_chunk):
@@ -292,10 +299,8 @@ def find_tracks(telescope_configuration, input_merged_file, output_track_candida
                 total_n_events_stored_last = total_n_events_stored
                 # total_n_tracks_last = total_n_tracks
                 last_index_chunk = index_chunk
-                if max_events:
-                    pbar.update(n_events_chunk)
-                else:
-                    pbar.update(n_tracks_chunk)
+                pbar.update(tracklets_data_chunk.shape[0])
+
             pbar.close()
 
     return output_track_candidates_file
@@ -622,6 +627,12 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     if scattering_planes is not None and method != 'kalman':
         raise ValueError('Scattering plane feature can only be used when using the Kalman Filter.')
 
+    if method == "fit":
+        method_str = 'Straight Line Fit'
+    if method == "kalman":
+        method_str = 'Kalman Filter'
+    logging.info('=== Fitting tracks of %d DUTs (using %s)===' % (n_duts, method_str))
+
     if output_tracks_file is None:
         output_tracks_file = os.path.join(os.path.dirname(input_track_candidates_file), 'Tracks_%s.h5' % method.title())
     if plot:
@@ -771,6 +782,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                          set(select_hit_duts[curr_fit_dut_index]) == set(select_hit_duts[fit_dut_index]) and
                          min_track_hits[curr_fit_dut_index] == min_track_hits[fit_dut_index])):
                         actual_fit_duts.append(curr_fit_dut)
+
                 # continue with fitting
                 logging.info('== Fit tracks for %s ==', ', '.join([telescope[curr_dut].name for curr_dut in actual_fit_duts]))
                 # remove existing nodes
@@ -839,7 +851,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                     # NOTE: this value has a significant impact on CPU processing time
                     if method == "kalman":
                         # increase minimum track hits requirement for Kalman fit to reduce CPU processing time
-                        select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= min(3, actual_min_track_hits))
+                        select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= max(3, actual_min_track_hits))
                     else:
                         select_fit_tracks = (analysis_utils.number_of_set_bits(track_candidates_chunk['hit_flag'] & dut_fit_mask) >= 2)
                     # Select tracks that will be stored
@@ -922,21 +934,15 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             # increase index for tracks hits array
                             fit_array_index += 1
                         elif method == "kalman":
-                            # TODO: taking telescope alignment into account for initial state
-                            # apply alignment for fitting the tracks
-                            track_hits[:, dut_index, 0], track_hits[:, dut_index, 1], track_hits[:, dut_index, 2] = dut.local_to_global_position(
-                                x=track_candidates_chunk['x_dut_%s' % dut_index][select_fit_tracks],
-                                y=track_candidates_chunk['y_dut_%s' % dut_index][select_fit_tracks],
-                                z=track_candidates_chunk['z_dut_%s' % dut_index][select_fit_tracks])
-                            track_hits[:, dut_index, 3], track_hits[:, dut_index, 4], track_hits[:, dut_index, 5] = np.abs(dut.local_to_global_position(
-                                x=track_candidates_chunk['x_err_dut_%s' % dut_index][select_fit_tracks],
-                                y=track_candidates_chunk['y_err_dut_%s' % dut_index][select_fit_tracks],
-                                z=track_candidates_chunk['z_err_dut_%s' % dut_index][select_fit_tracks],
-                                # no translation for the errors
-                                translation_x=0.0,
-                                translation_y=0.0,
-                                translation_z=0.0))
+                            # Kalman Filter works with local track hits
+                            track_hits[:, dut_index, 0] = track_candidates_chunk['x_dut_%s' % dut_index][select_fit_tracks]
+                            track_hits[:, dut_index, 1] = track_candidates_chunk['y_dut_%s' % dut_index][select_fit_tracks]
+                            track_hits[:, dut_index, 2] = track_candidates_chunk['z_dut_%s' % dut_index][select_fit_tracks]
+                            track_hits[:, dut_index, 3] = track_candidates_chunk['x_err_dut_%s' % dut_index][select_fit_tracks]
+                            track_hits[:, dut_index, 4] = track_candidates_chunk['y_err_dut_%s' % dut_index][select_fit_tracks]
+                            track_hits[:, dut_index, 5] = track_candidates_chunk['z_err_dut_%s' % dut_index][select_fit_tracks]
 
+                    alpha_factor = np.ones(shape=(len(telescope)))  # no annealing
                     # Split data and fit on all available cores
                     n_slices = cpu_count()
                     track_hits_slices = np.array_split(track_hits, n_slices)
@@ -950,15 +956,21 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                             'select_fit_duts': fit_duts,
                             'beam_energy': beam_energy,
                             'particle_mass': particle_mass,
-                            'scattering_planes': scattering_planes}) for track_hits_slice in track_hits_slices]
+                            'scattering_planes': scattering_planes,
+                            'alpha': alpha_factor}) for track_hits_slice in track_hits_slices]
 
                     # Store results
                     offsets = np.concatenate([result.get()[0] for result in results])  # Merge offsets from all cores in results
                     slopes = np.concatenate([result.get()[1] for result in results])  # Merge slopes from all cores in results
                     if method == 'kalman':
                         track_chi2s = np.concatenate([result.get()[2] for result in results])  # Merge track chi2 from all cores in results
+                        track_chi2s_red = np.concatenate([result.get()[3] for result in results])  # Merge track chi2 from all cores in results
+                        track_chi2s_prob = np.concatenate([result.get()[4] for result in results])  # Merge track chi2 from all cores in results
                     else:
+                        # Will be calculated later in case straight line fit is used
                         track_chi2s = None
+                        track_chi2s_red = None
+                        track_chi2s_prob = None
                     # Store the data
                     # Check if all DUTs were fitted at once
                     dut_stats.append(store_track_data(
@@ -970,6 +982,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                         offsets=offsets,
                         slopes=slopes,
                         track_chi2s=track_chi2s,
+                        track_chi2s_red=track_chi2s_red,
+                        track_chi2s_prob=track_chi2s_prob,
                         fit_duts=actual_fit_duts,  # storing tracks for these DUTs
                         select_fit_duts=fit_duts,  # DUTs used for fitting tracks
                         select_align_duts=select_align_duts,
@@ -991,13 +1005,16 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
                 pbar.close()
                 fitted_duts.extend(actual_fit_duts)
 
-                plot_utils.plot_fit_tracks_statistics(
-                    telescope=telescope,
-                    fit_duts=actual_fit_duts,
-                    chunk_indices=chunk_indices,
-                    chunk_stats=chunk_stats,
-                    dut_stats=dut_stats,
-                    output_pdf=output_pdf)
+                try:
+                    plot_utils.plot_fit_tracks_statistics(
+                        telescope=telescope,
+                        fit_duts=actual_fit_duts,
+                        chunk_indices=chunk_indices,
+                        chunk_stats=chunk_stats,
+                        dut_stats=dut_stats,
+                        output_pdf=output_pdf)
+                except ValueError:
+                    logging.error('could not plot fit statistics')
 
     pool.close()
     pool.join()
@@ -1011,7 +1028,7 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     return output_tracks_file
 
 
-def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, select_tracks_for_storage, telescope, offsets, slopes, track_chi2s, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
+def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, select_tracks_for_storage, telescope, offsets, slopes, track_chi2s, track_chi2s_red, track_chi2s_prob, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
     dut_stats = []
     fit_duts_offsets = []
     fit_duts_slopes = []
@@ -1063,40 +1080,27 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
                 rotation_alpha=dut.rotation_alpha,
                 rotation_beta=dut.rotation_beta,
                 rotation_gamma=dut.rotation_gamma)
+
+            # force the 3rd component (z) to be positive
+            # and normalize to 1
+            slopes_local = np.column_stack([slopes_x_local, slopes_y_local, slopes_z_local])
+            slopes_local[slopes_local[:, 2] < 0.0] = -slopes_local[slopes_local[:, 2] < 0.0]
+            slope_local_mag = np.sqrt(np.einsum('ij,ij->i', slopes_local, slopes_local))
+            slopes_local /= slope_local_mag[:, np.newaxis]
+            slopes_x_local, slopes_y_local, slopes_z_local = slopes_local[:, 0], slopes_local[:, 1], slopes_local[:, 2]
+
+            intersection_x_local, intersection_y_local, intersection_z_local = dut.global_to_local_position(
+                x=intersections_global[:, 0],
+                y=intersections_global[:, 1],
+                z=intersections_global[:, 2])
         elif method == "kalman":
-            # Set the offset to the track intersection with the tilted plane
-            intersections_global = geometry_utils.get_line_intersections_with_dut(
-                line_origins=offsets[:, dut_index],
-                line_directions=slopes[:, dut_index],
-                translation_x=dut.translation_x,
-                translation_y=dut.translation_y,
-                translation_z=dut.translation_z,
-                rotation_alpha=dut.rotation_alpha,
-                rotation_beta=dut.rotation_beta,
-                rotation_gamma=dut.rotation_gamma)
-            slopes_x_local, slopes_y_local, slopes_z_local = dut.global_to_local_position(
-                x=slopes[:, dut_index, 0],
-                y=slopes[:, dut_index, 1],
-                z=slopes[:, dut_index, 2],
-                translation_x=0.0,
-                translation_y=0.0,
-                translation_z=0.0,
-                rotation_alpha=dut.rotation_alpha,
-                rotation_beta=dut.rotation_beta,
-                rotation_gamma=dut.rotation_gamma)
+            intersection_x_local = offsets[:, dut_index, 0]
+            intersection_y_local = offsets[:, dut_index, 1]
+            intersection_z_local = np.zeros(shape=(intersection_x_local.shape[0]), dtype=np.float64)  # by definition
 
-        # force the 3rd component (z) to be positive
-        # and normalize to 1
-        slopes_local = np.column_stack([slopes_x_local, slopes_y_local, slopes_z_local])
-        slopes_local[slopes_local[:, 2] < 0.0] = -slopes_local[slopes_local[:, 2] < 0.0]
-        slope_local_mag = np.sqrt(np.einsum('ij,ij->i', slopes_local, slopes_local))
-        slopes_local /= slope_local_mag[:, np.newaxis]
-        slopes_x_local, slopes_y_local, slopes_z_local = slopes_local[:, 0], slopes_local[:, 1], slopes_local[:, 2]
-
-        intersection_x_local, intersection_y_local, intersection_z_local = dut.global_to_local_position(
-            x=intersections_global[:, 0],
-            y=intersections_global[:, 1],
-            z=intersections_global[:, 2])
+            slopes_x_local = slopes[:, dut_index, 0]
+            slopes_y_local = slopes[:, dut_index, 1]
+            slopes_z_local = np.ones(shape=(intersection_x_local.shape[0]), dtype=np.float64)  # by definition
 
         x_residuals = hit_x_local - intersection_x_local
         y_residuals = hit_y_local - intersection_y_local
@@ -1259,7 +1263,9 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
         # select tracks that have more than 2 data points
         select_nonzero = (track_chi2s != 0.0)
         # divide by d.o.f.
-        track_chi2s[select_nonzero] /= (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
+        track_chi2s_red = np.zeros_like(track_chi2s)
+        track_chi2s_red[select_nonzero] = track_chi2s[select_nonzero] / (2 * (np.count_nonzero(~np.isnan(x_residuals_squared[:, select_fit_duts]), axis=1)[select_nonzero] - 2))
+        track_chi2s_prob = np.zeros_like(track_chi2s)
 
     for dut_index, dut in enumerate(telescope):
         if dut_index not in fit_duts:
@@ -1269,6 +1275,8 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
             dut_offsets=fit_duts_offsets[dut_index],
             dut_slopes=fit_duts_slopes[dut_index],
             track_chi2s=track_chi2s,
+            track_chi2s_red=track_chi2s_red,
+            track_chi2s_prob=track_chi2s_prob,
             quality_flag=quality_flag,
             isolated_track_flag=isolated_track_flag,
             isolated_hit_flag=isolated_hit_flag,
@@ -1320,7 +1328,7 @@ def _find_small_distance(event_number_array, position_array_x, position_array_y,
             index += 1
 
 
-def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_flag, isolated_track_flag, isolated_hit_flag, select_fit_tracks, select_tracks_for_storage, track_candidates_chunk, keep_data, track_estimates_chunk_full):
+def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, track_chi2s_red, track_chi2s_prob, quality_flag, isolated_track_flag, isolated_hit_flag, select_fit_tracks, select_tracks_for_storage, track_candidates_chunk, keep_data, track_estimates_chunk_full):
     select_fitted_tracks_for_storage = select_tracks_for_storage[select_fit_tracks]
     # Tracks description, additional columns
     tracks_descr = []
@@ -1334,6 +1342,8 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
                 for dimension in ['x', 'y', 'z']:
                     tracks_descr.append(('%s_%s_dut_%d' % (index, dimension, index_dut), track_candidates_chunk["x_dut_0"].dtype))
     tracks_descr.extend([('track_chi2', np.float64),
+                         ('track_chi_red', np.float64),
+                         ('track_chi_prob', np.float64),
                          ('quality_flag', track_candidates_chunk["hit_flag"].dtype),
                          ('isolated_track_flag', track_candidates_chunk["hit_flag"].dtype),
                          ('isolated_hit_flag', track_candidates_chunk["hit_flag"].dtype)])
@@ -1382,6 +1392,10 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
                 tracks_array['slope_z_dut_%d' % index_dut][~select_fit_tracks] = np.nan
         tracks_array['track_chi2'][select_fit_tracks] = track_chi2s
         tracks_array['track_chi2'][~select_fit_tracks] = np.nan
+        tracks_array['track_chi_red'][select_fit_tracks] = track_chi2_red
+        tracks_array['track_chi_red'][~select_fit_tracks] = np.nan
+        tracks_array['track_chi_prob'][select_fit_tracks] = track_chi2_prob
+        tracks_array['track_chi_prob'][~select_fit_tracks] = np.nan
         tracks_array['quality_flag'][select_fit_tracks] = quality_flag
         tracks_array['quality_flag'][~select_fit_tracks] = 0
         tracks_array['isolated_track_flag'][select_fit_tracks] = isolated_track_flag
@@ -1401,6 +1415,8 @@ def create_results_array(n_duts, dut_offsets, dut_slopes, track_chi2s, quality_f
                 tracks_array['slope_y_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 4]
                 tracks_array['slope_z_dut_%d' % index_dut] = track_estimates_chunk_full[select_fitted_tracks_for_storage, index_dut, 5]
         tracks_array['track_chi2'] = track_chi2s[select_fitted_tracks_for_storage]
+        tracks_array['track_chi_red'] = track_chi2s_red[select_fitted_tracks_for_storage]
+        tracks_array['track_chi_prob'] = track_chi2s_prob[select_fitted_tracks_for_storage]
         tracks_array['quality_flag'] = quality_flag[select_fitted_tracks_for_storage]
         tracks_array['isolated_track_flag'] = isolated_track_flag[select_fitted_tracks_for_storage]
         tracks_array['isolated_hit_flag'] = isolated_hit_flag[select_fitted_tracks_for_storage]
@@ -1460,7 +1476,7 @@ def line_fit_3d(positions):
     return offset, slope  # , chi2
 
 
-def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy, particle_mass, scattering_planes):
+def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy, particle_mass, scattering_planes, alpha):
     '''
     Loop over the selected tracks. In this function all matrices for the Kalman Filter are calculated track by track
     and the Kalman Filter is started.
@@ -1498,24 +1514,73 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
         Error of smoothed hit position in y direction. Calculated from smoothed
         state covariance matrix. Only approximation, since only diagonal element is taken.
     '''
+
+    def _calculate_track_seed(telescope, first_dut, select_fit_duts, track_hits, chunk_size):
+        track_hits_global = np.zeros(shape=(track_hits.shape[0], track_hits.shape[1], track_hits.shape[2]), dtype=np.float64)
+        # Convert local track hits to global track hits. This is needed to perform SLF in order to get a reference track.
+        for dut_index, dut in enumerate(telescope):  # Fill index loop of new array
+            track_hits_global[:, dut_index, 0], track_hits_global[:, dut_index, 1], track_hits_global[:, dut_index, 2] = dut.local_to_global_position(
+                x=track_hits[:, dut_index, 0],
+                y=track_hits[:, dut_index, 1],
+                z=track_hits[:, dut_index, 2],)
+        offsets, slopes = _fit_tracks_loop(track_hits=track_hits_global[:, select_fit_duts, :3])  # Perform SLF
+
+        track_seed = np.zeros((chunk_size, 4), dtype=np.float64)
+        # Calculate track_seed: track state at first plane
+        intersections_global = geometry_utils.get_line_intersections_with_dut(
+            line_origins=offsets,
+            line_directions=slopes,
+            translation_x=first_dut.translation_x,
+            translation_y=first_dut.translation_y,
+            translation_z=first_dut.translation_z,
+            rotation_alpha=first_dut.rotation_alpha,
+            rotation_beta=first_dut.rotation_beta,
+            rotation_gamma=first_dut.rotation_gamma)
+
+        # Convert global track slopes into local track slopes such that they can be used for the Kalman Filter
+        slopes_x_local, slopes_y_local, slopes_z_local = first_dut.global_to_local_position(
+            x=slopes[:, 0],
+            y=slopes[:, 1],
+            z=slopes[:, 2],
+            translation_x=0.0,
+            translation_y=0.0,
+            translation_z=0.0,
+            rotation_alpha=first_dut.rotation_alpha,
+            rotation_beta=first_dut.rotation_beta,
+            rotation_gamma=first_dut.rotation_gamma)
+
+        slopes_local = np.column_stack([slopes_x_local, slopes_y_local, slopes_z_local])
+        slopes_local[slopes_local[:, 2] < 0.0] = -slopes_local[slopes_local[:, 2] < 0.0]
+        slope_local_mag = np.sqrt(np.einsum('ij,ij->i', slopes_local, slopes_local))
+        slopes_local /= slope_local_mag[:, np.newaxis]
+        slopes_x_local, slopes_y_local, slopes_z_local = slopes_local[:, 0], slopes_local[:, 1], slopes_local[:, 2]
+
+        # Convert global track intersections into local track intersections such that they can be used for the Kalman Filter
+        intersection_x_local, intersection_y_local, intersection_z_local = first_dut.global_to_local_position(
+            x=intersections_global[:, 0],
+            y=intersections_global[:, 1],
+            z=intersections_global[:, 2])
+
+        track_seed[:, 0], track_seed[:, 1] = intersection_x_local, intersection_y_local  # Position
+        track_seed[:, 2], track_seed[:, 3] = slopes_x_local / slopes_z_local, slopes_y_local / slopes_z_local  # Slope
+
+        return track_seed
+
     if scattering_planes is None:
         scattering_planes = []
     elif isinstance(scattering_planes, dict):
         scattering_planes = [scattering_planes]
-    alignment = []
+
     material_budget = []
     all_dut_planes = [dut for dut in telescope]
     all_dut_planes.extend(scattering_planes)
     for dut in all_dut_planes:
-        alignment.append([dut.translation_x, dut.translation_y, dut.translation_z, dut.rotation_alpha, dut.rotation_beta, dut.rotation_gamma])
-        # TODO: take rotation into account for material budget
         material_budget.append(dut.material_budget)
-    alignment = np.array(alignment)
     material_budget = np.array(material_budget)
 
     # calculating DUT indices list with z-order
     intersections_z_axis = []
-    for dut in all_dut_planes:
+    for i, dut in enumerate(all_dut_planes):
         intersections_z_axis.append(geometry_utils.get_line_intersections_with_dut(
             line_origins=np.array([[0.0, 0.0, 0.0]]),
             line_directions=np.array([[0.0, 0.0, 1.0]]),
@@ -1526,30 +1591,13 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             rotation_beta=dut.rotation_beta,
             rotation_gamma=dut.rotation_gamma)[0][2])
     z_sorted_dut_indices = np.argsort(intersections_z_axis)
-    # z_sorted_fit_dut_indices = []
-    # for dut_index in z_sorted_dut_indices:
-    #     if dut_index in select_fit_duts:
-    #         z_sorted_fit_dut_indices.append(dut_index)
-
-    # TODO: check if calculation of pixel size is necessary
-    # try:
-    #     first_dut = telescope[z_sorted_dut_indices[0]]
-    #     first_dut_x_pixel_size, first_dut_y_pixel_size, _ = np.abs(first_dut.local_to_global_position(
-    #         x=[first_dut.column_size],
-    #         y=[first_dut.row_size],
-    #         z=[0.0],
-    #         translation_x=0.0,
-    #         translation_y=0.0,
-    #         translation_z=0.0))
-    #     first_dut_pixel_size = [first_dut_x_pixel_size[0], first_dut_y_pixel_size[0]]
-    # except AttributeError:  # First plane is scattering plane
-    #     first_dut_pixel_size = [0.0, 0.0]
 
     if scattering_planes:
         track_hits = np.append(arr=track_hits, values=np.full((track_hits.shape[0], len(scattering_planes), track_hits.shape[2]), fill_value=np.nan, dtype=np.float64), axis=1)
 
     chunk_size = track_hits.shape[0]
     n_duts = len(all_dut_planes)
+    first_dut = all_dut_planes[z_sorted_dut_indices[0]]
 
     # Calculate multiple scattering
     momentum = np.sqrt(beam_energy**2 - particle_mass**2)
@@ -1558,127 +1606,106 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
     if np.any(np.isclose(material_budget[z_sorted_dut_indices[:-1]], 0.0)):
         raise ValueError("Material budget is zero.")
 
-    # rms angle of multiple scattering
-    thetas = np.array(((13.6 / momentum / beta) * np.sqrt(material_budget) * (1. + 0.038 * np.log(material_budget))))
-    # error on z-position
-    z_error = 1e3  # Assume 1 mm error on z-position (alignment, precision of setup,...)
+    # Express initial state
+    initial_state_mean = np.zeros((chunk_size, 4), dtype=np.float64)
+    initial_state_mean[:, :2] = 0.0
+    initial_state_mean[:, 2:] = 0.0
 
-    # express transition and observation offset matrices
-    # these are additional offsets, which are not used at the moment
-    transition_offsets = np.full((chunk_size, n_duts, 6), fill_value=np.nan, dtype=np.float64)
-    transition_offsets[:, z_sorted_dut_indices[:-1], :] = 0.0
-    observation_offsets = np.zeros((chunk_size, n_duts, 3), dtype=np.float64)
+    # Express initial state covariance matrices
+    initial_state_covariance = np.zeros((chunk_size, 4, 4), dtype=np.float64)
+    # Error on initial slope is roughly divergence of beam (1 mrad).
+    initial_state_covariance[:, 2, 2] = np.square(3e-3)
+    initial_state_covariance[:, 3, 3] = np.square(3e-3)
+    # Position error of initial state
+    initial_state_covariance[:, 0, 0] = 2e2
+    initial_state_covariance[:, 1, 1] = 2e2
 
-    # express initial state. Contains (x_pos, y_pos, z_pos, slope_x, slope_y, slope_z).
-    initial_state_mean = np.zeros((chunk_size, 6), dtype=np.float64)
+    # FIXME: this is not working. Use collimated beam model
+    # beam_size_x = 10000.0  # 1 cm
+    # beam_size_y = 10000.0  # 1 cm
+    # beam_div_x = 5e-3  # 5 mrad
+    # beam_div_y = 5e-3  # 5 mrad
+    # coeff_x = 0.0  # correlation coeff between size and div
+    # coeff_y = 0.0  # correlation coeff between size and div
 
-    # express observation matrix, only observe (x,y,z)
-    observation_matrices = np.zeros((chunk_size, n_duts, 3, 6), dtype=np.float64)
+    # initial_state_covariance[:, 0, 0] = np.square(beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 1, 1] = np.square(beam_size_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 2, 2] = np.square(beam_div_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 3, 3] = np.square(beam_div_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 0, 2] = np.square(coeff_x * beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 2, 0] = np.square(coeff_x * beam_size_x) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 1, 3] = np.square(coeff_y * beam_size_y) * alpha[z_sorted_dut_indices[0]]
+    # initial_state_covariance[:, 3, 1] = np.square(coeff_y * beam_size_y) * alpha[z_sorted_dut_indices[0]]
+
+    # Express observation matrix, only observe (x,y)
+    observation_matrices = np.zeros((chunk_size, n_duts, 2, 4), dtype=np.float64)
     observation_matrices[:, :, 0, 0] = 1.0
     observation_matrices[:, :, 1, 1] = 1.0
-    observation_matrices[:, :, 2, 2] = 1.0
-    # express observation covariance matrices
-    observation_covariances = np.zeros((chunk_size, n_duts, 3, 3), dtype=np.float64)
 
-    # express initial state covariance matrices
-    initial_state_covariance = np.zeros((chunk_size, 6, 6), dtype=np.float64)
-    # error on initial slope is roughly divergence of beam (5 mrad).
-    initial_state_covariance[:, 3, 3] = np.square(5e-3)
-    initial_state_covariance[:, 4, 4] = np.square(5e-3)
-    initial_state_covariance[:, 5, 5] = np.square(5e-3)
+    # Express observation covariance matrices.
+    observation_covariances = np.zeros((chunk_size, n_duts, 2, 2), dtype=np.float64)
+    # Take cluster hit position error (effective CS1 pitch) as measurement error in case no intrinsic resolution is defined.
+    for i, dut in enumerate(all_dut_planes):
+        if dut.intrinsic_resolution is None:
+            observation_covariances[:, i, 0, 0] = np.square(track_hits[:, i, 3]) * alpha[i]
+            observation_covariances[:, i, 1, 1] = np.square(track_hits[:, i, 4]) * alpha[i]
+        else:
+            observation_covariances[:, i, 0, 0] = np.square(dut.intrinsic_resolution[0]) * alpha[i]
+            observation_covariances[:, i, 1, 1] = np.square(dut.intrinsic_resolution[1]) * alpha[i]
+    # Set observation errors of DUTs with no hits to zero.
+    observation_covariances[np.isnan(observation_covariances)] = 0.0
 
-    for index, actual_hits in enumerate(track_hits):  # Loop over selected track candidate hits and fit
-        # Take cluster hit position error as measurement error for duts which have a hit.
-        # For those who have no hit, need no error, since the should not be included in fit via fit selection
-        duts_with_hits = np.array(range(n_duts), dtype=np.int)[~np.isnan(actual_hits[:, 0])]
-        observation_covariances[index, duts_with_hits, 0, 0] = np.square(actual_hits[duts_with_hits, 3])
-        observation_covariances[index, duts_with_hits, 1, 1] = np.square(actual_hits[duts_with_hits, 4])
-        observation_covariances[index, duts_with_hits, 2, 2] = np.square(z_error)  # Assume 1 mm error on z-position measurement
+    # TODO: Rename, this is not the actual transition covariance. It only contains the sigma of the projected scattering angle.
+    transition_covariances = np.zeros((chunk_size, n_duts, 2, 2), dtype=np.float64)
 
-        if np.isnan(actual_hits[z_sorted_dut_indices[0], 0]):  # The first plane has no hit
-            # Take planes from fit selction and fit a line to the hits,
-            # then extrapolate the line to first plane in order to find initial state.
-            # The position error is estimated with the pixel size.
-            # TODO: Can't we handle this as any other scattering plane with error=0?
-            # Edit: Any plane without hit is treated as scatter plane.
-            try:
-                # Fit all DUTs with hits
-                offset, slope = line_fit_3d(positions=actual_hits[select_fit_duts, :3])
-                # TODO: For lower energies and lighter particles use the first hit DUT as position for the first scatter plane
-                # Fit the first 2 DUTs with hits
-                # offset, slope = line_fit_3d(positions=actual_hits[z_sorted_fit_dut_indices, :3], n=2)
-            except np.linalg.linalg.LinAlgError:
-                offset, slope = np.nan, np.nan
-
-            intersections = geometry_utils.get_line_intersections_with_dut(
-                line_origins=np.array([offset]),
-                line_directions=np.array([slope]),
-                translation_x=dut.translation_x,
-                translation_y=dut.translation_y,
-                translation_z=dut.translation_z,
-                rotation_alpha=dut.rotation_alpha,
-                rotation_beta=dut.rotation_beta,
-                rotation_gamma=dut.rotation_gamma)
-
-            # The beam angle goes along the z axis (0.0, 0.0, 1.0).
-            initial_state_mean[index] = [intersections[0, 0], intersections[0, 1], intersections[0, 2], 0.0, 0.0, 1.0]
-            # initial_state_covariance[index, 0, 0] = np.square(x_error_init_no_hit)
-            # initial_state_covariance[index, 1, 1] = np.square(y_error_init_no_hit)
-            initial_state_covariance[index, 0, 0] = np.square(dut.pixel_size[0])
-            initial_state_covariance[index, 1, 1] = np.square(dut.pixel_size[1])
-            initial_state_covariance[index, 2, 2] = np.square(z_error)
-        else:  # The first plane has a hit
-            # If first plane should be included in track building, take first dut hit as initial value and
-            # its corresponding cluster position error as the error on the measurement.
-            # The beam angle goes along the z axis (0.0, 0.0, 1.0).
-            initial_state_mean[index] = [actual_hits[z_sorted_dut_indices[0], 0], actual_hits[z_sorted_dut_indices[0], 1], actual_hits[z_sorted_dut_indices[0], 2], 0.0, 0.0, 1.0]
-            initial_state_covariance[index, 0, 0] = np.square(actual_hits[z_sorted_dut_indices[0], 3])  # x_err
-            initial_state_covariance[index, 1, 1] = np.square(actual_hits[z_sorted_dut_indices[0], 4])  # y_err
-            initial_state_covariance[index, 2, 2] = np.square(z_error)
+    # Calculate track seed. The seed is extrapolated into the telescope and updated using a BACKWARD Kalman Filter.
+    track_seed = _calculate_track_seed(
+        telescope=telescope,
+        first_dut=first_dut,
+        select_fit_duts=select_fit_duts,
+        track_hits=track_hits,
+        chunk_size=chunk_size)
 
     # Do some sanity check: Covariance matrices should be positive semi-definite (all eigenvalues have to be non-negative)
     for cov in [observation_covariances, initial_state_covariance]:
         if not np.all(np.linalg.eigvalsh(cov) >= 0.0):
             raise RuntimeError('Covariance matrices are not positive semi-definite!')
 
-    # run kalman filter
-    track_estimates_chunk, x_err, y_err, chi2 = _kalman_fit_3d(
+    # Run Kalman Filter
+    track_estimates_chunk, cov, x_err, y_err, chi2_s = _kalman_fit_3d(
         dut_planes=all_dut_planes,
+        track_seed=track_seed,  # track state of reference trajectory (point around linearization is done)
         z_sorted_dut_indices=z_sorted_dut_indices,
-        hits=track_hits[:, :, 0:3],
-        thetas=thetas,
+        hits=track_hits[:, :, 0:2],
+        momentum=momentum,
+        beta=beta,
         select_fit_duts=select_fit_duts,
-        transition_offsets=transition_offsets,
+        transition_covariances=transition_covariances,
         observation_matrices=observation_matrices,
         observation_covariances=observation_covariances,
-        observation_offsets=observation_offsets,
         initial_state_mean=initial_state_mean,
         initial_state_covariance=initial_state_covariance)
 
     # remove scatter planes from data
     x_err = x_err[:, :len(telescope)]
     y_err = y_err[:, :len(telescope)]
-    offsets = track_estimates_chunk[:, :len(telescope), :3]
-    slopes = track_estimates_chunk[:, :len(telescope), 3:]
-    chi2 = chi2[:, :len(telescope)]
+    offsets = track_estimates_chunk[:, :len(telescope), :2]
+    slopes = track_estimates_chunk[:, :len(telescope), 2:]
+    chi2_s = chi2_s[:, :len(telescope)]
 
-    # force the 3rd component (z) to be positive
-    # and normalize to 1
-    slopes[slopes[:, :, 2] < 0.0] = -slopes[slopes[:, :, 2] < 0.0]
-    slopes_mag = np.sqrt(np.einsum('ijk,ijk->ij', slopes, slopes))
-    slopes /= slopes_mag[:, :, np.newaxis]
-
-    if np.any(chi2[~np.isnan(chi2)] < 0.0):
+    if np.any(chi2_s[~np.isnan(chi2_s)] < 0.0):
         raise RuntimeError("Not all chi-square values are positive!")
 
-    # Sum up all chi2 and divide by number of degrees of freedom.
-    # chi2 = np.nansum(chi2, axis=1) / np.count_nonzero(~np.isnan(chi2), axis=1)
-    chi2 = np.nansum(chi2[:, select_fit_duts], axis=1) / (3 * (np.count_nonzero(~np.isnan(chi2[:, select_fit_duts]), axis=1) - 3))
+    # Sum up all chi2 and divide by number of degrees of freedom (Ndof = 2 * n_hits - 4, (x,y) = 2 observables, (x, y, x', y') = 4 state vector comp.).
+    n_hits = np.count_nonzero(~np.isnan(chi2_s[:, select_fit_duts]), axis=1)
+    n_dof = (2 * n_hits - 4)  # degrees of freedom
+    chi2s = np.nansum(chi2_s[:, select_fit_duts], axis=1)
+    chi2s_red = np.nansum(chi2_s[:, select_fit_duts], axis=1) / n_dof  # reduced chi2
+    chi2s_prob = 1.0 - chi2.cdf(chi2s, n_dof)  # cummulative chi2 probability, propability of rejecting a true hyptothesis (p-value = probability that observation given a null hypothesis is true!)
+    return offsets, slopes, chi2s, chi2s_red, chi2s_prob, x_err, y_err, cov, observation_covariances, observation_matrices
 
-    return offsets, slopes, chi2, x_err, y_err
 
-
-def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_duts, transition_offsets, observation_matrices, observation_covariances, observation_offsets, initial_state_mean, initial_state_covariance):
+def _kalman_fit_3d(dut_planes, track_seed, z_sorted_dut_indices, hits, momentum, beta, select_fit_duts, transition_covariances, observation_matrices, observation_covariances, initial_state_mean, initial_state_covariance):
     '''
     This function calls the Kalman Filter. It returns track by track the smoothed state vector which contains in the first two components
     the smoothed hit positions and in the last two components the respective slopes. Additionally the chi square of the track is calculated
@@ -1692,19 +1719,13 @@ def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_du
         List of DUT indices in the order reflecting their z position.
     hits : array_like
         Array which contains the x, y and z hit position of each DUT for one track.
-    thetas : list
-        List of scattering angle root mean squares (RMS).
     select_fit_duts : list
         List of DUTs which should be included in Kalman Filter. DUTs which are not in list
         were treated as missing measurements and will not be included in the Filtering step.
-    transition_offset : array_like
-        Vector which array_like the offset of each transition.
     observation_matrix : array_like
         Matrix which converts the state vector to the actual measurement vector.
     observation_covariances : array_like
         Matrix which describes the covariance of the measurement.
-    observation_offset : array_like
-        Vector which describes the offset of each measurement.
     initial_state_mean : array_like
         Vector which describes the starting point of the state vector.
     initial_state_covariance : array_like
@@ -1723,29 +1744,28 @@ def _kalman_fit_3d(dut_planes, z_sorted_dut_indices, hits, thetas, select_fit_du
         Error of smoothed hit position in y direction. Calculated from smoothed
         state covariance matrix.
     '''
+
     kf = kalman.KalmanFilter()
-    smoothed_state_estimates, cov, chi2 = kf.smooth(
+    smoothed_state_estimates, smoothed_state_covariances, chi2s = kf.smooth(
         dut_planes=dut_planes,
+        track_seed=track_seed,
         z_sorted_dut_indices=z_sorted_dut_indices,
         observations=hits[:, :, 0:3],
-        thetas=thetas,
+        momentum=momentum,
+        beta=beta,
         select_fit_duts=select_fit_duts,
-        transition_offsets=transition_offsets,
+        transition_covariances=transition_covariances,
         observation_matrices=observation_matrices,
-        observation_offsets=observation_offsets,
         observation_covariances=observation_covariances,
         initial_state=initial_state_mean,
         initial_state_covariance=initial_state_covariance)
 
-    # calculate the sum of the squared x/y residuals, divided by n hits per track
-    # chi2 = np.sum(np.square(np.ma.masked_invalid(hits[:, :, 0:2]) - smoothed_state_estimates[:, :, 0:2]), dtype=np.float64, axis=(1, 2)) / np.count_nonzero(~np.isnan(hits[:, :, 0]), axis=1)
-
-    # rough estimate for error on x and y of smoothed estimate
-    x_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2)[:, :, 0])
-    y_err = np.sqrt(np.diagonal(cov, axis1=3, axis2=2)[:, :, 1])
+    #  Estimatator for error on x and y of smoothed estimate (negelects non-diagonal elemtents, correlation)
+    x_err = np.sqrt(np.diagonal(smoothed_state_covariances, axis1=3, axis2=2)[:, :, 0])
+    y_err = np.sqrt(np.diagonal(smoothed_state_covariances, axis1=3, axis2=2)[:, :, 1])
 
     # Check for invalid values (NaN)
     if np.any(np.isnan(smoothed_state_estimates)):
         logging.warning('Smoothed state estimates contain invalid values (NaNs). Check input of Kalman Filter.')
 
-    return smoothed_state_estimates, x_err, y_err, chi2
+    return smoothed_state_estimates, smoothed_state_covariances, x_err, y_err, chi2s

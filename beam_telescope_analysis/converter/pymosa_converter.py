@@ -78,6 +78,9 @@ def format_hit_table(input_filename, output_filenames=None, analyze_m26_header_i
     output_filenames : list
         Filenames of the interpreted data files for each plane.
     '''
+
+    logging.info('Formatting hit table...')
+
     if analyze_m26_header_ids is None:
         analyze_m26_header_ids = raw_data_interpreter.DEFAULT_PYMOSA_M26_HEADER_IDS
     else:
