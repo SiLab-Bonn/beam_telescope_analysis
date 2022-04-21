@@ -1514,6 +1514,8 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
 
         # Number of processed tracks for every DUT
         n_tracks_processed = np.zeros(shape=(len(telescope)), dtype=np.int)
+        # Number of tracks fulfilling hit requirement
+        total_n_tracks_valid_hits = 0
 
         # Maximum allowed relative change for each alignment parameter. Can be adjusted.
         deviation_cuts = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
@@ -1523,12 +1525,13 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
         for track_candidates_chunk, index_chunk in analysis_utils.data_aligned_at_events(in_file_h5.root.TrackCandidates, chunk_size=10000):
             # Select only tracks for which hit requirement is fulfilled
             track_candidates_chunk_valid_hits = track_candidates_chunk[track_candidates_chunk['hit_flag'] & dut_hit_mask == dut_hit_mask]
-            total_n_tracks_valid_hits = track_candidates_chunk_valid_hits.shape[0]
+            total_n_tracks_valid_hits_chunk = track_candidates_chunk_valid_hits.shape[0]
+            total_n_tracks_valid_hits += total_n_tracks_valid_hits_chunk
 
             # Per chunk variables
-            chi2s = np.zeros(shape=(total_n_tracks_valid_hits), dtype=np.float64)  # track chi2s
-            chi2s_probs = np.zeros(shape=(total_n_tracks_valid_hits), dtype=np.float64)  # track pvalues
-            alignment_values = np.full(shape=(len(telescope), total_n_tracks_valid_hits), dtype=kfa_alignment_descr, fill_value=np.nan)  # alignment values
+            chi2s = np.zeros(shape=(total_n_tracks_valid_hits_chunk), dtype=np.float64)  # track chi2s
+            chi2s_probs = np.zeros(shape=(total_n_tracks_valid_hits_chunk), dtype=np.float64)  # track pvalues
+            alignment_values = np.full(shape=(len(telescope), total_n_tracks_valid_hits_chunk), dtype=kfa_alignment_descr, fill_value=np.nan)  # alignment values
 
             # Loop over tracks in chunk
             for track_index, track in enumerate(track_candidates_chunk_valid_hits):
@@ -1617,13 +1620,18 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
                     alignment_values, deviation_cuts,
                     actual_align_state, actual_align_cov, n_tracks_processed, track_index)
 
+                # Reached number of max. specified tracks. Stop alignment
                 if n_tracks_processed.min() > max_tracks:
+                    pbar.update(track_index)
+                    pbar.write('Processed {0} tracks (per DUT) out of {1} tracks'.format(n_tracks_processed, total_n_tracks_valid_hits))
+                    pbar.close()
                     logging.info('Maximum number of tracks reached! Stopping alignment...')
                     # Store alignment data
                     _store_alignment_data(alignment_values[:, :track_index + 1], n_tracks_processed, chi2s[:track_index + 1], chi2s_probs[:track_index + 1], deviation_cuts)
                     return
 
             pbar.update(track_candidates_chunk.shape[0])
+            pbar.write('Processed {0} tracks (per DUT) out of {1} tracks'.format(n_tracks_processed, total_n_tracks_valid_hits))
             # Store alignment data
             _store_alignment_data(alignment_values, n_tracks_processed, chi2s, chi2s_probs, deviation_cuts)
 
