@@ -1024,12 +1024,10 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     cluster_size = tracks_chunk['n_hits_dut_%d' % actual_dut_index]
                     cluster_shape = tracks_chunk['cluster_shape_dut_%d' % actual_dut_index]
 
-                    # Bad practice, but only possibility to compensate shift from alignment
+                    # Bad practice, but only possibility to compensate possible shift from alignment
                     if local_offset_x is not None:
-                        hit_x_local += local_offset_x
                         intersection_x_local += local_offset_x
                     if local_offset_y is not None:
-                        hit_y_local += local_offset_y
                         intersection_y_local += local_offset_y
 
                     # Select only enabled pixels from enable mask
