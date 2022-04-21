@@ -14,8 +14,6 @@ from numba.typed import List
 from scipy.stats import gaussian_kde
 from scipy.stats import chi2
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvas
 
 from tqdm import tqdm
 
