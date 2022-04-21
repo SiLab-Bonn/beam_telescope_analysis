@@ -1,0 +1,39 @@
+name: Software tests
+
+on: push
+
+jobs:
+  tests:
+    name: Test
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Anaconda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        python-version: 3.9
+    - name: Install Conda dependencies
+      shell: bash -l {0}
+      run: |
+        conda info -a
+        conda install pytest cython pytables numpy scipy numba matplotlib pyyaml
+    - name: Install pixel clusterizer
+      shell: bash -l {0}
+      run: |
+        pip install pixel_clusterizer
+    - name: Install PyLandau
+      shell: bash -l {0}
+      run: |
+        pip install pylandau
+    - name: Install package
+      shell: bash -l {0}
+      run: |
+        pip install -e .
+    - name: Test
+      shell: bash -l {0}
+      run: |
+        cd beam_telescope_analysis/testing
+        pytest -s -v test_examples

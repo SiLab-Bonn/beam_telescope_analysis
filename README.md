@@ -1,4 +1,5 @@
 # Beam Telescope Analysis
+[![Build Status](https://travis-ci.org/SiLab-Bonn/beam_telescope_analysis.svg?branch=master)](https://travis-ci.org/SiLab-Bonn/beam_telescope_analysis)
 Beam Telescope Analysis (BTA) is a testbeam analysis software written in Python (and C++).
 
 ## Intended Use
