@@ -31,10 +31,10 @@ jobs:
     - name: Install git-lfs
       shell: bash -l {0}
       run: |
-        apt-get update --fix-missing --allow-releaseinfo-change --allow-unauthenticated
-        apt-get install -y curl build-essential
+        sudo apt-get update --fix-missing --allow-releaseinfo-change --allow-unauthenticated
+        sudo apt-get install -y curl build-essential
         curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
-        apt-get install -y git-lfs
+        sudo apt-get install -y git-lfs
         git lfs install
         git submodule sync --recursive
         git submodule update --init --recursive
