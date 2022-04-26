@@ -52,7 +52,7 @@ class TestResultAnalysis(unittest.TestCase):
         self.assertTrue(data_equal, msg=error_msg)
 
     def test_efficiency_calculation(self):
-        Test 1: Calculate efficiency
+        # Test 1: Calculate efficiency
         result_analysis.calculate_efficiency(
             telescope_configuration=aligned_configuration,
             input_tracks_file=os.path.join(self.output_folder, 'Tracks_selected.h5'),
