@@ -33,7 +33,7 @@ jobs:
       run: |
         sudo apt-get update --fix-missing --allow-releaseinfo-change --allow-unauthenticated
         sudo apt-get install -y curl build-essential
-        curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+        sudo curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
         sudo apt-get install -y git-lfs
         git lfs install
         git submodule sync --recursive
