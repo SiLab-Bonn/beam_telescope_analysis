@@ -8,7 +8,7 @@ from beam_telescope_analysis import result_analysis
 from beam_telescope_analysis.tools import analysis_utils, test_tools, data_selection
 
 testing_path = os.path.dirname(os.path.abspath(__file__))
-data_folder = os.path.abspath(os.path.join(testing_path, 'fixtures'))
+data_folder = os.path.join(testing_path, 'fixtures')
 aligned_configuration = os.path.join(data_folder, "telescope_aligned.yaml")
 
 

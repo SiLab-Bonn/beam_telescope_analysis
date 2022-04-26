@@ -8,7 +8,7 @@ from beam_telescope_analysis import hit_analysis
 from beam_telescope_analysis.tools import analysis_utils, test_tools
 
 testing_path = os.path.dirname(os.path.abspath(__file__))
-data_folder = os.path.abspath(os.path.join(testing_path, 'fixtures'))
+data_folder = os.path.join(testing_path, 'fixtures')
 initial_configuration = os.path.join(data_folder, "telescope.yaml")
 
 

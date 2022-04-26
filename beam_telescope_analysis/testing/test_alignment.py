@@ -12,7 +12,7 @@ from beam_telescope_analysis.tools import geometry_utils
 from beam_telescope_analysis.tools import analysis_utils
 
 testing_path = os.path.dirname(os.path.abspath(__file__))
-data_folder = os.path.abspath(os.path.join(testing_path, 'fixtures'))
+data_folder = os.path.join(testing_path, 'fixtures')
 initial_configuration = os.path.join(data_folder, "telescope.yaml")
 prealigned_configuration = os.path.join(data_folder, "telescope_prealigned.yaml")
 
