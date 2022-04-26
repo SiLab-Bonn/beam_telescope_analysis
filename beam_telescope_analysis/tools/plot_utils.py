@@ -881,7 +881,6 @@ def plot_track_chi2(input_tracks_file, output_pdf_file=None, dut_names=None, chu
                     else:
                         hist_full += np.histogram(chi2s, bins=edges_full)[0]
                         hist_narrow += np.histogram(chi2s, bins=edges_narrow)[0]
-                        hist_very_narrow += np.histogram(chi2s, bins=edges_very_narrow)[0]
                         hist_chi2_red += np.histogram(chi2s_red, bins=edges_chi2_red)[0]
                         hist_pvalue += np.histogram(track_pvalue, bins=edges_pvalue)[0]
 
@@ -2353,17 +2352,17 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
                 output_pdf.savefig(fig)
 
-                fig = Figure()
-                _ = FigureCanvas(fig)
-                ax = fig.add_subplot(111)
-                z_max = hist_charge_indices[-1] + 1
-                title = 'Region %d%s: In-pixel mean charge\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
-                plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_charge_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0, plot_projection=True, n_bins_projections=(10, 10))
-                # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
-                _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
-                ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
-                ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
-                output_pdf.savefig(fig)
+                # fig = Figure()
+                # _ = FigureCanvas(fig)
+                # ax = fig.add_subplot(111)
+                # z_max = hist_charge_indices[-1] + 1
+                # title = 'Region %d%s: In-pixel mean charge\nfor %s' % (region_index + 1, (" (" + efficiency_regions_names[region_index] + ")") if efficiency_regions_names[region_index] else "", actual_dut.name)
+                # plot_2d_pixel_hist(fig, ax, efficiency_regions_stat_in_pixel_charge_2d_hist[region_index].T, efficiency_regions_in_pixel_hist_extent, title=title, x_axis_title="column [$\mathrm{\mu}$m]", y_axis_title="row [$\mathrm{\mu}$m]", z_min=0.0, z_max=z_max, aspect=1.0, plot_projection=True, n_bins_projections=(10, 10))
+                # # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
+                # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
+                # ax.set_xlim(efficiency_regions_in_pixel_plot_range[0])
+                # ax.set_ylim(efficiency_regions_in_pixel_plot_range[1])
+                # output_pdf.savefig(fig)
 
                 fig = Figure()
                 _ = FigureCanvas(fig)

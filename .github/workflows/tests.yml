@@ -36,4 +36,4 @@ jobs:
       shell: bash -l {0}
       run: |
         cd beam_telescope_analysis/testing
-        pytest -s -v test_examples.py
+        pytest -s -v

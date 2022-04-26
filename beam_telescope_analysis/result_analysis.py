@@ -866,7 +866,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Calculate in-pixel histogram properties (bins size and number of bins)
                     in_pixel_resolution = in_pixel_resolutions[index]
                     if in_pixel_resolution is None:
-                        in_pixel_resolution = map(min, zip(resolution, [pitch / 10.0 for pitch in actual_dut.pixel_size]))
+                        in_pixel_resolution = list(map(min, zip(resolution, [pitch / 10.0 for pitch in actual_dut.pixel_size])))
                     if in_pixel_resolution[0] is None:
                         in_pixel_resolution[0] = min(resolution[0], actual_dut.pixel_size[0] / 10.0)
                     if in_pixel_resolution[1] is None:

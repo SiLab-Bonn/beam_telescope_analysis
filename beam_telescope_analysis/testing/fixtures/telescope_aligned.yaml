@@ -1,0 +1,118 @@
+TELESCOPE:
+  DUT:
+    0:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 1
+      rotation_alpha: -0.0034121779756339054
+      rotation_beta: 0.000147618026839511
+      rotation_gamma: -0.0001488904980902652
+      translation_x: 0.0176545164868427
+      translation_y: 0.04343150474801375
+      translation_z: 0.0
+      x_limit: null
+      y_limit: null
+    1:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 2
+      rotation_alpha: 0.004625854473804468
+      rotation_beta: 0.019943469338315107
+      rotation_gamma: 0.0007003165113599382
+      translation_x: -60.43764922838997
+      translation_y: 193.8385847327703
+      translation_z: 150000.0
+      x_limit:
+      - -10534.0
+      - 10534.0
+      y_limit:
+      - -5234.799999999999
+      - 5142.799999999999
+    2:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 3
+      rotation_alpha: 0.0015609693804966387
+      rotation_beta: 0.023554040465881238
+      rotation_gamma: 0.0035684777253993448
+      translation_x: -84.63871273127587
+      translation_y: 63.42668083117485
+      translation_z: 300000.0
+      x_limit:
+      - -10239.599999999999
+      - 10442.0
+      y_limit:
+      - -5234.799999999999
+      - 5234.799999999999
+    3:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 4
+      rotation_alpha: -0.00042490788771217073
+      rotation_beta: 0.020858197492147842
+      rotation_gamma: -0.004241213223265854
+      translation_x: -193.13259304262846
+      translation_y: 47.712417265588
+      translation_z: 450000.0
+      x_limit:
+      - -10534.0
+      - 8638.8
+      y_limit:
+      - -5234.799999999999
+      - 5234.799999999999
+    4:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 5
+      rotation_alpha: -0.0015396815778588287
+      rotation_beta: 0.014869536904473514
+      rotation_gamma: -0.004081575767602989
+      translation_x: -27.977876983156214
+      translation_y: 56.517840287732966
+      translation_z: 600000.0
+      x_limit:
+      - -10534.0
+      - 9834.8
+      y_limit:
+      - -4848.4
+      - 5234.799999999999
+    5:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 6
+      rotation_alpha: -0.0037922226599991803
+      rotation_beta: -0.001092497919543957
+      rotation_gamma: 0.004154077900856301
+      translation_x: 2.2533854522959116
+      translation_y: 85.58706496241085
+      translation_z: 750000.0
+      x_limit:
+      - -8749.199999999999
+      - 10147.599999999999
+      y_limit:
+      - -4646.0
+      - 5234.799999999999
+  rotation_alpha: 0.0004917296870881207
+  rotation_beta: 0.00042776682456214957
+  rotation_gamma: 0.0
+  translation_x: 0.0
+  translation_y: 0.0
+  translation_z: 0.0

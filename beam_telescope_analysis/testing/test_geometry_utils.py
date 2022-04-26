@@ -99,6 +99,7 @@ class TestTrackAnalysis(unittest.TestCase):
                     self.assertTrue(np.allclose(y_old, y))
                     self.assertTrue(np.allclose(z_old, z))
 
+
 if __name__ == '__main__':
     import logging
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
