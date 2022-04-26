@@ -1138,7 +1138,7 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
         y_err_squared[:, dut_index] = np.square(track_candidates_chunk['y_err_dut_%d' % dut_index][select_fit_tracks])
 
         # generate quality array
-        dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=np.bool)
+        dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=bool)
         dut_quality_flag_sel[~select_finite_distance] = False
         # select tracks within limits and set quality flag
         if limit_x_local is not None and np.isfinite(limit_x_local[0]):

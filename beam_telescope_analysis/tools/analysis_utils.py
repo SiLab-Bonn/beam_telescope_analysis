@@ -1273,9 +1273,9 @@ def count_unique_neighbors(arr, structure=None):
     - https://stackoverflow.com/questions/41550979/fill-holes-with-majority-of-surrounding-values-python
     '''
     if structure is None:
-        structure = np.ones((3, 3), dtype=np.bool)
+        structure = np.ones((3, 3), dtype=bool)
     else:
-        structure = np.array(structure, dtype=np.bool)
+        structure = np.array(structure, dtype=bool)
     if len(structure.shape) != 2:
         raise ValueError('Structure must be a 2D array')
     if structure.shape[0] != structure.shape[1]:
@@ -1313,7 +1313,7 @@ def fill(arr, invalid=None):
     if invalid is None:
         invalid = np.isnan(arr)
     else:
-        invalid = np.array(invalid, dtype=np.bool)
+        invalid = np.array(invalid, dtype=bool)
 
     fill_indices = distance_transform_edt(invalid, return_distances=False, return_indices=True)
     return arr[tuple(fill_indices)]

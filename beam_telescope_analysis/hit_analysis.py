@@ -586,7 +586,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     # Create mask from occupancy histogram
     with tb.open_file(output_mask_file, mode='r+') as out_file_h5:
         occupancy = out_file_h5.root.HistOcc[:]
-        pixel_mask = np.zeros_like(occupancy, dtype=np.bool)
+        pixel_mask = np.zeros_like(occupancy, dtype=bool)
         i = 0
         while(True):
             i += 1

@@ -4,7 +4,7 @@ from __future__ import division
 import logging
 import sys
 import os
-from collections import Iterable
+from collections.abc import Iterable
 import math
 
 import tables as tb
@@ -344,7 +344,7 @@ def prealign(telescope_configuration, input_correlation_file, output_telescope_c
                     output_pdf=output_pdf)
 
                 if select is None:
-                    select = np.ones_like(x_global_pixel, dtype=np.bool)
+                    select = np.ones_like(x_global_pixel, dtype=bool)
                 if x_direction:
                     select &= (x_global_pixel >= dut_pos_limit[0]) & (x_global_pixel <= dut_pos_limit[1])
                     if slope < 0.0:
@@ -1513,7 +1513,7 @@ def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input
         pbar = tqdm(total=n_tracks, ncols=80)
 
         # Number of processed tracks for every DUT
-        n_tracks_processed = np.zeros(shape=(len(telescope)), dtype=np.int)
+        n_tracks_processed = np.zeros(shape=(len(telescope)), dtype=int)
         # Number of tracks fulfilling hit requirement
         total_n_tracks_valid_hits = 0
 
@@ -1916,7 +1916,7 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
             # calculate equal chunk size
             start_val = max(int(node.nrows / chunk_size), 2)
             while True:
-                chunk_indices = np.linspace(0, node.nrows, start_val).astype(np.int)
+                chunk_indices = np.linspace(0, node.nrows, start_val).astype(int)
                 if np.all(np.diff(chunk_indices) <= chunk_size):
                     break
                 start_val += 1
@@ -1951,7 +1951,7 @@ def calculate_transformation(telescope_configuration, input_tracks_file, select_
                 if not np.allclose(hit_z_local, 0.0):
                     raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
-                limit_xy_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                limit_xy_local_sel = np.ones_like(hit_x_local, dtype=bool)
                 if limit_x_local is not None and np.isfinite(limit_x_local[0]):
                     limit_xy_local_sel &= hit_x_local >= limit_x_local[0]
                 if limit_x_local is not None and np.isfinite(limit_x_local[1]):

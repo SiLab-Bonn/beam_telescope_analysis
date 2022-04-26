@@ -91,13 +91,13 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     intersection_local = np.column_stack([intersection_x_local, intersection_y_local])
                     difference_local = hit_local - intersection_local
 
-                    limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                    limit_x_local_sel = np.ones_like(hit_x_local, dtype=bool)
                     if limit_x_local is not None and np.isfinite(limit_x_local[0]):
                         limit_x_local_sel &= hit_x_local >= limit_x_local[0]
                     if limit_x_local is not None and np.isfinite(limit_x_local[1]):
                         limit_x_local_sel &= hit_x_local <= limit_x_local[1]
 
-                    limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                    limit_y_local_sel = np.ones_like(hit_x_local, dtype=bool)
                     if limit_y_local is not None and np.isfinite(limit_y_local[0]):
                         limit_y_local_sel &= hit_y_local >= limit_y_local[0]
                     if limit_y_local is not None and np.isfinite(limit_y_local[1]):
@@ -1036,7 +1036,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         enabled_pixels_indices = np.where(disabled_pixel_mask == False)[1] + (np.where(disabled_pixel_mask == False)[0] * disabled_pixel_mask.shape[1])
                         select_enabled_pixel_hit = np.isin(closest_indices, enabled_pixels_indices)
                     else:
-                        select_enabled_pixel_hit = np.ones(shape=intersection_x_local.shape, dtype=np.bool)
+                        select_enabled_pixel_hit = np.ones(shape=intersection_x_local.shape, dtype=bool)
                     hit_x_local, hit_y_local = hit_x_local[select_enabled_pixel_hit], hit_y_local[select_enabled_pixel_hit]
                     intersection_x_local, intersection_y_local = intersection_x_local[select_enabled_pixel_hit], intersection_y_local[select_enabled_pixel_hit]
                     charge = charge[select_enabled_pixel_hit]
@@ -2718,13 +2718,13 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     if not np.allclose(ref_hit_z_local[np.isfinite(ref_hit_z_local)], 0.0) or not np.allclose(ref_intersection_z_local[np.isfinite(ref_intersection_z_local)], 0.0):
                         raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
-                    ref_limit_x_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    ref_limit_x_local_sel = np.ones_like(ref_hit_x_local, dtype=bool)
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                         ref_limit_x_local_sel &= ref_hit_x_local >= fit_limit_x_local[0]
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                         ref_limit_x_local_sel &= ref_hit_x_local <= fit_limit_x_local[1]
 
-                    ref_limit_y_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    ref_limit_y_local_sel = np.ones_like(ref_hit_x_local, dtype=bool)
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                         ref_limit_y_local_sel &= ref_hit_y_local >= fit_limit_y_local[0]
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
@@ -2796,13 +2796,13 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                         if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                             raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
-                        limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                        limit_x_local_sel = np.ones_like(hit_x_local, dtype=bool)
                         if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                             limit_x_local_sel &= hit_x_local >= fit_limit_x_local[0]
                         if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                             limit_x_local_sel &= hit_x_local <= fit_limit_x_local[1]
 
-                        limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                        limit_y_local_sel = np.ones_like(hit_x_local, dtype=bool)
                         if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                             limit_y_local_sel &= hit_y_local >= fit_limit_y_local[0]
                         if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):

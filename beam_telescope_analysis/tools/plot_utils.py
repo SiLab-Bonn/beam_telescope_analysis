@@ -239,7 +239,7 @@ def plot_masked_pixels(input_mask_file, pixel_size=None, dut_name=None, output_p
                 if noisy_pixels is None and disabled_pixels is None:
                     continue
                 else:
-                    occupancy_mask = np.zeros_like(occupancy, dtype=np.bool)
+                    occupancy_mask = np.zeros_like(occupancy, dtype=bool)
                     if noisy_pixels is not None:
                         occupancy_mask[noisy_pixels.T[0] - 1, noisy_pixels.T[1] - 1] = 1
                     if disabled_pixels is not None:
@@ -1013,7 +1013,7 @@ def plot_residuals_vs_position(hist, xedges, yedges, xlabel, ylabel, title, resi
     if residuals_mean is not None:
         res_pos = (xedges[1:] + xedges[:-1]) / 2.0
         if select is None:
-            select = np.full_like(res_pos, True, dtype=np.bool)
+            select = np.full_like(res_pos, True, dtype=bool)
         ax.scatter(res_pos[select], residuals_mean[select], color="blue", marker='o', label='Mean residual')
         ax.scatter(res_pos[~select], residuals_mean[~select], color="r", marker='o')
     if fit is not None:
@@ -1373,7 +1373,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
         x_bin_centers = (hist_2d_edges[0][1:] + hist_2d_edges[0][:-1]) / 2
         y_bin_centers = (hist_2d_edges[1][1:] + hist_2d_edges[1][:-1]) / 2
         y_meshgrid, x_meshgrid = np.meshgrid(y_bin_centers, x_bin_centers)
-        select_bins = np.zeros(x_meshgrid.shape, dtype=np.bool)
+        select_bins = np.zeros(x_meshgrid.shape, dtype=bool)
         # reduce number of arrows
         select_bins[::4, ::4] = 1
         # speed up plotting
@@ -2119,7 +2119,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 xv = np.ravel(xv)
                 yv = np.ravel(yv)
                 pixel_center_data_in_pixel = np.column_stack((xv, yv))
-                # is_neighbor = np.zeros_like(xv, dtype=np.bool)
+                # is_neighbor = np.zeros_like(xv, dtype=bool)
                 # for i in range(xv.shape[0]):
                 #     for j in range(yv_enclosed.shape[0]):
                 #         if xv_enclosed[j] == xv[i] and yv_enclosed[j] == yv[i]:
