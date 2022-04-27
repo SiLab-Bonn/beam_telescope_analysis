@@ -19,7 +19,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda info -a
-        conda install pytest cython pytables numpy scipy numba matplotlib pyyaml
+        conda install pytest pytest-cov cython pytables numpy scipy numba matplotlib pyyaml
     - name: Install pixel clusterizer
       shell: bash -l {0}
       run: |
@@ -41,8 +41,20 @@ jobs:
       shell: bash -l {0}
       run: |
         pip install -e .
-    - name: Test
+    - name: Software tests and coverage
       shell: bash -l {0}
       run: |
         cd beam_telescope_analysis/testing
-        pytest -s -v
+        pwd
+        ls
+        cd fixtures
+        ls -l
+        cd ..
+        pytest -s -v --cov=./ --cov-report=xml test_track_analysis.py
+    - name: Make Coverage Badge
+      uses: action-badges/cobertura-coverage-xml-badges@0.2.1
+      with:
+        file-name: coverage.svg
+        badge-branch: badges
+        github-token: '${{ secrets.GITHUB_TOKEN }}'
+        coverage-file-name: ./beam_telescope_analysis/testing/coverage.xml
