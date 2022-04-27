@@ -49,7 +49,7 @@ jobs:
         cd beam_telescope_analysis/testing
         pytest -s -v --cov=./ --cov-report=xml test_geometry_utils.py
     - name: Make Coverage Badge
-      uses: action-badges/cobertura-coverage-xml-badges
+      uses: action-badges/cobertura-coverage-xml-badges@main
       with:
         file-name: coverage.svg
         github-token: '${{ secrets.GITHUB_TOKEN }}'
