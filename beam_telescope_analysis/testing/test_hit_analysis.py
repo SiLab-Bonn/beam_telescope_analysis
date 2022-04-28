@@ -43,7 +43,7 @@ class TestHitAnalysis(unittest.TestCase):
             pixel_mask_names=pixel_mask_names,
             thresholds=thresholds)
 
-        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'TestBeamData_Mimosa26_DUT0_noisy_pixel_mask.h5'), mask_files[0])
+        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'TestBeamData_Mimosa26_DUT0_noisy_pixel_mask.h5'), mask_files[0], ignore_nodes=['/arguments/mask', '/arguments/mask_pixels'])
         self.assertTrue(data_equal, msg=error_msg)
 
     def test_noisy_pixel_masking(self):
