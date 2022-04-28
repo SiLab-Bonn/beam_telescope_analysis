@@ -111,11 +111,11 @@ class TestAlignmentAnalysis(unittest.TestCase):
 
         import yaml
         with open(os.path.join(data_folder, 'telescope_aligned.yaml'), 'r') as fp:
-            docs = yaml.safe_load_all(fp)
+            docs = yaml.safe_load(fp)
             print(docs)
 
         with open(os.path.join(self.output_folder, 'telescope_aligned.yaml'), 'r') as fp:
-            docs = yaml.safe_load_all(fp)
+            docs = yaml.safe_load(fp)
             print(docs)
 
         data_equal = test_tools.compare_yaml_files(os.path.join(data_folder, 'telescope_aligned.yaml'), os.path.join(self.output_folder, 'telescope_aligned.yaml'))
