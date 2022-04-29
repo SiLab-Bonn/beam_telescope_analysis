@@ -9,7 +9,7 @@ import shutil
 import inspect
 
 import beam_telescope_analysis
-from beam_telescope_analysis.tools import analysis_utils, test_tools
+from beam_telescope_analysis.tools import analysis_utils, test_tools, data_selection
 from beam_telescope_analysis.examples import eutelescope, eutelescope_kalman
 
 
@@ -29,6 +29,13 @@ class TestExamples(unittest.TestCase):
             path='examples/TestBeamData_Mimosa26_DUT%d.h5' % i,
             output=os.path.join(self.tests_data_folder, 'TestBeamData_Mimosa26_DUT%d.h5' % i)) for i in range(6)]
 
+        # Reduce, remove old files and rename reduced files
+        for file_name in hit_files:
+            data_selection.reduce_events(file_name, max_events=70000)
+            os.remove(file_name)
+            os.rename(os.path.splitext(file_name)[0] + '_reduced.h5',
+                      file_name)
+
         eutelescope.run_analysis(hit_files=hit_files)
 
     def test_eutelescope_kalman_example(self):
@@ -36,6 +43,13 @@ class TestExamples(unittest.TestCase):
         hit_files = [analysis_utils.get_data(
             path='examples/TestBeamData_Mimosa26_DUT%d.h5' % i,
             output=os.path.join(self.tests_data_folder, 'TestBeamData_Mimosa26_DUT%d.h5' % i)) for i in range(6)]
+
+        # Reduce, remove old files and rename reduced files
+        for file_name in hit_files:
+            data_selection.reduce_events(file_name, max_events=70000)
+            os.remove(file_name)
+            os.rename(os.path.splitext(file_name)[0] + '_reduced.h5',
+                      file_name)
 
         eutelescope_kalman.run_analysis(hit_files=hit_files)
 

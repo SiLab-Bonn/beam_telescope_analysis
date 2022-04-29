@@ -62,7 +62,7 @@ class TestResultAnalysis(unittest.TestCase):
             extend_areas=(2000, 2000),
             cut_distances=(25.0, 25.0))
 
-        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_result.h5'), os.path.join(self.output_folder, 'Efficiency.h5'))
+        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_result.h5'), os.path.join(self.output_folder, 'Efficiency.h5'), ignore_nodes="/arguments/calculate_efficiency")
         self.assertTrue(data_equal, msg=error_msg)
 
         # Test 2: Calculate efficiency and define several regions for which efficiency is calculated
@@ -75,7 +75,8 @@ class TestResultAnalysis(unittest.TestCase):
             extend_areas=(2000, 2000),
             efficiency_regions=[[[[-4000, 0], [-4000, 4000]],
                                 [[2000, 7000], [-4000, 4000]]]],
-            cut_distances=(25.0, 25.0))
+            cut_distances=(25.0, 25.0),
+            plot=False)
 
         data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_regions_result.h5'), os.path.join(self.output_folder, 'Efficiency_regions.h5'))
         self.assertTrue(data_equal, msg=error_msg)
@@ -89,7 +90,8 @@ class TestResultAnalysis(unittest.TestCase):
             resolutions=(18.4, 18.4),
             extend_areas=(2000, 2000),
             cut_distances=(25.0, 25.0),
-            chunk_size=4999)
+            chunk_size=4999,
+            plot=False)
 
         # Exlcude these node since calculation of edges for these histogram is based on data and therefore (slightly) varies with chunk size.
         ignore_nodes = ["/arguments/calculate_efficiency",

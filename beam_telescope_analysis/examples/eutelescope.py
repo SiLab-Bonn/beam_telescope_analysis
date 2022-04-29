@@ -87,13 +87,15 @@ def run_analysis(hit_files):
 
     # Generate noisy pixel mask for all DUTs
     thresholds = [2, 2, 2, 2, 2, 2]
+    iterations = [1, 1, 1, 1, 1, 1]
     # last plane has noisy cluster, use larger median filter to mask cluster
     pixel_mask_names = ["NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "DisabledPixelMask"]
     mask_files = hit_analysis.mask(
         telescope_configuration=initial_configuration,
         input_hit_files=hit_files,
         pixel_mask_names=pixel_mask_names,
-        thresholds=thresholds)
+        thresholds=thresholds,
+        iterations=iterations)
 
     # Cluster hits from all DUTs
     use_positions = [False, False, False, False, False, False]
