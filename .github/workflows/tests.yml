@@ -47,7 +47,7 @@ jobs:
       shell: bash -l {0}
       run: |
         cd beam_telescope_analysis/testing
-        pytest -s -v --cov=./ --cov-report=xml test_alignment.py
+        pytest --cov-report=xml
     - name: Make Coverage Badge
       uses: action-badges/cobertura-coverage-xml-badges@main
       with:
