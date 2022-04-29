@@ -102,7 +102,6 @@ class TestAlignmentAnalysis(unittest.TestCase):
             select_fit_duts=[[0, 1, 2, 3, 4, 5]],
             select_hit_duts=[[0, 1, 2, 3, 4, 5]],
             max_iterations=[3],
-            max_events=(100000),
             track_chi2=15.0,
             quality_distances=[(18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2), (18.4 * 2, 18.4 * 2)],
             isolation_distances=(1000.0, 1000.0),
