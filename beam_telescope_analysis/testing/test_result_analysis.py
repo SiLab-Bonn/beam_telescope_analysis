@@ -48,10 +48,21 @@ class TestResultAnalysis(unittest.TestCase):
             use_limits=True,
             nbins_per_pixel=20)
 
-        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Residuals_result.h5'), os.path.join(self.output_folder, 'Residuals.h5'))
+        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Residuals_result.h5'), os.path.join(self.output_folder, 'Residuals.h5'), ignore_nodes='/arguments/calculate_residuals')
         self.assertTrue(data_equal, msg=error_msg)
 
     def test_efficiency_calculation(self):
+        # Select good tracks first
+        data_selection.select_tracks(
+            telescope_configuration=aligned_configuration,
+            input_tracks_file=os.path.join(data_folder, 'Tracks_result.h5'),
+            output_tracks_file=os.path.join(self.output_folder, 'Tracks_selected.h5'),
+            select_duts=[0, 1, 2, 3, 4, 5],
+            select_hit_duts=[0, 1, 2, 3, 4, 5],
+            select_no_hit_duts=None,
+            select_quality_duts=[[1, 2, 3, 4, 5], [0, 2, 3, 4, 5], [0, 1, 3, 4, 5], [0, 1, 2, 4, 5], [0, 1, 2, 3, 5], [0, 1, 2, 3, 4]],
+            query='(track_chi2 < 15.0)')
+
         # Test 1: Calculate efficiency
         result_analysis.calculate_efficiency(
             telescope_configuration=aligned_configuration,
