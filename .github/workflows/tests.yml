@@ -9,9 +9,10 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v2
-      with:
-        lfs: true
+    - uses: nschloe/action-cached-lfs-checkout@v1  # cached git-lfs checkout
+    # - uses: actions/checkout@v2
+    #   with:
+    #     lfs: true
     - name: Set up Anaconda
       uses: conda-incubator/setup-miniconda@v2
       with:
