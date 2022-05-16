@@ -84,8 +84,7 @@ class TestResultAnalysis(unittest.TestCase):
             select_duts=[3],
             resolutions=(18.4, 18.4),
             extend_areas=(2000, 2000),
-            efficiency_regions=[[[[-4000, 0], [-4000, 4000]],
-                                [[2000, 7000], [-4000, 4000]]]],
+            efficiency_regions=[[[[-4000, 5000], [-4000, 4000]]]],
             cut_distances=(25.0, 25.0),
             plot=False)
 
