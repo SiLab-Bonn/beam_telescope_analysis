@@ -1,0 +1,10 @@
+[run]
+concurrency = multiprocessing
+parallel = True
+data_file = .coverage
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise
+    if __name__ == .__main__.:
