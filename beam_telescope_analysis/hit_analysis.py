@@ -1458,7 +1458,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                 out_y[:] = y_correlations[index]
                 for correlation in [x_correlations[index], y_correlations[index]]:
                     uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
-                    background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
+                    background = uu[:, :1] * np.diag(dd[:1]) * vv[:1, :]  # take first sigular value for background
                     background = np.array(background, dtype=np.int32)  # make Numpy array
                     correlation -= background  # remove background
                     correlation -= correlation.min()  # only positive values

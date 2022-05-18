@@ -4,7 +4,7 @@ from __future__ import division
 import logging
 import re
 import os
-from collections import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 import tables as tb

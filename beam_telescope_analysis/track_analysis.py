@@ -5,7 +5,7 @@ import logging
 import os.path
 from multiprocessing import Pool, cpu_count
 import math
-from collections import Iterable
+from collections.abc import Iterable
 
 import tables as tb
 import numpy as np
