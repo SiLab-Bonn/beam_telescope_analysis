@@ -10,7 +10,7 @@ import inspect
 
 import beam_telescope_analysis
 from beam_telescope_analysis.tools import analysis_utils, test_tools, data_selection
-from beam_telescope_analysis.examples import eutelescope, eutelescope_kalman
+from beam_telescope_analysis.examples import eutelescope, eutelescope_kalman, fei4_telescope
 
 
 class TestExamples(unittest.TestCase):
@@ -52,6 +52,14 @@ class TestExamples(unittest.TestCase):
                       file_name)
 
         eutelescope_kalman.run_analysis(hit_files=hit_files)
+
+    def test_fei4_telescope_example(self):
+        # The location of the data files, one file per DUT
+        hit_files = [analysis_utils.get_data(
+            path='examples/TestBeamData_FEI4_DUT%d.h5' % i,
+            output=os.path.join(self.tests_data_folder, 'TestBeamData_FEI4_DUT%d.h5' % i)) for i in [0, 1, 4, 5]]
+
+        fei4_telescope.run_analysis(hit_files=hit_files)
 
 
 if __name__ == '__main__':
