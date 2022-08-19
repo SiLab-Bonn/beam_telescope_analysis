@@ -2,7 +2,7 @@
 from __future__ import division
 
 import logging
-from collections import Iterable
+from collections.abc import Iterable
 import os.path
 import math
 

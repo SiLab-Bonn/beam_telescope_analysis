@@ -142,7 +142,6 @@ def _filter_correct(reference_state, observation_matrix, observation_covariance,
 
     return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
-@profile
 def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
     """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
     done which includes the observations.
