@@ -179,6 +179,6 @@ if __name__ == '__main__':
     # The location of the data files, one file per DUT
     hit_files = [analysis_utils.get_data(
         path='examples/TestBeamData_Mimosa26_DUT%d.h5' % i,
-        output=os.path.join(tests_data_folder, 'TestBeamData_Mimosa26_DUT%d.h5' % i)) for i in range(6)]
+        output=os.path.join(tests_data_folder, 'TestBeamData_Mimosa26_DUT%d.h5' % i)) for i in range(5)]
 
     run_analysis(hit_files=hit_files)
