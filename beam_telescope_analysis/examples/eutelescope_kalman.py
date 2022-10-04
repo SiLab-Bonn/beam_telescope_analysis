@@ -4,7 +4,7 @@
     Data in https://github.com/eutelescope/eutelescope/tree/v1.0-tag/jobsub/examples/datura-150mm-DAF
 
     The alignment of tracks is done using the Kalman Filter alignment:
-        - Step 1: Align x-, y-position of all planes
+        - Step 1: Align x-, y-position and gamma rotation of all planes
         - Step 2: Align all alignment parameters for all planes
 
     The tracks are fitted using the Kalman Filter.

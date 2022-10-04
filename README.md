@@ -46,8 +46,8 @@ The following packages are required and can be obtained from PyPI (via `pip inst
 If not already installed, install git lfs in order to download fixtures for testing:
 ```
 sudo apt install git-lfs
-
 ```
+
 Alternatively, manually install `git lfs` using [these](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage) instructions.
 
 
