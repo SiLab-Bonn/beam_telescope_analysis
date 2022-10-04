@@ -142,7 +142,6 @@ def run_analysis(hit_files):
         annealing_factor=10000,
         annealing_tracks=5000,
         max_tracks=10000,  # stop alignment after sucessfully calculated alignment using 10000
-        use_limits=True,
         plot=True)
     # Step 2: Align all parameters. Use small alignment errors for alignment parameters from step 1 (divided by factor of 10)
     aligned_configuration = dut_alignment.align_kalman(
@@ -161,7 +160,6 @@ def run_analysis(hit_files):
         annealing_factor=10000,
         annealing_tracks=5000,
         max_tracks=10000,  # stop alignment after sucessfully calculated alignment using 10000
-        use_limits=True,
         plot=True)
     # Use latest alignment configuration
     aligned_configuration_kf = os.path.join(output_folder, 'telescope_aligned_kalman_aligned_kalman.yaml')

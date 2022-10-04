@@ -134,7 +134,6 @@ class TestAlignmentAnalysis(unittest.TestCase):
             annealing_factor=10000,
             annealing_tracks=5000,
             max_tracks=10000,
-            use_limits=True,
             plot=True)
         # Step 2
         aligned_configuration = dut_alignment.align_kalman(
@@ -154,7 +153,6 @@ class TestAlignmentAnalysis(unittest.TestCase):
             annealing_factor=10000,
             annealing_tracks=5000,
             max_tracks=10000,
-            use_limits=True,
             plot=True)
 
         # TODO: Alignment is slighlty different on CI runner. Convert yaml to .h5 file and test values with tolerance.
