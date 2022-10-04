@@ -20,7 +20,6 @@ from scipy.spatial import Voronoi
 from scipy.special import erf
 from scipy.ndimage import distance_transform_edt
 
-import requests
 from tqdm import tqdm
 
 from beam_telescope_analysis import analysis_functions
@@ -1317,64 +1316,3 @@ def fill(arr, invalid=None):
 
     fill_indices = distance_transform_edt(invalid, return_distances=False, return_indices=True)
     return arr[tuple(fill_indices)]
-
-
-def get_data(path, output=None, fail_on_overwrite=False):
-    ''' Downloads data (eg. for examples, fixtures).
-
-        Uses data in a public scibo folder. If you want
-        write access contact the maintainer.
-
-        Parameters
-        ----------
-        path : string
-            File path with name. Location on online folder.
-        output : string, None
-            File path with name. Location where to store data.
-            If None the path variable path is used.
-        fail_on_overwrite : Bool
-            If files exist already the download is skipped.
-            If fail_on_overwrite this raises a RuntimeError.
-    '''
-    def download_scibo(public_secret, path, filename):
-        folder = os.path.dirname(path)
-        name = os.path.basename(path)
-
-        url = "https://uni-bonn.sciebo.de/index.php/s/"
-        url += public_secret + '/download?path=%2F'
-        url += folder + '&files='
-        url += name
-
-        logging.info('Downloading %s' % name)
-
-        r = requests.get(url, stream=True)
-        file_size = int(r.headers['Content-Length'])
-        logging.info('Downloading %s', name)
-        with open(filename, 'wb') as f:
-            pbar = tqdm(total=file_size, ncols=80)
-            for i, chunk in enumerate(r.iter_content(32 * 1024)):
-                f.write(chunk)
-                pbar.update(len(chunk))
-            pbar.close()
-
-    if not output:
-        output = os.path.basename(path)
-        output_path = os.path.dirname(os.path.realpath(path))
-    else:
-        output_path = os.path.dirname(os.path.realpath(output))
-
-    if not os.path.isfile(os.path.join(output_path, output)):
-        # Create output folder
-        if not os.path.exists(output_path):
-            try:
-                os.makedirs(output_path)
-            except OSError as exc:  # Guard against race condition
-                if exc.errno != errno.EEXIST:
-                    raise
-        download_scibo(public_secret=SCIBO_PUBLIC_FOLDER,
-                       path=path,
-                       filename=os.path.join(output_path, output))
-    elif fail_on_overwrite:
-        raise RuntimeError('The files %s exists already', output)
-
-    return os.path.join(output_path, output)
