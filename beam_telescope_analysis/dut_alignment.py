@@ -911,7 +911,7 @@ def align(telescope_configuration, input_merged_file, output_telescope_configura
     return output_telescope_configuration
 
 
-def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, output_alignment_file=None, select_duts=None, alignment_parameters=None, alignment_parameters_errors=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, annealing_factor=10000, annealing_tracks=5000, max_tracks=10000, plot=True, chunk_size=1000):
+def align_kalman(telescope_configuration, input_merged_file, output_telescope_configuration=None, output_alignment_file=None, select_duts=None, alignment_parameters=None, alignment_parameters_errors=None, select_telescope_duts=None, select_extrapolation_duts=None, select_fit_duts=None, select_hit_duts=None, min_track_hits=None, max_events=None, beam_energy=None, particle_mass=None, scattering_planes=None, track_chi2=10.0, annealing_factor=10000, annealing_tracks=5000, max_tracks=10000, plot=True, chunk_size=1000):
     ''' This function does an alignment of the DUTs and sets translation and rotation values for all DUTs.
     The reference DUT defines the global coordinate system position at 0, 0, 0 and should be well in the beam and not heavily rotated.
 
@@ -965,6 +965,9 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
         does not have to be used in the fit itself! This is useful for time reference planes.
         E.g.  To use telescope planes (first and last 3 planes) + time reference plane (3)
         select_hit_duts = [0, 1, 2, 4, 5, 6, 7]
+    min_track_hits : uint or list
+        Minimum number of track hits for each selected DUT from select_fit_duts. E.g. min_track_hits=5 and select_fit_duts=[0, 1, 2, 3, 4, 5] will fit any track
+        which has at least 5 hits out of DUT0, DUT1, ..., DUT5.
     max_iterations : uint
         Maximum number of iterations of calc residuals, apply rotation refit loop until constant result is expected.
         Usually the procedure converges rather fast (< 5 iterations).
@@ -1107,6 +1110,13 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
     if len(max_tracks) != len(select_duts):
         raise ValueError("Parameter max_tracks has the wrong length.")
 
+    # Check iterable and length
+    if not isinstance(min_track_hits, Iterable):
+        min_track_hits = [min_track_hits] * len(select_duts)
+    # Finally check length of all arrays
+    if len(min_track_hits) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter min_track_hits has the wrong length.")
+
     if output_telescope_configuration is None:
         if 'prealigned' in telescope_configuration:
             output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned_kalman')
@@ -1154,6 +1164,7 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
             select_telescope_duts=select_telescope_duts,
             select_fit_duts=select_fit_duts[index],
             select_hit_duts=select_hit_duts[index],
+            min_track_hits=min_track_hits,
             beam_energy=beam_energy,
             particle_mass=particle_mass,
             scattering_planes=scattering_planes,
@@ -1309,7 +1320,7 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
         os.remove(output_track_candidates_file)
 
 
-def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input_track_candidates_file, alignment_parameters, select_telescope_duts, select_duts=None, select_hit_duts=None, select_fit_duts=None, beam_energy=2500, particle_mass=0.511, scattering_planes=None, track_chi2=25.0, iteration_index=0, exclude_dut_hit=False, annealing_factor=10000, annealing_tracks=5000, max_tracks=10000, alignment_parameters_errors=None, plot=True, chunk_size=1000):
+def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input_track_candidates_file, alignment_parameters, select_telescope_duts, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, beam_energy=2500, particle_mass=0.511, scattering_planes=None, track_chi2=25.0, iteration_index=0, exclude_dut_hit=False, annealing_factor=10000, annealing_tracks=5000, max_tracks=10000, alignment_parameters_errors=None, plot=True, chunk_size=1000):
     ''' Function which performs actual Kalman Filter alignment loop and calls plotting in the end.
     '''
     def _store_alignment_data(alignment_values, n_tracks_processed, chi2s, chi2s_probs, deviation_cuts):

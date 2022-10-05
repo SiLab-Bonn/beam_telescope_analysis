@@ -561,7 +561,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         Note: This parameter needs to be set correctly. Usually not all available DUTs should be used for track fitting.
         The list usually only contains DUTs, which are part of the telescope.
     min_track_hits : uint or list
-        Minimum number of track hits for each selected DUT.
+        Minimum number of track hits for each selected DUT from select_fit_duts. E.g. min_track_hits=5 and select_fit_duts=[0, 1, 2, 3, 4, 5] will fit any track
+        which has at least 5 hits out of DUT0, DUT1, ..., DUT5.
         If None or list item is None, the minimum number of track hits is the length of select_fit_duts.
     exclude_dut_hit : bool or list
         Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
