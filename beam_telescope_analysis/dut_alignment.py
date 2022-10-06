@@ -1114,25 +1114,6 @@ def align_kalman(telescope_configuration, input_merged_file, output_telescope_co
     if len(max_tracks) != len(select_duts):
         raise ValueError("Parameter max_tracks has the wrong length.")
 
-    # Check iterable and length
-    if not isinstance(exclude_dut_hit, Iterable):
-        exclude_dut_hit = [exclude_dut_hit] * len(select_duts)
-    elif not exclude_dut_hit:  # empty iterable
-        raise ValueError("Parameter exclude_dut_hit has no items.")
-    # Finally check length of all array
-    if len(exclude_dut_hit) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter exclude_dut_hit has the wrong length.")
-    # Check if only bools in iterable
-    if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
-        raise ValueError("Not all items in parameter exclude_dut_hit are boolean.")
-
-    # Check iterable and length
-    if not isinstance(min_track_hits, Iterable):
-        min_track_hits = [min_track_hits] * len(select_duts)
-    # Finally check length of all arrays
-    if len(min_track_hits) != len(select_duts):  # empty iterable
-        raise ValueError("Parameter min_track_hits has the wrong length.")
-
     if output_telescope_configuration is None:
         if 'prealigned' in telescope_configuration:
             output_telescope_configuration = telescope_configuration.replace('prealigned', 'aligned_kalman')
@@ -1340,6 +1321,80 @@ def _duts_alignment(output_telescope_configuration, merged_file, align_duts, pre
 def _duts_alignment_kalman(telescope_configuration, output_alignment_file, input_track_candidates_file, alignment_parameters, select_telescope_duts, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, exclude_dut_hit=False, beam_energy=2500, particle_mass=0.511, scattering_planes=None, track_chi2=25.0, iteration_index=0, annealing_factor=10000, annealing_tracks=5000, max_tracks=10000, alignment_parameters_errors=None, plot=True, chunk_size=1000):
     ''' Function which performs actual Kalman Filter alignment loop and calls plotting in the end.
     '''
+
+
+    # Create track, hit selection
+    if select_fit_duts is None:  # If None: use all DUTs
+        select_fit_duts = list(range(n_duts))
+        # # copy each item
+        # for hit_duts in select_hit_duts:
+        #     select_fit_duts.append(hit_duts[:])  # require a hit for each fit DUT
+    # Check iterable and length
+    if not isinstance(select_fit_duts, Iterable):
+        raise ValueError("Parameter select_fit_duts is not an iterable.")
+    elif not select_fit_duts:  # empty iterable
+        raise ValueError("Parameter select_fit_duts has no items.")
+    # Check if only non-iterable in iterable
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_fit_duts)):
+        select_fit_duts = [select_fit_duts[:] for _ in select_duts]
+    # if None use all DUTs
+    for index, item in enumerate(select_fit_duts):
+        if item is None:
+            select_fit_duts[index] = list(range(n_duts))
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable), select_fit_duts)):
+        raise ValueError("Not all items in parameter select_fit_duts are iterable.")
+    # Finally check length of all arrays
+    if len(select_fit_duts) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter select_fit_duts has the wrong length.")
+    for index, fit_dut in enumerate(select_fit_duts):
+        if len(fit_dut) < 2:  # check the length of the items
+            raise ValueError("Item in parameter select_fit_duts has length < 2.")
+
+    # Create track, hit selection
+    if select_hit_duts is None:  # If None, require no hit
+        # select_hit_duts = list(range(n_duts))
+        select_hit_duts = []
+    # Check iterable and length
+    if not isinstance(select_hit_duts, Iterable):
+        raise ValueError("Parameter select_hit_duts is not an iterable.")
+    # elif not select_hit_duts:  # empty iterable
+    #     raise ValueError("Parameter select_hit_duts has no items.")
+    # Check if only non-iterable in iterable
+    if all(map(lambda val: not isinstance(val, Iterable) and val is not None, select_hit_duts)):
+        select_hit_duts = [select_hit_duts[:] for _ in select_duts]
+    # If None, require no hit
+    for index, item in enumerate(select_hit_duts):
+        if item is None:
+            select_hit_duts[index] = []
+    # Check if only iterable in iterable
+    if not all(map(lambda val: isinstance(val, Iterable), select_hit_duts)):
+        raise ValueError("Not all items in parameter select_hit_duts are iterable.")
+    # Finally check length of all arrays
+    if len(select_hit_duts) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter select_hit_duts has the wrong length.")
+
+    # Check iterable and length
+    if not isinstance(exclude_dut_hit, Iterable):
+        exclude_dut_hit = [exclude_dut_hit] * len(select_duts)
+    elif not exclude_dut_hit:  # empty iterable
+        raise ValueError("Parameter exclude_dut_hit has no items.")
+    # Finally check length of all array
+    if len(exclude_dut_hit) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter exclude_dut_hit has the wrong length.")
+    # Check if only bools in iterable
+    if not all(map(lambda val: isinstance(val, (bool,)), exclude_dut_hit)):
+        raise ValueError("Not all items in parameter exclude_dut_hit are boolean.")
+
+    # Check iterable and length
+    if not isinstance(min_track_hits, Iterable):
+        min_track_hits = [min_track_hits] * len(select_duts)
+    # Finally check length of all arrays
+    if len(min_track_hits) != len(select_duts):  # empty iterable
+        raise ValueError("Parameter min_track_hits has the wrong length.")
+
+
+
     def _store_alignment_data(alignment_values, n_tracks_processed, chi2s, chi2s_probs, deviation_cuts):
         ''' Helper function to write alignment data to output file.
         '''
