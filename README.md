@@ -50,6 +50,15 @@ sudo apt install git-lfs
 
 Alternatively, manually install `git lfs` using [these](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage) instructions.
 
+The `setup.py` requires that `cython`, `numpy` and `gcc` are already installed. Therefore, use e.g. `conda` or `pip`
+```
+conda install -y cython numpy
+```
+
+Furthermore, if `gcc` is not installed, run
+```
+sudo apt install build-essential
+``` 
 
 ### Installation of BTA
 
