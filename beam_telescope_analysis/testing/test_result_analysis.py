@@ -100,7 +100,7 @@ class TestResultAnalysis(unittest.TestCase):
             resolutions=(18.4, 18.4),
             extend_areas=(2000, 2000),
             cut_distances=(25.0, 25.0),
-            chunk_size=19993,
+            chunk_size=8999,
             plot=False)
 
         # Exlcude these node since calculation of edges for these histogram is based on data and therefore (slightly) varies with chunk size.
