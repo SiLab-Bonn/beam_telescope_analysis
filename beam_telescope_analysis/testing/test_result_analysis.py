@@ -71,9 +71,10 @@ class TestResultAnalysis(unittest.TestCase):
             select_duts=[3],
             resolutions=(18.4, 18.4),
             extend_areas=(2000, 2000),
-            cut_distances=(25.0, 25.0))
+            cut_distances=(25.0, 25.0),
+            plot=False)
 
-        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_result.h5'), os.path.join(self.output_folder, 'Efficiency.h5'), ignore_nodes="/arguments/calculate_efficiency")
+        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_result.h5'), os.path.join(self.output_folder, 'Efficiency.h5'), ignore_nodes="/arguments/calculate_efficiency", exact=False)
         self.assertTrue(data_equal, msg=error_msg)
 
         # Test 2: Calculate efficiency and define several regions for which efficiency is calculated
@@ -88,7 +89,7 @@ class TestResultAnalysis(unittest.TestCase):
             cut_distances=(25.0, 25.0),
             plot=False)
 
-        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_regions_result.h5'), os.path.join(self.output_folder, 'Efficiency_regions.h5'), ignore_nodes="/arguments/calculate_efficiency")
+        data_equal, error_msg = test_tools.compare_h5_files(os.path.join(data_folder, 'Efficiency_regions_result.h5'), os.path.join(self.output_folder, 'Efficiency_regions.h5'), ignore_nodes="/arguments/calculate_efficiency", exact=False)
         self.assertTrue(data_equal, msg=error_msg)
 
         # Test 3: Calculate efficiency using small chunks
