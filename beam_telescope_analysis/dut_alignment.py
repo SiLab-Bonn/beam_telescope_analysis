@@ -1999,17 +1999,17 @@ def _calculate_initial_alignment(telescope, select_duts, select_telescope_duts, 
         # Errors on initial alignment parameters
         if dut_index in select_duts:
             if 'translation_x' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 0, 0] = np.square(alignment_parameters_errors[0])  # 50 um error
+                actual_align_cov[dut_index, 0, 0] = np.square(alignment_parameters_errors[0])
             if 'translation_y' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 1, 1] = np.square(alignment_parameters_errors[1])  # 50 um error
+                actual_align_cov[dut_index, 1, 1] = np.square(alignment_parameters_errors[1])
             if 'translation_z' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 2, 2] = np.square(alignment_parameters_errors[2])  # 1 mm error
+                actual_align_cov[dut_index, 2, 2] = np.square(alignment_parameters_errors[2])
             if 'rotation_alpha' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 3, 3] = np.square(alignment_parameters_errors[3])  # 20 mrad error
+                actual_align_cov[dut_index, 3, 3] = np.square(alignment_parameters_errors[3])
             if 'rotation_beta' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 4, 4] = np.square(alignment_parameters_errors[4])  # 20 mrad error
+                actual_align_cov[dut_index, 4, 4] = np.square(alignment_parameters_errors[4])
             if 'rotation_gamma' in alignment_parameters[dut_index]:
-                actual_align_cov[dut_index, 5, 5] = np.square(alignment_parameters_errors[5])  # 20 mrad error
+                actual_align_cov[dut_index, 5, 5] = np.square(alignment_parameters_errors[5])
 
     # Fix first and last telescope plane (only rotation_gamma is not fixed).
     # In principle only z needs to be fixed to avoid telescope stretching and very first plane (+ usage of beam alignment).
