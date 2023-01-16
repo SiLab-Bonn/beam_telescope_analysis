@@ -2275,7 +2275,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
                 # Add in pixel regions
-                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[:-1]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
+                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[::len(efficiency_regions_in_pixel_hist_extent) - 2]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
                 for w, loc in zip(widths_in_pixel_regions, center_location_in_pixel_regions):
                     center_region_indices = np.ceil((np.array(loc) - np.array([efficiency_regions_in_pixel_hist_extent[0], efficiency_regions_in_pixel_hist_extent[2]])) / in_pixel_resolution)
                     center_region_extent = np.array(w) / in_pixel_resolution
@@ -2312,7 +2312,7 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
                 # _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=mesh_line_width, line_alpha=mesh_alpha, line_color=mesh_color, point_size=mesh_point_size, point_alpha=mesh_alpha, point_color=mesh_color)
                 _ = voronoi_plot_2d(ax=ax, ridge_vertices=ridge_vertices_in_pixel, vertices=vertices_in_pixel, points=pixel_center_data_in_pixel, show_points=True, line_width=in_pixel_mesh_line_width, line_style=in_pixel_mesh_line_style, line_alpha=in_pixel_mesh_alpha, line_color=in_pixel_mesh_color, point_size=in_pixel_mesh_point_size, point_alpha=in_pixel_mesh_alpha, point_color=in_pixel_mesh_color)
                 # Add in pixel regions
-                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[:-1]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
+                in_pixel_resolution = np.absolute(np.diff(efficiency_regions_in_pixel_hist_extent)[::len(efficiency_regions_in_pixel_hist_extent) - 2]) / np.array(efficiency_regions_stat_in_pixel_efficiency_2d_hist[region_index].shape)
                 for w, loc in zip(widths_in_pixel_regions, center_location_in_pixel_regions):
                     center_region_indices = np.ceil((np.array(loc) - np.array([efficiency_regions_in_pixel_hist_extent[0], efficiency_regions_in_pixel_hist_extent[2]])) / in_pixel_resolution)
                     center_region_extent = np.array(w) / in_pixel_resolution
