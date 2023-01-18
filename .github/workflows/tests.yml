@@ -54,4 +54,5 @@ jobs:
     - name: Make Coverage Badge
       uses: action-badges/cobertura-coverage-xml-badges@main
       with:
+        github-token: '${{ secrets.GITHUB_TOKEN }}'
         coverage-file-name: ./beam_telescope_analysis/testing/coverage.xml
