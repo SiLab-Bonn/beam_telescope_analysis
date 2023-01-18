@@ -406,7 +406,7 @@ class FEI4(RectangularPixelDutWithDoubleColumns):
     dut_attributes = ["name", "translation_x", "translation_y", "translation_z", "rotation_alpha", "rotation_beta", "rotation_gamma", "x_limit", "y_limit", "material_budget", "intrinsic_resolution"]
 
     def __init__(self, name, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma, x_limit=None, y_limit=None, material_budget=None, intrinsic_resolution=None):
-        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=50.0, row_size=250.0, n_columns=336, n_rows=80)
+        super(FEI4, self).__init__(name=name, translation_x=translation_x, translation_y=translation_y, translation_z=translation_z, rotation_alpha=rotation_alpha, rotation_beta=rotation_beta, rotation_gamma=rotation_gamma, x_limit=x_limit, y_limit=y_limit, material_budget=material_budget, intrinsic_resolution=intrinsic_resolution, column_size=250.0, row_size=50.0, n_columns=80, n_rows=336)
 
 
 class RD53A(RectangularPixelDut):

@@ -5,7 +5,7 @@ import logging
 import os.path
 from multiprocessing import Pool, cpu_count
 import math
-from collections import Iterable
+from collections.abc import Iterable
 
 import tables as tb
 import numpy as np
@@ -535,7 +535,7 @@ def _get_last_dut_index(x, track_index, z_sorted_dut_indices):
 
 
 @save_arguments
-def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, exclude_dut_hit=False, select_align_duts=None, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), isolation_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=1000000):
+def fit_tracks(telescope_configuration, input_track_candidates_file, output_tracks_file=None, max_events=None, select_duts=None, select_hit_duts=None, select_fit_duts=None, min_track_hits=None, exclude_dut_hit=True, select_align_duts=None, method='fit', beam_energy=None, particle_mass=None, scattering_planes=None, quality_distances=(250.0, 250.0), isolation_distances=(500.0, 500.0), use_limits=True, keep_data=False, full_track_info=False, plot=True, chunk_size=500000):
     '''Calculate tracks and set tracks quality flag for selected DUTs.
     Two methods are available to generate tracks: a linear fit (method="fit") and a Kalman Filter (method="kalman").
 
@@ -561,12 +561,13 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
         Note: This parameter needs to be set correctly. Usually not all available DUTs should be used for track fitting.
         The list usually only contains DUTs, which are part of the telescope.
     min_track_hits : uint or list
-        Minimum number of track hits for each selected DUT.
+        Minimum number of track hits for each selected DUT from select_fit_duts. E.g. min_track_hits=5 and select_fit_duts=[0, 1, 2, 3, 4, 5] will fit any track
+        which has at least 5 hits out of DUT0, DUT1, ..., DUT5.
         If None or list item is None, the minimum number of track hits is the length of select_fit_duts.
     exclude_dut_hit : bool or list
         Decide whether or not to use hits in the actual fit DUT for track fitting (for unconstrained residuals).
-        If False (default), use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
-        If True, do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
+        If False, use all DUTs as specified in select_fit_duts and use them for track fitting if hits are available (potentially constrained residuals).
+        If True (default), do not use hits form the actual fit DUT for track fitting, even if specified in select_fit_duts (unconstrained residuals).
     select_align_duts : list
         Specify the DUTs for which a residual offset correction is to be carried out.
         Note: This functionality is only used for the alignment of the DUTs.
@@ -602,6 +603,9 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
     full_track_info : bool
         If True, the track vector and position of all DUTs is appended to track table in order to get the full track information.
         If False, only the track vector and position of the actual fit DUT is appended to track table.
+    plot : bool
+        If True (default), output pdf with plots is created.
+        If False, plotting is skipped.
     chunk_size : uint
         Chunk size of the data when reading from file.
 
@@ -1029,6 +1033,8 @@ def fit_tracks(telescope_configuration, input_track_candidates_file, output_trac
 
 
 def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, select_tracks_for_storage, telescope, offsets, slopes, track_chi2s, track_chi2s_red, track_chi2s_prob, fit_duts, select_fit_duts, select_align_duts, quality_distances, isolation_distances, use_limits, keep_data, method, full_track_info):
+    ''' Prepare data for storage and store track data to .h5 file.
+    '''
     dut_stats = []
     fit_duts_offsets = []
     fit_duts_slopes = []
@@ -1138,7 +1144,7 @@ def store_track_data(out_file_h5, track_candidates_chunk, select_fit_tracks, sel
         y_err_squared[:, dut_index] = np.square(track_candidates_chunk['y_err_dut_%d' % dut_index][select_fit_tracks])
 
         # generate quality array
-        dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=np.bool)
+        dut_quality_flag_sel = np.ones_like(intersection_x_local, dtype=bool)
         dut_quality_flag_sel[~select_finite_distance] = False
         # select tracks within limits and set quality flag
         if limit_x_local is not None and np.isfinite(limit_x_local[0]):
@@ -1500,19 +1506,34 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
             translation_x/translation_y/translation_z: x/y/z position of the plane (in um)
             rotation_alpha/rotation_beta/rotation_gamma: alpha/beta/gamma angle of scattering plane (in radians)
         If scattering_planes is None, no scattering plane will be added.
+    alpha : list
+        Annealing factor (scaling of covariance) for each DUT. Only needed for Kalman Filter based alignment. Otherwise, no scaling
+        of covariance is needed (alpha = 1).
 
     Returns
     -------
-    smoothed_state_estimates : array_like
-        Smoothed state vectors, which contains (smoothed x position, smoothed y position, slope_x, slope_y).
-    chi2 : uint
-        Chi2 of track.
+    offsets : array_like
+        Offsets (x- and y- positions) of fitted tracks.
+    slopes : array_like
+        Slopes (x- and y-direction) of fitted tracks.
+    chi2s : array_like
+        Chi2 values of tracks.
+    chi2s_red : array_like
+        Reduced chi2 values (divided by NDOF) of tracks.
+    chi2s_prob : array_like
+        Chi2 probabilities of tracks.
     x_err : array_like
         Error of smoothed hit position in x direction. Calculated from smoothed
         state covariance matrix. Only approximation, since only diagonal element is taken.
     y_err : array_like
         Error of smoothed hit position in y direction. Calculated from smoothed
         state covariance matrix. Only approximation, since only diagonal element is taken.
+    cov : array_like
+        Covariance matrices of fitted tracks
+    observation_covariances : array_like
+        Covariance matrices of hits (assumed error on hits).
+    observation_matrices : array_like
+        Observation matrices of fitted tracks.
     '''
 
     def _calculate_track_seed(telescope, first_dut, select_fit_duts, track_hits, chunk_size):
@@ -1667,8 +1688,8 @@ def _fit_tracks_kalman_loop(track_hits, telescope, select_fit_duts, beam_energy,
         chunk_size=chunk_size)
 
     # Do some sanity check: Covariance matrices should be positive semi-definite (all eigenvalues have to be non-negative)
-    for cov in [observation_covariances, initial_state_covariance]:
-        if not np.all(np.linalg.eigvalsh(cov) >= 0.0):
+    for c in [observation_covariances, initial_state_covariance]:
+        if not np.all(np.linalg.eigvalsh(c) >= 0.0):
             raise RuntimeError('Covariance matrices are not positive semi-definite!')
 
     # Run Kalman Filter
@@ -1714,15 +1735,23 @@ def _kalman_fit_3d(dut_planes, track_seed, z_sorted_dut_indices, hits, momentum,
     Parameters
     ----------
     dut_planes : list
-        List of DUT parameters (material_budget, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma).
+        List of objects.
+    track_seed : array_like
+        Track seed, i.e track state of reference trajectory around Kalman Filter equations are linearised.
     z_sorted_dut_indices : list
         List of DUT indices in the order reflecting their z position.
     hits : array_like
         Array which contains the x, y and z hit position of each DUT for one track.
+    momentum : float
+        Momentum of particle beam (in MeV).
+    beta : float
+        Lorentz beta (velocity) of particle beam.
     select_fit_duts : list
         List of DUTs which should be included in Kalman Filter. DUTs which are not in list
         were treated as missing measurements and will not be included in the Filtering step.
-    observation_matrix : array_like
+    transition_covariances : array_like
+        Transition covariance matrices which transport track states from plane to plane.
+    observation_matrices: array_like
         Matrix which converts the state vector to the actual measurement vector.
     observation_covariances : array_like
         Matrix which describes the covariance of the measurement.
@@ -1735,14 +1764,16 @@ def _kalman_fit_3d(dut_planes, track_seed, z_sorted_dut_indices, hits, momentum,
     -------
     smoothed_state_estimates : array_like
         Smoothed state vectors.
-    chi2 : uint
-        Chi2 of track.
+    smoothed_state_covariances : array_like
+        Covariance of smoothed state vectors.
     x_err : array_like
         Error of smoothed hit position in x direction. Calculated from smoothed
         state covariance matrix.
     y_err : array_like
         Error of smoothed hit position in y direction. Calculated from smoothed
         state covariance matrix.
+    chi2s : array_like
+        Chi2 values of fitted tracks.
     '''
 
     kf = kalman.KalmanFilter()

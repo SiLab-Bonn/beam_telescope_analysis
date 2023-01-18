@@ -4,7 +4,7 @@
     Data in https://github.com/eutelescope/eutelescope/tree/v1.0-tag/jobsub/examples/datura-150mm-DAF
 
     The alignment of tracks is done using the Kalman Filter alignment:
-        - Step 1: Align x-, y-position of all planes
+        - Step 1: Align x-, y-position and gamma rotation of all planes
         - Step 2: Align all alignment parameters for all planes
 
     The tracks are fitted using the Kalman Filter.
@@ -31,6 +31,7 @@
 import os
 import inspect
 import logging
+import shutil
 
 from beam_telescope_analysis import hit_analysis
 from beam_telescope_analysis import dut_alignment
@@ -73,13 +74,15 @@ def run_analysis(hit_files):
 
     # Generate noisy pixel mask for all DUTs
     thresholds = [2, 2, 2, 2, 2, 2]
+    iterations = [1, 1, 1, 1, 1, 1]
     # last plane has noisy cluster, use larger median filter to mask cluster
     pixel_mask_names = ["NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "NoisyPixelMask", "DisabledPixelMask"]
     mask_files = hit_analysis.mask(
         telescope_configuration=initial_configuration,
         input_hit_files=hit_files,
         pixel_mask_names=pixel_mask_names,
-        thresholds=thresholds)
+        thresholds=thresholds,
+        iterations=iterations)
 
     # Cluster hits from all DUTs
     use_positions = [False, False, False, False, False, False]
@@ -140,7 +143,6 @@ def run_analysis(hit_files):
         annealing_factor=10000,
         annealing_tracks=5000,
         max_tracks=10000,  # stop alignment after sucessfully calculated alignment using 10000
-        use_limits=True,
         plot=True)
     # Step 2: Align all parameters. Use small alignment errors for alignment parameters from step 1 (divided by factor of 10)
     aligned_configuration = dut_alignment.align_kalman(
@@ -159,7 +161,6 @@ def run_analysis(hit_files):
         annealing_factor=10000,
         annealing_tracks=5000,
         max_tracks=10000,  # stop alignment after sucessfully calculated alignment using 10000
-        use_limits=True,
         plot=True)
     # Use latest alignment configuration
     aligned_configuration_kf = os.path.join(output_folder, 'telescope_aligned_kalman_aligned_kalman.yaml')
@@ -220,11 +221,20 @@ def run_analysis(hit_files):
 
 # Main entry point is needed for multiprocessing under Windows
 if __name__ == '__main__':
+    logging.info("Collecting data files...")
     # Get the absolute path of example data
     tests_data_folder = os.path.join(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))), 'data')
+    if not os.path.exists(tests_data_folder):
+        os.makedirs(tests_data_folder)
+
+    # Get the path to fixtures
+    testing_path = os.path.dirname(os.path.abspath(__file__))
+    data_folder = os.path.join(testing_path, '../testing/fixtures')
+
     # The location of the data files, one file per DUT
-    hit_files = [analysis_utils.get_data(
-        path='examples/TestBeamData_Mimosa26_DUT%d.h5' % i,
-        output=os.path.join(tests_data_folder, 'TestBeamData_Mimosa26_DUT%d.h5' % i)) for i in range(6)]
+    hit_files = []
+    for i in range(6):
+        shutil.copyfile(os.path.join(data_folder, 'TestBeamData_Mimosa26_DUT%i.h5' % i), os.path.join(tests_data_folder, 'TestBeamData_Mimosa26_DUT%i.h5' % i))
+        hit_files.append(os.path.join(tests_data_folder, 'TestBeamData_Mimosa26_DUT%i.h5' % i))
 
     run_analysis(hit_files=hit_files)

@@ -586,7 +586,7 @@ def mask_pixels(dut, input_hit_file, pixel_mask_name="NoisyPixelMask", output_ma
     # Create mask from occupancy histogram
     with tb.open_file(output_mask_file, mode='r+') as out_file_h5:
         occupancy = out_file_h5.root.HistOcc[:]
-        pixel_mask = np.zeros_like(occupancy, dtype=np.bool)
+        pixel_mask = np.zeros_like(occupancy, dtype=bool)
         i = 0
         while(True):
             i += 1
@@ -1458,7 +1458,7 @@ def correlate(telescope_configuration, input_files, output_correlation_file=None
                 out_y[:] = y_correlations[index]
                 for correlation in [x_correlations[index], y_correlations[index]]:
                     uu, dd, vv = np.linalg.svd(correlation)  # sigular value decomposition
-                    background = np.matrix(uu[:, :1]) * np.diag(dd[:1]) * np.matrix(vv[:1, :])  # take first sigular value for background
+                    background = uu[:, :1] * np.diag(dd[:1]) * vv[:1, :]  # take first sigular value for background
                     background = np.array(background, dtype=np.int32)  # make Numpy array
                     correlation -= background  # remove background
                     correlation -= correlation.min()  # only positive values

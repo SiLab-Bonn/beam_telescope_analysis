@@ -12,6 +12,7 @@
 import os
 import inspect
 import logging
+import shutil
 
 from beam_telescope_analysis import hit_analysis
 from beam_telescope_analysis import dut_alignment
@@ -197,10 +198,20 @@ def run_analysis(hit_files):
 
 
 if __name__ == '__main__':  # Main entry point is needed for multiprocessing under windows
+    logging.info("Collecting data files...")
     # Get the absolute path of example data
     tests_data_folder = os.path.join(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))), 'data')
-    # Path of the data files, one file per DUT
-    hit_files = [analysis_utils.get_data(
-        path='examples/TestBeamData_FEI4_DUT%d.h5' % i,
-        output=os.path.join(tests_data_folder, 'TestBeamData_FEI4_DUT%d.h5' % i)) for i in [0, 1, 4, 5]]
+    if not os.path.exists(tests_data_folder):
+        os.makedirs(tests_data_folder)
+
+    # Get the path to fixtures
+    testing_path = os.path.dirname(os.path.abspath(__file__))
+    data_folder = os.path.join(testing_path, '../testing/fixtures')
+
+    # The location of the data files, one file per DUT
+    hit_files = []
+    for i in [0, 1, 4, 5]:
+        shutil.copyfile(os.path.join(data_folder, 'TestBeamData_FEI4_DUT%i.h5' % i), os.path.join(tests_data_folder, 'TestBeamData_FEI4_DUT%i.h5' % i))
+        hit_files.append(os.path.join(tests_data_folder, 'TestBeamData_FEI4_DUT%i.h5' % i))
+
     run_analysis(hit_files)

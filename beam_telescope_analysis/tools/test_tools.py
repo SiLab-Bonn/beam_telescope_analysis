@@ -5,6 +5,7 @@ from __future__ import division
 import os
 import inspect
 import itertools
+import yaml
 
 import numpy as np
 import tables as tb
@@ -18,7 +19,7 @@ def nan_to_num(array, copy=False):
     Parameters
     ----------
     array : numpy.ndarray
-    copy : bool
+    copy : boolean
         If True, return copy. If False, replace values in-place.
 
     Returns
@@ -38,7 +39,7 @@ def nan_to_num(array, copy=False):
 def nan_equal(first_array, second_array):
     ''' Compares two arrays and test for equality.
 
-    Works with recarrays.
+    Works with array and recarrays.
     NaNs are considered equal.
 
     Parameters
@@ -92,7 +93,7 @@ def nan_close(first_array, second_array, rtol=1e-5, atol=1e-8, equal_nan=True):
     second_array : numpy.ndarray
     rtol : float
     atol : float
-    equal_nan : bool
+    equal_nan : boolean
         If True, NaNs are considered equal.
 
     Returns
@@ -118,6 +119,9 @@ def nan_close(first_array, second_array, rtol=1e-5, atol=1e-8, equal_nan=True):
             # Check for same dtypes
             if first_array[column].dtype != second_array[column].dtype:
                 return False
+            # Workaround for string data types
+            if first_array[column].dtype.type is np.string_:
+                return np.all(first_array[column] == second_array[column])
             # Check for similarity
             if not np.allclose(a=first_array[column], b=second_array[column], rtol=rtol, atol=atol, equal_nan=equal_nan):
                 return False
@@ -140,11 +144,18 @@ def get_array_differences(first_array, second_array, exact=True, rtol=1e-5, atol
     def compare_arrays(actual, desired, exact, rtol, atol, equal_nan):
         compare_str = ''
         if actual.dtype != desired.dtype:
-            compare_str += 'Type:\nfirst: %s\nsecond: %s\n' % (str(actual.dtype), str(desired.dtype))
+            compare_str += ' Type:\n  first: %s\n  second: %s\n' % (str(actual.dtype), str(desired.dtype))
         if actual.shape != desired.shape:
-            compare_str += 'Shape:\nfirst: %s\nsecond: %s\n' % (str(actual.shape), str(desired.shape))
-        if np.nansum(actual) != np.nansum(desired):
-            compare_str += 'Sum:\nfirst: %s\nsecond: %s\n' % (str(np.nansum(actual)), str(np.nansum(desired)))
+            compare_str += ' Shape:\n  first: %s\n  second: %s\n' % (str(actual.shape), str(desired.shape))
+            try:  # Try reshaping, is possible when changed dimension has only one setting
+                actual = actual.reshape(desired.shape)
+            except ValueError:
+                pass
+        try:
+            if np.nansum(actual) != np.nansum(desired):
+                compare_str += ' Sum:\n  first: %s\n  second: %s\n' % (str(np.nansum(actual)), str(np.nansum(desired)))
+        except TypeError:  # cannot perform reduce with flexible type
+            pass
         if exact:
             try:
                 np.testing.assert_equal(actual=actual, desired=desired)
@@ -187,10 +198,10 @@ def get_array_differences(first_array, second_array, exact=True, rtol=1e-5, atol
         return return_str
 
 
-def compare_h5_files(first_file, second_file, node_names=None, detailed_comparison=True, exact=True, rtol=1e-5, atol=1e-8, chunk_size=1000000):
+def compare_h5_files(first_file, second_file, node_names=None, ignore_nodes=None, detailed_comparison=True, exact=True, rtol=1e-5, atol=1e-8, chunk_size=1000000):
     '''Takes two hdf5 files and check for equality of all nodes.
     Returns true if the node data is equal and the number of nodes is the number of expected nodes.
-    It also returns a error string containing the names of the nodes that are not equal.
+    It also returns an error string containing the names of the nodes that are not equal.
 
     Parameters
     ----------
@@ -201,9 +212,13 @@ def compare_h5_files(first_file, second_file, node_names=None, detailed_comparis
     node_names : list, tuple
         Iterable of node names that are required to exist and will be compared.
         If None, compare all existing nodes and fail if nodes are not existing.
-    detailed_comparison : bool
+        This is a white list of nodes to check.
+    ignore_nodes : list, tuple
+        Iterable of node names that are not required to exist and will not be compared.
+        If None, no existing nodes is excluded. This is a black list of nodes to check.
+    detailed_comparison : boolean
         Print reason why the comparison failed
-    exact : bool
+    exact : boolean
         True if the results have to match exactly. E.g. False for fit results.
     rtol, atol: number
         From numpy.allclose:
@@ -216,12 +231,11 @@ def compare_h5_files(first_file, second_file, node_names=None, detailed_comparis
     -------
     (bool, string)
     '''
-    if node_names and not isinstance(node_names, (list, tuple)):
-        raise ValueError("Parameter node_names must be list or tuple")
+
     checks_passed = True
     error_msg = ""
-    with tb.open_file(first_file, mode='r') as first_h5_file:
-        with tb.open_file(second_file, mode='r') as second_h5_file:
+    with tb.open_file(first_file, 'r') as first_h5_file:
+        with tb.open_file(second_file, 'r') as second_h5_file:
 
             def walk_nodes(f, n, g="/"):
                 for item in f.get_node(f.root, g):
@@ -234,6 +248,11 @@ def compare_h5_files(first_file, second_file, node_names=None, detailed_comparis
             walk_nodes(f=first_h5_file, n=fist_file_nodes)  # get node names
             second_file_nodes = []
             walk_nodes(f=second_h5_file, n=second_file_nodes)  # get node names
+
+            if ignore_nodes:
+                fist_file_nodes = [node for node in fist_file_nodes if node not in ignore_nodes]
+                second_file_nodes = [node for node in second_file_nodes if node not in ignore_nodes]
+
             if node_names is None:
                 additional_first_file_nodes = set(fist_file_nodes) - set(second_file_nodes)
                 additional_second_file_nodes = set(second_file_nodes) - set(fist_file_nodes)
@@ -286,6 +305,24 @@ def compare_h5_files(first_file, second_file, node_names=None, detailed_comparis
     else:
         error_msg = 'Comparing files %s and %s: FAILED\n%s' % (first_file, second_file, error_msg)
     return checks_passed, error_msg
+
+
+def compare_yaml_files(first_file, second_file):
+    ''' Compare two yaml files and check if they are equal.
+    '''
+    def yaml_as_dict(input_file):
+        yaml_dict = {}
+        with open(input_file, 'r') as fp:
+            docs = yaml.safe_load_all(fp)
+            for doc in docs:
+                for key, value in doc.items():
+                    yaml_dict[key] = value
+        return yaml_dict
+
+    dict_1 = yaml_as_dict(first_file)
+    dict_2 = yaml_as_dict(second_file)
+
+    return dict_1 == dict_2
 
 
 def _call_function_with_args(function, **kwargs):

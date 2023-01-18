@@ -303,7 +303,7 @@ def euler_angles(R):
     In a right-handed system. The rotation is done around x then y then z.
 
     Note:
-        - Transform to the locale coordinate system before applying rotations
+        - Transform to the local coordinate system before applying rotations
         - Rotations are associative but not commutative
         - In cases of beta = pi/2 and -pi/2, gamma and alpha are linked (gimbal lock).
           In this case, gamma is set to zero.
@@ -350,12 +350,12 @@ def euler_angles(R):
         gamma_2 = np.arctan2(R[1, 0] / np.cos(beta_2), R[0, 0] / np.cos(beta_2))
         if gamma_2 <= np.finfo(gamma_2.dtype).eps and gamma_2 >= -np.finfo(gamma_2.dtype).eps:
             gamma_2 = 0.0
-        # chose the angles with smaller values
-        if np.sum(np.abs([alpha_1, beta_1, gamma_1])) <= np.sum(np.abs([alpha_2, beta_2, gamma_2])):
-            alpha, beta, gamma = alpha_1, beta_1, gamma_1
-        else:
-            alpha, beta, gamma = alpha_2, beta_2, gamma_2
-    return alpha, beta, gamma
+        # # chose the angles with smaller values
+        # if np.sum(np.abs([alpha_1, beta_1, gamma_1])) <= np.sum(np.abs([alpha_2, beta_2, gamma_2])):
+        #     alpha, beta, gamma = alpha_1, beta_1, gamma_1
+        # else:
+        #     alpha, beta, gamma = alpha_2, beta_2, gamma_2
+    return alpha_1, beta_1, gamma_1
 
 
 def translation_matrix(x, y, z):

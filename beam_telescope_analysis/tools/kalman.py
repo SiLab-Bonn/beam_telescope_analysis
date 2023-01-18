@@ -13,23 +13,26 @@ def _filter_predict_f(track_jacobian, local_scatter_gain_matrix, transition_cova
 
     Parameters
     ----------
-    transition_matrix : [chunk_size, n_dim_state, n_dim_state] array
-        state transition matrix from time t to t+1.
-    transition_covariance : [chunk_size, n_dim_state, n_dim_state] array
-        covariance matrix for state transition from time t to t+1.
-    current_filtered_state: [chunk_size, n_dim_state] array
-        filtered state at time t.
-    current_filtered_state_covariance: [chunk_size, n_dim_state, n_dim_state] array
-        covariance of filtered state at time t.
+    track_jacobian : [chunk_size, n_dim_state, n_dim_state] array_like
+        Changes (derivatives) of local coordinates from plane k to plane k+1
+    local_scatter_gain_matrix : [chunk_size, n_dim_state, n_dim_state] array_like
+        Matrix describing the scattering between plane k and plane k+1
+    transition_matrix : [chunk_size, n_dim_state, n_dim_state] array_like
+        Transition matrix from plane k to plane k+1.
+    transition_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix for state transition from plane k to plane k+1.
+    current_filtered_state: [chunk_size, n_dim_state] array_like
+        Filtered state at plane k.
+    current_filtered_state_covariance: [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance of filtered state at plane k.
 
     Returns
     -------
-    predicted_state : [chunk_size, n_dim_state] array
-        predicted state at time t+1.
-    predicted_state_covariance : [chunk_size, n_dim_state, n_dim_state] array
-        covariance matrix of predicted state at time t+1.
+    predicted_state : [chunk_size, n_dim_state] array_like
+        Predicted state at plane k+1.
+    predicted_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix of predicted state at plane k+1.
     """
-
     # Extrapolate current filtered state (plane k -> plane k+1)
     predicted_state = _vec_mul(track_jacobian, current_filtered_state)
 
@@ -53,23 +56,26 @@ def _filter_predict_b(track_jacobian, local_scatter_gain_matrix, transition_cova
 
     Parameters
     ----------
-    transition_matrix : [chunk_size, n_dim_state, n_dim_state] array
-        state transition matrix from time t to t+1.
-    transition_covariance : [chunk_size, n_dim_state, n_dim_state] array
-        covariance matrix for state transition from time t to t+1.
-    current_filtered_state: [chunk_size, n_dim_state] array
-        filtered state at time t.
-    current_filtered_state_covariance: [chunk_size, n_dim_state, n_dim_state] array
-        covariance of filtered state at time t.
+    track_jacobian : [chunk_size, n_dim_state, n_dim_state] array_like
+        Changes (derivatives) of local coordinates from plane k to plane k+1
+    local_scatter_gain_matrix : [chunk_size, n_dim_state, n_dim_state] array_like
+        Matrix describing the scattering between plane k and plane k+1
+    transition_matrix : [chunk_size, n_dim_state, n_dim_state] array_like
+        Transition matrix from plane k to plane k+1.
+    transition_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix for state transition from plane k to plane k+1.
+    current_filtered_state: [chunk_size, n_dim_state] array_like
+        Filtered state at plane k.
+    current_filtered_state_covariance: [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance of filtered state at plane k.
 
     Returns
     -------
-    predicted_state : [chunk_size, n_dim_state] array
-        predicted state at time t+1.
-    predicted_state_covariance : [chunk_size, n_dim_state, n_dim_state] array
-        covariance matrix of predicted state at time t+1.
+    predicted_state : [chunk_size, n_dim_state] array_like
+        Predicted state at plane k+1.
+    predicted_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix of predicted state at plane k+1.
     """
-
     # Extrapolate current filtered state (plane k -> plane k+1)
     predicted_state = _vec_mul(track_jacobian, current_filtered_state)
 
@@ -86,33 +92,38 @@ def _filter_predict_b(track_jacobian, local_scatter_gain_matrix, transition_cova
 
     return predicted_state, predicted_state_covariance
 
+
 @njit(cache=True)
 def _filter_correct(reference_state, observation_matrix, observation_covariance, predicted_state, predicted_state_covariance, observation):
-    r"""Filters a predicted state with the Kalman Filter. Filtering
+    """Filters a predicted state with the Kalman Filter. Filtering
     is done on whole track chunk with size chunk_size.
 
     Parameters
     ----------
-    observation_matrix : [chunk_size, n_dim_obs, n_dim_obs] array
-        observation matrix for time t.
-    observation_covariance : [chunk_size, n_dim_obs, n_dim_obs] array
-        covariance matrix for observation at time t.
-    predicted_state : [chunk_size, n_dim_state] array
-        predicted state at time t.
-    predicted_state_covariance : [n_dim_state, n_dim_state] array
-        covariance matrix of predicted state at time t.
-    observation : [chunk_size, n_dim_obs] array
-        observation at time t.  If observation is a masked array and any of
+    reference_state : [chunk_size, n_dim_obs] array_like
+        Reference state around linearisation of Kalman Filter equations is done.
+    observation_matrix : [chunk_size, n_dim_obs, n_dim_obs] array_like
+        Observation matrix for plane k.
+    observation_covariance : [chunk_size, n_dim_obs, n_dim_obs] array_like
+        Covariance matrix of observation for plane k.
+    predicted_state : [chunk_size, n_dim_state] array_like
+        Predicted state for plane k.
+    predicted_state_covariance : [n_dim_state, n_dim_state] array_like
+        Covariance matrix of predicted state for plane k.
+    observation : [chunk_size, n_dim_obs] array_like
+        Observation at time t.  If observation is a masked array and any of
         its values are masked, the observation will be not included in filtering.
 
     Returns
     -------
-    kalman_gain : [chunk_size, n_dim_state, n_dim_obs] array
-        Kalman gain matrix for time t.
-    filtered_state : [chunk_size, n_dim_state] array
-        filtered state at time t.
-    filtered_state_covariance : [chunk_size, n_dim_state, n_dim_state] array
-        covariance matrix of filtered state at time t.
+    kalman_gain : [chunk_size, n_dim_state, n_dim_obs] array_like
+        Kalman gain matrix for plane k.
+    filtered_state : [chunk_size, n_dim_state] array_like
+        Filtered state for plane k.
+    filtered_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix of filtered state for plane k.
+    chi2 : [chunk_size]
+        Chi2 increment of plane k.
     """
 
     predicted_observation = _vec_mul(observation_matrix, predicted_state + reference_state)
@@ -142,58 +153,64 @@ def _filter_correct(reference_state, observation_matrix, observation_covariance,
 
     return kalman_gain, filtered_state, filtered_state_covariance, chi2
 
-@profile
+
 def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
-    """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
+    """Apply the Kalman Filter. First a prediction of the state is done, then a (forward) filtering is
     done which includes the observations.
 
     Parameters
     ----------
     dut_planes : list
-        List of DUT parameters (material_budget, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma).
+        List of DUT objects.
+    reference_states : [chunk_size, n_planes, n_dim_state] array_like
+        Reference states (for each plane) around Kalman Filter equations are linearised.
     z_sorted_dut_indices : list
         List of DUT indices in the order reflecting their z position.
     select_fit_duts : iterable
         List of DUTs which should be included in Kalman Filter. DUTs which are not in list
         were treated as missing measurements and will not be included in the Filtering step.
-    observations : [chunk_size, n_timesteps, n_dim_obs] array
-        observations (measurements) from times [0...n_timesteps-1]. If any of observations is masked,
+    observations : [chunk_size, n_planes, n_dim_obs] array_like
+        Observations (hits) of all planes. If any of observations is masked,
         then observations[:, t] will be treated as a missing observation
         and will not be included in the filtering step.
-    observation_matrices : [chunk_size, n_timesteps, n_dim_obs, n_dim_state] array-like
-        observation matrices.
-    transition_covariances : [chunk_size, n_timesteps-1, n_dim_state,n_dim_state]  array-like
-        covariance matrices of transition matrices.
-    observation_covariances : [chunk_size, n_timesteps, n_dim_obs, n_dim_obs] array-like
-        covariance matrices of observation matrices.
-    initial_state : [chunk_size, n_dim_state] array-like
-        initial value of state.
-    initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array-like
-        initial value for observation covariance matrices.
+    observation_matrices : [chunk_size, n_planes, n_dim_obs, n_dim_state] array_like
+        Observation matrices for all planes.
+    transition_covariances : [chunk_size, n_planes, n_dim_state, n_dim_state]  array_like
+        Covariance matrices of transition matrices for all planes.
+    observation_covariances : [chunk_size, n_planes, n_dim_obs, n_dim_obs] array_like
+        Covariance matrices of observations (measurement error) for all planes.
+    initial_state : [chunk_size, n_dim_state] array_like
+        Track state at first plane.
+    initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix of initial state.
 
     Returns
     -------
-    predicted_states : [chunk_size, n_timesteps, n_dim_state] array
-        predicted states of times [0...t].
-    predicted_state_covariances : [chunk_size, n_timesteps, n_dim_state, n_dim_state] array
-        covariance matrices of predicted states of times [0...t].
-    kalman_gains : [chunk_size, n_timesteps, n_dim_state] array
-        Kalman gain matrices of times [0...t].
-    filtered_states : [chunk_size, n_timesteps, n_dim_state] array
-        filtered states of times [0...t].
-    filtered_state_covariances : [chunk_size, n_timesteps, n_dim_state] array
-        covariance matrices of filtered states of times [0...t].
+    predicted_states : [chunk_size, n_planes, n_dim_state] array_like
+        Predicted states for all planes.
+    predicted_state_covariances : [chunk_size, n_planes, n_dim_state, n_dim_state] array_like
+        Covariance matrices of predicted states for all planes.
+    kalman_gains : [chunk_size, n_planes, n_dim_state] array_like
+        Kalman gain matrices for all planes.
+    filtered_states : [chunk_size, n_planes, n_dim_state] array_like
+        Filtered states for all planes.
+    filtered_state_covariances : [chunk_size, n_planes, n_dim_state] array_like
+        Covariance matrices of filtered states for all planes.
+    chi2 : [chunk_size, n_planes] array_like
+        Chi2 increment of filtered state for all planes.
+    Js : [chunk_size, n_planes, n_dim_state, n_dim_state]  array_like
+        Track jacobian of fitted tracks for all planes.
     """
-    chunk_size, n_timesteps, n_dim_obs = observations.shape
+    chunk_size, n_planes, n_dim_obs = observations.shape
     n_dim_state = initial_state_covariance.shape[2]
 
-    predicted_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
-    predicted_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
-    kalman_gains = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_obs))
-    filtered_states = np.zeros((chunk_size, n_timesteps, n_dim_state))
-    filtered_state_covariances = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
-    chi2 = np.full((chunk_size, n_timesteps), fill_value=np.nan)
-    Js = np.zeros((chunk_size, n_timesteps, n_dim_state, n_dim_state))
+    predicted_states = np.zeros((chunk_size, n_planes, n_dim_state))
+    predicted_state_covariances = np.zeros((chunk_size, n_planes, n_dim_state, n_dim_state))
+    kalman_gains = np.zeros((chunk_size, n_planes, n_dim_state, n_dim_obs))
+    filtered_states = np.zeros((chunk_size, n_planes, n_dim_state))
+    filtered_state_covariances = np.zeros((chunk_size, n_planes, n_dim_state, n_dim_state))
+    chi2 = np.full((chunk_size, n_planes), fill_value=np.nan)
+    Js = np.zeros((chunk_size, n_planes, n_dim_state, n_dim_state))
 
     for i, dut_index in enumerate(z_sorted_dut_indices):
         # Get actual reference state
@@ -278,45 +295,51 @@ def _filter_f(dut_planes, reference_states, z_sorted_dut_indices, select_fit_dut
 
 
 def _filter_b(dut_planes, reference_states, z_sorted_dut_indices, select_fit_duts, observations, observation_matrices, transition_covariances, observation_covariances, initial_state, initial_state_covariance):
-    """Apply the Kalman Filter. First a prediction of the state is done, then a filtering is
+    """Apply the Kalman Filter. First a prediction of the state is done, then a (backward) filtering is
     done which includes the observations.
 
     Parameters
     ----------
     dut_planes : list
-        List of DUT parameters (material_budget, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma).
+        List of DUT objects.
+    reference_states : [chunk_size, n_planes, n_dim_state] array_like
+        Reference states (for each plane) around Kalman Filter equations are linearised.
     z_sorted_dut_indices : list
         List of DUT indices in the order reflecting their z position.
     select_fit_duts : iterable
         List of DUTs which should be included in Kalman Filter. DUTs which are not in list
         were treated as missing measurements and will not be included in the Filtering step.
-    observations : [chunk_size, n_timesteps, n_dim_obs] array
-        observations (measurements) from times [0...n_timesteps-1]. If any of observations is masked,
+    observations : [chunk_size, n_planes, n_dim_obs] array_like
+        Observations (hits) of all planes. If any of observations is masked,
         then observations[:, t] will be treated as a missing observation
         and will not be included in the filtering step.
-    observation_matrices : [chunk_size, n_timesteps, n_dim_obs, n_dim_state] array-like
-        observation matrices.
-    transition_covariances : [chunk_size, n_timesteps-1, n_dim_state,n_dim_state]  array-like
-        covariance matrices of transition matrices.
-    observation_covariances : [chunk_size, n_timesteps, n_dim_obs, n_dim_obs] array-like
-        covariance matrices of observation matrices.
-    initial_state : [chunk_size, n_dim_state] array-like
-        initial value of state.
-    initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array-like
-        initial value for observation covariance matrices.
+    observation_matrices : [chunk_size, n_planes, n_dim_obs, n_dim_state] array_like
+        Observation matrices for all planes.
+    transition_covariances : [chunk_size, n_planes, n_dim_state, n_dim_state]  array_like
+        Covariance matrices of transition matrices for all planes.
+    observation_covariances : [chunk_size, n_planes, n_dim_obs, n_dim_obs] array_like
+        Covariance matrices of observations (measurement error) for all planes.
+    initial_state : [chunk_size, n_dim_state] array_like
+        Track state at first plane.
+    initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+        Covariance matrix of initial state.
 
     Returns
     -------
-    predicted_states : [chunk_size, n_timesteps, n_dim_state] array
-        predicted states of times [0...t].
-    predicted_state_covariances : [chunk_size, n_timesteps, n_dim_state, n_dim_state] array
-        covariance matrices of predicted states of times [0...t].
-    kalman_gains : [chunk_size, n_timesteps, n_dim_state] array
-        Kalman gain matrices of times [0...t].
-    filtered_states : [chunk_size, n_timesteps, n_dim_state] array
-        filtered states of times [0...t].
-    filtered_state_covariances : [chunk_size, n_timesteps, n_dim_state] array
-        covariance matrices of filtered states of times [0...t].
+    predicted_states : [chunk_size, n_planes, n_dim_state] array_like
+        Predicted states for all planes.
+    predicted_state_covariances : [chunk_size, n_planes, n_dim_state, n_dim_state] array_like
+        Covariance matrices of predicted states for all planes.
+    kalman_gains : [chunk_size, n_planes, n_dim_state] array_like
+        Kalman gain matrices for all planes.
+    filtered_states : [chunk_size, n_planes, n_dim_state] array_like
+        Filtered states for all planes.
+    filtered_state_covariances : [chunk_size, n_planes, n_dim_state] array_like
+        Covariance matrices of filtered states for all planes.
+    chi2 : [chunk_size, n_planes] array_like
+        Chi2 increment of filtered state for all planes.
+    Js : [chunk_size, n_planes, n_dim_state, n_dim_state]  array_like
+        Track jacobian of fitted tracks for all planes.
     """
     chunk_size, n_timesteps, n_dim_obs = observations.shape
     n_dim_state = initial_state_covariance.shape[2]
@@ -494,7 +517,7 @@ def check_covariance_matrix(cov):
     In case it is not, it will try to make the matrix psd with the condition that the psd-correced matrix does not
     differ to much from the original one (works only if the matrix has very small negative eigenvalues, e.g. due to numerical precision, ...)
 
-    Cannot by jitted since jitted np.linalg.eigvalsh only supports 2D arrays.
+    Cannot be jitted since jitted np.linalg.eigvalsh only supports 2D arrays.
     '''
     # Check for positive semi-definite covariance matrix. In case they are not psd, make them psd.
     if not np.all(np.linalg.eigvalsh(cov) >= 0.0):
@@ -713,33 +736,42 @@ class KalmanFilter(object):
         Parameters
         ----------
         dut_planes : list
-            List of DUT parameters (material_budget, translation_x, translation_y, translation_z, rotation_alpha, rotation_beta, rotation_gamma).
+            List of DUT objects.
+        track_seed : array_like
+            Track seed, i.e track state of reference trajectory around Kalman Filter equations are linearised.
         z_sorted_dut_indices : list
             List of DUT indices in the order reflecting their z position.
-        observations : [chunk_size, n_timesteps, n_dim_obs] array
-            observations (measurements) from times [0...n_timesteps-1]. If any of observations is masked,
+        momentum : float
+            Momentum of particle beam (in MeV).
+        beta : float
+            Lorentz beta (velocity) of particle beam.
+        observations : [chunk_size, n_planes, n_dim_obs] array_like
+            Observations (hits) of all planes. If any of observations is masked,
             then observations[:, t] will be treated as a missing observation
             and will not be included in the filtering step.
         select_fit_duts : iterable
             List of DUTs which should be included in Kalman Filter. DUTs which are not in list
             were treated as missing measurements and will not be included in the Filtering step.
-        observation_matrices : [chunk_size, n_timesteps, n_dim_obs, n_dim_state] array-like
-            observation matrices.
-        observation_covariances : [chunk_size, n_timesteps, n_dim_obs, n_dim_obs] array-like
-            covariance matrices of observation matrices.
-        initial_state : [chunk_size, n_dim_state] array-like
-            initial value of state.
-        initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array-like
-            initial value for observation covariance matrices.
+        transition_covariances : array_like
+            Transition covariance matrices which transport track states from plane to plane.
+        observation_matrices : [chunk_size, n_planes, n_dim_obs, n_dim_state] array_like
+            Observation matrices for all planes.
+        observation_covariances : [chunk_size, n_planes, n_dim_obs, n_dim_obs] array_like
+            Covariance matrices of observations (measurement error) for all planes.
+        initial_state : [chunk_size, n_dim_state] array_like
+            Track state at first plane.
+        initial_state_covariance : [chunk_size, n_dim_state, n_dim_state] array_like
+            Covariance matrix of initial state.
 
         Returns
         -------
-        smoothed_states : [chunk_size, n_timesteps, n_dim_state]
-            smoothed states for times [0...n_timesteps-1].
-        smoothed_state_covariances : [chunk_size, n_timesteps, n_dim_state, n_dim_state] array
-            covariance matrices of smoothed states for times [0...n_timesteps-1].
+        smoothed_states : [chunk_size, n_planes, n_dim_state] array_like
+            Smoothed states for all planes
+        smoothed_state_covariances : [chunk_size, n_planes, n_dim_state, n_dim_state] array_like
+            Covariance matrices of smoothed states for all planes.
+        smoothed_chi2 : [chunk_size, n_planes] array_like
+            Chi2 increment of smoothed states.
         """
-
         n_duts = len(dut_planes)
         chunk_size = observations.shape[0]
         n_dim_state = track_seed.shape[1]
@@ -867,7 +899,7 @@ class KalmanFilter(object):
             smoothed_state_covariances = np.zeros_like(filtered_state_covariances_f)
             smoothed_chi2 = np.full((chunk_size, n_duts), fill_value=np.nan)
 
-            # Smoothing: Weigthed mean of FORWARD and BACKWARD  Kalman Filter
+            # Smoothing: Weigthed mean of FORWARD and BACKWARD Kalman Filter
             for i, dut_index in enumerate(z_sorted_dut_indices):
                 if i == 0:  # First plane: Use backward filter result
                     smoothed_states[:, dut_index] = filtered_states_b[:, dut_index]

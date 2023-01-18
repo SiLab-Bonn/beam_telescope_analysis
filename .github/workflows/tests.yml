@@ -1,0 +1,60 @@
+name: Software tests
+
+on: push
+
+jobs:
+  tests:
+    name: Python ${{matrix.python-version}}
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10']
+    steps:
+    - uses: nschloe/action-cached-lfs-checkout@v1  # cached git-lfs checkout
+    # - uses: actions/checkout@v2
+    #   with:
+    #     lfs: true
+    - name: Set up Anaconda ${{matrix.python-version}}
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        python-version: ${{matrix.python-version}}
+    - name: Install Conda dependencies
+      shell: bash -l {0}
+      run: |
+        conda info -a
+        conda install pytest pytest-cov cython pytables numpy scipy numba matplotlib pyyaml
+    - name: Install pixel clusterizer
+      shell: bash -l {0}
+      run: |
+        pip install pixel_clusterizer
+    - name: Install PyLandau
+      shell: bash -l {0}
+      run: |
+        pip install pylandau
+    - name: Install git-lfs
+      shell: bash -l {0}
+      run: |
+        sudo apt-get update --fix-missing --allow-releaseinfo-change --allow-unauthenticated
+        sudo apt-get install -y curl build-essential
+        sudo apt-get install -y git-lfs
+        git lfs install
+        git submodule sync --recursive
+        git submodule update --init --recursive
+    - name: Install package
+      shell: bash -l {0}
+      run: |
+        pip install -e .
+    - name: Software tests and coverage
+      shell: bash -l {0}
+      run: |
+        cd beam_telescope_analysis/testing
+        pytest --cov-report=xml --cov=beam_telescope_analysis
+    - name: Make Coverage Badge
+      uses: action-badges/cobertura-coverage-xml-badges@main
+      with:
+        file-name: coverage.svg
+        badge-branch: badges
+        github-token: '${{ secrets.GITHUB_TOKEN }}'
+        coverage-file-name: ./beam_telescope_analysis/testing/coverage.xml

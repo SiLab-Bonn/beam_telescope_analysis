@@ -1,0 +1,98 @@
+TELESCOPE:
+  DUT:
+    0:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 1
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 0.0
+      x_limit: null
+      y_limit: null
+    1:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 2
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 150000.0
+      x_limit: null
+      y_limit: null
+    2:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 3
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 300000.0
+      x_limit: null
+      y_limit: null
+    3:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 4
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 450000.0
+      x_limit: null
+      y_limit: null
+    4:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 5
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 600000.0
+      x_limit: null
+      y_limit: null
+    5:
+      dut_type: Mimosa26
+      intrinsic_resolution:
+      - 3.5
+      - 3.5
+      material_budget: 0.0007
+      name: Telescope 6
+      rotation_alpha: 0.0
+      rotation_beta: 0.0
+      rotation_gamma: 0.0
+      translation_x: 0.0
+      translation_y: 0.0
+      translation_z: 750000.0
+      x_limit: null
+      y_limit: null
+  rotation_alpha: 0.0
+  rotation_beta: 0.0
+  rotation_gamma: 0.0
+  translation_x: 0.0
+  translation_y: 0.0
+  translation_z: 0.0

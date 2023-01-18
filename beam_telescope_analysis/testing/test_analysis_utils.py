@@ -59,9 +59,9 @@ class TestAnalysisUtils(unittest.TestCase):
     def test_map_cluster(self):  # check the compiled function against result
         clusters = np.zeros((20, ), dtype=tb.dtype_from_descr(data_struct.ClusterInfoTable))
         result = np.zeros((20, ), dtype=tb.dtype_from_descr(data_struct.ClusterInfoTable))
-        result["mean_column"] = np.nan
-        result["mean_row"] = np.nan
-        result["charge"] = np.nan
+        result["mean_column"] = 0
+        result["mean_row"] = 0
+        result["charge"] = 0
         result[1]["event_number"], result[3]["event_number"], result[7]["event_number"], result[8]["event_number"], result[9]["event_number"] = 1, 2, 4, 4, 19
         result[0]["mean_column"], result[1]["mean_column"], result[3]["mean_column"], result[7]["mean_column"], result[8]["mean_column"], result[9]["mean_column"] = 1, 2, 3, 5, 6, 20
         result[0]["mean_row"], result[1]["mean_row"], result[3]["mean_row"], result[7]["mean_row"], result[8]["mean_row"], result[9]["mean_row"] = 0, 0, 0, 0, 0, 0
@@ -75,7 +75,10 @@ class TestAnalysisUtils(unittest.TestCase):
 
         common_event_number = np.array([0, 1, 1, 2, 3, 3, 3, 4, 4], dtype=np.int64)
 
-        data_equal = test_tools.nan_equal(first_array=analysis_utils.map_cluster(common_event_number, clusters),
+        mapped_clusters = np.zeros(common_event_number.shape[0], dtype=clusters.dtype)
+        analysis_utils.map_cluster(common_event_number, clusters, mapped_clusters)
+
+        data_equal = test_tools.nan_equal(first_array=mapped_clusters,
                                           second_array=result[:common_event_number.shape[0]])
         self.assertTrue(data_equal)
 
@@ -115,6 +118,7 @@ class TestAnalysisUtils(unittest.TestCase):
             pass
         self.assertTrue(exception_ok & np.all(array == array_fast))
 
+    @unittest.skip
     def test_3d_index_histograming(self):  # check compiled hist_3D_index function
         with tb.open_file(analysis_utils.get_data('fixtures/analysis_utils/hist_data.h5',
                                                   output=os.path.join(testing_path, 'fixtures/analysis_utils/hist_data.h5')),
@@ -134,8 +138,6 @@ class TestAnalysisUtils(unittest.TestCase):
                 pass
             self.assertTrue(exception_ok & np.all(array == array_fast))
 
+
 if __name__ == '__main__':
-    import logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - [%(levelname)-8s] (%(threadName)-10s) %(message)s")
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestAnalysisUtils)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.main()

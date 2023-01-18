@@ -1,4 +1,7 @@
 # Beam Telescope Analysis
+![Build status](https://github.com/SiLab-Bonn/beam_telescope_analysis/actions/workflows/tests.yml/badge.svg?branch=unit_tests)
+![coverage](https://raw.githubusercontent.com/SiLab-Bonn/beam_telescope_analysis/badges/.badges/unit_tests/coverage.svg)
+
 Beam Telescope Analysis (BTA) is a testbeam analysis software written in Python (and C++).
 
 ## Intended Use
@@ -14,6 +17,7 @@ The software allows a detailed analysis of each detector in the sub-micrometer r
 2. Works even under harsh beam environments (i.e., high track densities, strong beam background) and delivers precise efficiencies.
 3. Alignment works even with limited information about the location of each detector (e.g., only z-position from the first and last telescope plane necessary).
 4. Providing Kalman-based estimates of particle tracks, especially for low-energy particle beams.
+5. Kalman Filter based alignment for fast and precise alignment of DUTs, even for low-energy particles and setups with high material budget.
 
 BTA uses some novel approaches which have not yet been applied to data from beam telescopes:
 1. SVD-based method for suppressing un-correlated background in pre-alignment.
@@ -21,7 +25,7 @@ BTA uses some novel approaches which have not yet been applied to data from beam
 
 ## Installation
 
-Python 2.7 or Python 3.7 or higher must be used. There are many ways to install Python, though we recommend using [Anaconda Python](https://www.anaconda.com/distribution/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
+Python 3.9 or higher must be used. There are many ways to install Python, though we recommend using [Anaconda Python](https://www.anaconda.com/distribution/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
 ### Prerequisites
 
@@ -38,6 +42,23 @@ The following packages are required and can be obtained from PyPI (via `pip inst
 - tqdm
 - [pixel_clusterizer](https://github.com/SiLab-Bonn/pixel_clusterizer)
 - [PyLandau](https://github.com/SiLab-Bonn/pylandau)
+
+If not already installed, install git lfs in order to download fixtures for testing:
+```
+sudo apt install git-lfs
+```
+
+Alternatively, manually install `git lfs` using [these](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage) instructions.
+
+The `setup.py` requires that `cython`, `numpy` and `gcc` are already installed. Therefore, use e.g. `conda` or `pip`
+```
+conda install -y cython numpy
+```
+
+Furthermore, if `gcc` is not installed, run
+```
+sudo apt install build-essential
+``` 
 
 ### Installation of BTA
 
@@ -123,6 +144,8 @@ Please use GitHub's [issue tracker](https://github.com/SiLab-Bonn/beam_telescope
 2. N. Wermes, *Pixel detectors ... where do we stand?*, NIMA. DOI: [10.1016/j.nima.2018.07.003](https://dx.doi.org/10.1016/j.nima.2018.07.003)
 3. D.-L. Pohl et al., *Radiation Hard Pixel Sensors Using High-Resistive Wafers in a 150nm CMOS Processing Line*, JINST. DOI: [10.1088/1748-0221/12/06/P06020](https://dx.doi.org/10.1088/1748-0221/12/06/P06020)
 4. M. Reichmann (on behalf of the [RD42 collaboration](https://rd42.web.cern.ch)), *New Test Beam Results of 3D and Pad Detectors Constructed with Poly-Crystalline CVD Diamond*, NIMA. DOI: [10.1016/j.nima.2019.162675](https://doi.org/10.1016/j.nima.2019.162675)
+5. Y. Dieter et al., *Radiation tolerant, thin, passive CMOS sensors read out with the RD53A chip*, NIMA. DOI: [10.1016/j.nima.2021.165771](https://doi.org/10.1016/j.nima.2021.165771)
+6. Y. Dieter et al., *Characterization of small-pixel passive CMOS sensors in 150 nm LFoundry technology using the RD53A readout chip*, NIMA. DOI: [10.1016/j.nima.2020.164130](https://doi.org/10.1016/j.nima.2020.164130)
 
 ...more to come.
 

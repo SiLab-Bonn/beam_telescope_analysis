@@ -2,7 +2,7 @@
 from __future__ import division
 
 import logging
-from collections import Iterable
+from collections.abc import Iterable
 import os.path
 import math
 
@@ -91,13 +91,13 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     intersection_local = np.column_stack([intersection_x_local, intersection_y_local])
                     difference_local = hit_local - intersection_local
 
-                    limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                    limit_x_local_sel = np.ones_like(hit_x_local, dtype=bool)
                     if limit_x_local is not None and np.isfinite(limit_x_local[0]):
                         limit_x_local_sel &= hit_x_local >= limit_x_local[0]
                     if limit_x_local is not None and np.isfinite(limit_x_local[1]):
                         limit_x_local_sel &= hit_x_local <= limit_x_local[1]
 
-                    limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                    limit_y_local_sel = np.ones_like(hit_x_local, dtype=bool)
                     if limit_y_local is not None and np.isfinite(limit_y_local[0]):
                         limit_y_local_sel &= hit_y_local >= limit_y_local[0]
                     if limit_y_local is not None and np.isfinite(limit_y_local[1]):
@@ -338,7 +338,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     edges=local_x_residuals_hist_edges,
                     fit=fit_local_x_res,
                     cov=cov_local_x_res,
-                    xlabel='X residual [$\mathrm{\mu}$m]',
+                    xlabel=r'X residual [$\mathrm{\mu}$m]',
                     title='Local X residuals for %s' % actual_dut.name,
                     output_pdf=output_pdf)
                 out_local_x_res = out_file_h5.create_carray(
@@ -371,7 +371,7 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     edges=local_y_residuals_hist_edges,
                     fit=fit_local_y_res,
                     cov=cov_local_y_res,
-                    xlabel='Y residual [$\mathrm{\mu}$m]',
+                    xlabel=r'Y residual [$\mathrm{\mu}$m]',
                     title='Local Y residuals for %s' % actual_dut.name,
                     output_pdf=output_pdf)
                 out_local_y_res = out_file_h5.create_carray(
@@ -401,8 +401,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist=local_x_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
                     yedges=local_x_residuals_hist_edges,
-                    xlabel='X [$\mathrm{\mu}$m]',
-                    ylabel='X residual [$\mathrm{\mu}$m]',
+                    xlabel=r'X [$\mathrm{\mu}$m]',
+                    ylabel=r'X residual [$\mathrm{\mu}$m]',
                     title='Local X residuals vs. X positions for %s' % actual_dut.name,
                     residuals_mean=stat_local_x_residuals_x_pos_hist,
                     select=select,
@@ -438,8 +438,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist=local_y_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
                     yedges=local_y_residuals_hist_edges,
-                    xlabel='Y [$\mathrm{\mu}$m]',
-                    ylabel='Y residual [$\mathrm{\mu}$m]',
+                    xlabel=r'Y [$\mathrm{\mu}$m]',
+                    ylabel=r'Y residual [$\mathrm{\mu}$m]',
                     title='Local Y residuals vs. Y positions for %s' % actual_dut.name,
                     residuals_mean=stat_local_y_residuals_y_pos_hist,
                     select=select,
@@ -475,8 +475,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist=local_y_residuals_x_pos_hist,
                     xedges=x_pos_hist_edges,
                     yedges=local_y_residuals_hist_edges,
-                    xlabel='X [$\mathrm{\mu}$m]',
-                    ylabel='Y residual [$\mathrm{\mu}$m]',
+                    xlabel=r'X [$\mathrm{\mu}$m]',
+                    ylabel=r'Y residual [$\mathrm{\mu}$m]',
                     title='Local Y residuals for vs. X positions %s' % actual_dut.name,
                     residuals_mean=stat_local_y_residuals_x_pos_hist,
                     select=select,
@@ -512,8 +512,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist=local_x_residuals_y_pos_hist,
                     xedges=y_pos_hist_edges,
                     yedges=local_x_residuals_hist_edges,
-                    xlabel='Y [$\mathrm{\mu}$m]',
-                    ylabel='X residual [$\mathrm{\mu}$m]',
+                    xlabel=r'Y [$\mathrm{\mu}$m]',
+                    ylabel=r'X residual [$\mathrm{\mu}$m]',
                     title='Local X residuals vs. Y positions for %s' % actual_dut.name,
                     residuals_mean=stat_local_x_residuals_y_pos_hist,
                     select=select,
@@ -545,8 +545,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist2d=stat_2d_residuals_hist_masked.T,
                     plot_range=[dut_x_size[0], dut_x_size[1], dut_y_size[1], dut_y_size[0]],
                     title='2D average residuals for %s' % actual_dut.name,
-                    x_axis_title='X [$\mathrm{\mu}$m]',
-                    y_axis_title='Y [$\mathrm{\mu}$m]',
+                    x_axis_title=r'X [$\mathrm{\mu}$m]',
+                    y_axis_title=r'Y [$\mathrm{\mu}$m]',
                     z_min=z_min,
                     z_max=z_max,
                     output_pdf=output_pdf)
@@ -559,8 +559,8 @@ def calculate_residuals(telescope_configuration, input_tracks_file, select_duts,
                     hist2d=count_2d_hist_masked.T,
                     plot_range=[dut_x_size[0], dut_x_size[1], dut_y_size[1], dut_y_size[0]],
                     title='2D occupancy for %s' % actual_dut.name,
-                    x_axis_title='X [$\mathrm{\mu}$m]',
-                    y_axis_title='Y [$\mathrm{\mu}$m]',
+                    x_axis_title=r'X [$\mathrm{\mu}$m]',
+                    y_axis_title=r'Y [$\mathrm{\mu}$m]',
                     z_min=z_min,
                     z_max=z_max,
                     output_pdf=output_pdf)
@@ -866,7 +866,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                     # Calculate in-pixel histogram properties (bins size and number of bins)
                     in_pixel_resolution = in_pixel_resolutions[index]
                     if in_pixel_resolution is None:
-                        in_pixel_resolution = map(min, zip(resolution, [pitch / 10.0 for pitch in actual_dut.pixel_size]))
+                        in_pixel_resolution = list(map(min, zip(resolution, [pitch / 10.0 for pitch in actual_dut.pixel_size])))
                     if in_pixel_resolution[0] is None:
                         in_pixel_resolution[0] = min(resolution[0], actual_dut.pixel_size[0] / 10.0)
                     if in_pixel_resolution[1] is None:
@@ -1036,7 +1036,7 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         enabled_pixels_indices = np.where(disabled_pixel_mask == False)[1] + (np.where(disabled_pixel_mask == False)[0] * disabled_pixel_mask.shape[1])
                         select_enabled_pixel_hit = np.isin(closest_indices, enabled_pixels_indices)
                     else:
-                        select_enabled_pixel_hit = np.ones(shape=intersection_x_local.shape, dtype=np.bool)
+                        select_enabled_pixel_hit = np.ones(shape=intersection_x_local.shape, dtype=bool)
                     hit_x_local, hit_y_local = hit_x_local[select_enabled_pixel_hit], hit_y_local[select_enabled_pixel_hit]
                     intersection_x_local, intersection_y_local = intersection_x_local[select_enabled_pixel_hit], intersection_y_local[select_enabled_pixel_hit]
                     charge = charge[select_enabled_pixel_hit]
@@ -1161,27 +1161,27 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             else:
                                 efficiency_region_count_1d_charge_hist_tmp = np.bincount(charge[select_valid_tracks_efficiency_region & select_valid_hit].astype(np.int64))
                                 if efficiency_region_count_1d_charge_hist_tmp.size > efficiency_regions_count_1d_charge_hist[region_index].size:
-                                    efficiency_regions_count_1d_charge_hist[region_index].resize(efficiency_region_count_1d_charge_hist_tmp.size)
+                                    efficiency_regions_count_1d_charge_hist[region_index].resize(efficiency_region_count_1d_charge_hist_tmp.size, refcheck=False)
                                 else:
-                                    efficiency_region_count_1d_charge_hist_tmp.resize(efficiency_regions_count_1d_charge_hist[region_index].size)
+                                    efficiency_region_count_1d_charge_hist_tmp.resize(efficiency_regions_count_1d_charge_hist[region_index].size, refcheck=False)
                                 efficiency_regions_count_1d_charge_hist[region_index] += efficiency_region_count_1d_charge_hist_tmp
                             if efficiency_regions_count_1d_frame_hist[region_index] is None:
                                 efficiency_regions_count_1d_frame_hist[region_index] = np.bincount(frame[select_valid_tracks_efficiency_region & select_valid_hit])
                             else:
                                 efficiency_region_count_1d_frame_hist_tmp = np.bincount(frame[select_valid_tracks_efficiency_region & select_valid_hit])
                                 if efficiency_region_count_1d_frame_hist_tmp.size > efficiency_regions_count_1d_frame_hist[region_index].size:
-                                    efficiency_regions_count_1d_frame_hist[region_index].resize(efficiency_region_count_1d_frame_hist_tmp.size)
+                                    efficiency_regions_count_1d_frame_hist[region_index].resize(efficiency_region_count_1d_frame_hist_tmp.size, refcheck=False)
                                 else:
-                                    efficiency_region_count_1d_frame_hist_tmp.resize(efficiency_regions_count_1d_frame_hist[region_index].size)
+                                    efficiency_region_count_1d_frame_hist_tmp.resize(efficiency_regions_count_1d_frame_hist[region_index].size, refcheck=False)
                                 efficiency_regions_count_1d_frame_hist[region_index] += efficiency_region_count_1d_frame_hist_tmp
                             if efficiency_regions_count_1d_cluster_size_hist[region_index] is None:
                                 efficiency_regions_count_1d_cluster_size_hist[region_index] = np.bincount(cluster_size[select_valid_tracks_efficiency_region & select_valid_hit])
                             else:
                                 efficiency_region_count_1d_cluster_size_hist_tmp = np.bincount(cluster_size[select_valid_tracks_efficiency_region & select_valid_hit])
                                 if efficiency_region_count_1d_cluster_size_hist_tmp.size > efficiency_regions_count_1d_cluster_size_hist[region_index].size:
-                                    efficiency_regions_count_1d_cluster_size_hist[region_index].resize(efficiency_region_count_1d_cluster_size_hist_tmp.size)
+                                    efficiency_regions_count_1d_cluster_size_hist[region_index].resize(efficiency_region_count_1d_cluster_size_hist_tmp.size, refcheck=False)
                                 else:
-                                    efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size)
+                                    efficiency_region_count_1d_cluster_size_hist_tmp.resize(efficiency_regions_count_1d_cluster_size_hist[region_index].size, refcheck=False)
                                 efficiency_regions_count_1d_cluster_size_hist[region_index] += efficiency_region_count_1d_cluster_size_hist_tmp
                             if efficiency_regions_count_1d_total_angle_hist[region_index] is None:
                                 local_total_mean = np.nanmean(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
@@ -1189,10 +1189,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 efficiency_regions_count_1d_total_angle_hist[region_index], efficiency_regions_count_1d_total_angle_hist_edges[region_index] = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_total_mean - 5 * local_total_std, local_total_mean + 5 * local_total_std))
                             else:
                                 efficiency_region_count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_total_angle_hist_edges[region_index])[0]
-                                if efficiency_region_count_1d_total_angle_hist_tmp.size > efficiency_regions_count_1d_total_angle_hist[region_index].size:
-                                    efficiency_regions_count_1d_total_angle_hist[region_index].resize(efficiency_region_count_1d_total_angle_hist_tmp.size)
-                                else:
-                                    efficiency_region_count_1d_total_angle_hist_tmp.resize(efficiency_regions_count_1d_total_angle_hist[region_index].size)
                                 efficiency_regions_count_1d_total_angle_hist[region_index] += efficiency_region_count_1d_total_angle_hist_tmp
                             if efficiency_regions_count_1d_alpha_angle_hist[region_index] is None:
                                 local_alpha_mean = np.nanmean(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
@@ -1200,10 +1196,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 efficiency_regions_count_1d_alpha_angle_hist[region_index], efficiency_regions_count_1d_alpha_angle_hist_edges[region_index] = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_alpha_mean - 5 * local_alpha_std, local_alpha_mean + 5 * local_alpha_std))
                             else:
                                 efficiency_region_count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_alpha_angle_hist_edges[region_index])[0]
-                                if efficiency_region_count_1d_alpha_angle_hist_tmp.size > efficiency_regions_count_1d_alpha_angle_hist[region_index].size:
-                                    efficiency_regions_count_1d_alpha_angle_hist[region_index].resize(efficiency_region_count_1d_alpha_angle_hist_tmp.size)
-                                else:
-                                    efficiency_region_count_1d_alpha_angle_hist_tmp.resize(efficiency_regions_count_1d_alpha_angle_hist[region_index].size)
                                 efficiency_regions_count_1d_alpha_angle_hist[region_index] += efficiency_region_count_1d_alpha_angle_hist_tmp
                             if efficiency_regions_count_1d_beta_angle_hist[region_index] is None:
                                 local_beta_mean = np.nanmean(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit])
@@ -1211,10 +1203,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                                 efficiency_regions_count_1d_beta_angle_hist[region_index], efficiency_regions_count_1d_beta_angle_hist_edges[region_index] = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=n_bins_track_angle, range=(local_beta_mean - 5 * local_beta_std, local_beta_mean + 5 * local_beta_std))
                             else:
                                 efficiency_region_count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_tracks_efficiency_region & select_valid_hit], bins=efficiency_regions_count_1d_beta_angle_hist_edges[region_index])[0]
-                                if efficiency_region_count_1d_beta_angle_hist_tmp.size > efficiency_regions_count_1d_beta_angle_hist[region_index].size:
-                                    efficiency_regions_count_1d_beta_angle_hist[region_index].resize(efficiency_region_count_1d_beta_angle_hist_tmp.size)
-                                else:
-                                    efficiency_region_count_1d_beta_angle_hist_tmp.resize(efficiency_regions_count_1d_beta_angle_hist[region_index].size)
                                 efficiency_regions_count_1d_beta_angle_hist[region_index] += efficiency_region_count_1d_beta_angle_hist_tmp
                             if efficiency_regions_count_1d_cluster_shape_hist[region_index] is None:
                                 efficiency_regions_count_1d_cluster_shape_hist[region_index] = np.histogram(a=cluster_shape[select_valid_tracks_efficiency_region & select_valid_hit], bins=np.arange(2**(4 * 4)))[0]
@@ -1378,9 +1366,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # 1D charge
                             count_1d_charge_hist_tmp = np.bincount(charge[select_valid_hit].astype(np.int64))
                             if count_1d_charge_hist_tmp.size > count_1d_charge_hist.size:
-                                count_1d_charge_hist.resize(count_1d_charge_hist_tmp.size)
+                                count_1d_charge_hist.resize(count_1d_charge_hist_tmp.size, refcheck=False)
                             else:
-                                count_1d_charge_hist_tmp.resize(count_1d_charge_hist.size)
+                                count_1d_charge_hist_tmp.resize(count_1d_charge_hist.size, refcheck=False)
                             count_1d_charge_hist += count_1d_charge_hist_tmp
                             # 2D frame
                             stat_2d_frame_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=frame[select_valid_hit], statistic='mean', bins=hist_2d_edges)
@@ -1389,9 +1377,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             # 1D frame
                             count_1d_frame_hist_tmp = np.bincount(frame[select_valid_hit])
                             if count_1d_frame_hist_tmp.size > count_1d_frame_hist.size:
-                                count_1d_frame_hist.resize(count_1d_frame_hist_tmp.size)
+                                count_1d_frame_hist.resize(count_1d_frame_hist_tmp.size, refcheck=False)
                             else:
-                                count_1d_frame_hist_tmp.resize(count_1d_frame_hist.size)
+                                count_1d_frame_hist_tmp.resize(count_1d_frame_hist.size, refcheck=False)
                             count_1d_frame_hist += count_1d_frame_hist_tmp
                             # 2D mean cluster size
                             stat_2d_cluster_size_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit & select_small_cluster_sizes], y=intersection_y_local[select_valid_hit & select_small_cluster_sizes], values=cluster_size[select_valid_hit & select_small_cluster_sizes], statistic='mean', bins=hist_2d_edges)
@@ -1399,10 +1387,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_2d_cluster_size_hist, _ = np.ma.average(a=np.stack([stat_2d_cluster_size_hist, stat_2d_cluster_size_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 1D total track anlge
                             count_1d_total_angle_hist_tmp = np.histogram(total_angles_local[select_valid_hit], bins=count_1d_total_angle_hist_edges)[0]
-                            if count_1d_total_angle_hist_tmp.size > count_1d_total_angle_hist.size:
-                                count_1d_total_angle_hist.resize(count_1d_total_angle_hist_tmp.size)
-                            else:
-                                count_1d_total_angle_hist_tmp.resize(count_1d_total_angle_hist.size)
                             count_1d_total_angle_hist += count_1d_total_angle_hist_tmp
                             # 2D total track angle
                             stat_2d_total_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=total_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
@@ -1410,10 +1394,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_2d_total_angle_hist, count_2d_total_angle_hist = np.ma.average(a=np.stack([stat_2d_total_angle_hist, stat_2d_total_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 1D alpha track angle
                             count_1d_alpha_angle_hist_tmp = np.histogram(alpha_angles_local[select_valid_hit], bins=count_1d_alpha_angle_hist_edges)[0]
-                            if count_1d_alpha_angle_hist_tmp.size > count_1d_alpha_angle_hist.size:
-                                count_1d_alpha_angle_hist.resize(count_1d_alpha_angle_hist_tmp.size)
-                            else:
-                                count_1d_alpha_angle_hist_tmp.resize(count_1d_alpha_angle_hist.size)
                             count_1d_alpha_angle_hist += count_1d_alpha_angle_hist_tmp
                             # 2D alpha track angle
                             stat_2d_alpha_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=alpha_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
@@ -1421,10 +1401,6 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                             stat_2d_alpha_angle_hist, count_2d_alpha_angle_hist = np.ma.average(a=np.stack([stat_2d_alpha_angle_hist, stat_2d_alpha_angle_hist_tmp]), axis=0, weights=np.stack([count_tracks_with_hit_2d_hist, count_tracks_with_hit_2d_hist_tmp]), returned=True)
                             # 1D beta track angle
                             count_1d_beta_angle_hist_tmp = np.histogram(beta_angles_local[select_valid_hit], bins=count_1d_beta_angle_hist_edges)[0]
-                            if count_1d_beta_angle_hist_tmp.size > count_1d_beta_angle_hist.size:
-                                count_1d_beta_angle_hist.resize(count_1d_beta_angle_hist_tmp.size)
-                            else:
-                                count_1d_beta_angle_hist_tmp.resize(count_1d_beta_angle_hist.size)
                             count_1d_beta_angle_hist += count_1d_beta_angle_hist_tmp
                             # 2D beta track angle
                             stat_2d_beta_angle_hist_tmp, _, _, _ = stats.binned_statistic_2d(x=intersection_x_local[select_valid_hit], y=intersection_y_local[select_valid_hit], values=beta_angles_local[select_valid_hit], statistic='mean', bins=hist_2d_edges)
@@ -1617,9 +1593,9 @@ def calculate_efficiency(telescope_configuration, input_tracks_file, select_duts
                         logging.info('Efficiency for region %d%s= %.2f%%' % (region_index + 1, (" (" + efficiency_regions_names_dut[region_index] + ")") if efficiency_regions_names_dut[region_index] else "", efficiency * 100.0))
                         # resize so that all histograms have the same size
                         if count_1d_charge_hist.size > efficiency_regions_count_1d_charge_hist[region_index].size:
-                            efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size)
+                            efficiency_regions_count_1d_charge_hist[region_index].resize(count_1d_charge_hist.size, refcheck=False)
                         if count_1d_frame_hist.size > efficiency_regions_count_1d_frame_hist[region_index].size:
-                            efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size)
+                            efficiency_regions_count_1d_frame_hist[region_index].resize(count_1d_frame_hist.size, refcheck=False)
                         mean_charge = analysis_utils.get_mean_from_histogram(efficiency_regions_count_1d_charge_hist[region_index], range(count_1d_charge_hist.size))
                         if efficiency_regions_names_dut[region_index] is not None:
                             logging.info('Mean charge for region %d (%s) = %.2f' % (region_index + 1, efficiency_regions_names_dut[region_index], mean_charge))
@@ -2718,13 +2694,13 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                     if not np.allclose(ref_hit_z_local[np.isfinite(ref_hit_z_local)], 0.0) or not np.allclose(ref_intersection_z_local[np.isfinite(ref_intersection_z_local)], 0.0):
                         raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
-                    ref_limit_x_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    ref_limit_x_local_sel = np.ones_like(ref_hit_x_local, dtype=bool)
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                         ref_limit_x_local_sel &= ref_hit_x_local >= fit_limit_x_local[0]
                     if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                         ref_limit_x_local_sel &= ref_hit_x_local <= fit_limit_x_local[1]
 
-                    ref_limit_y_local_sel = np.ones_like(ref_hit_x_local, dtype=np.bool)
+                    ref_limit_y_local_sel = np.ones_like(ref_hit_x_local, dtype=bool)
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                         ref_limit_y_local_sel &= ref_hit_y_local >= fit_limit_y_local[0]
                     if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):
@@ -2796,13 +2772,13 @@ def calculate_residual_correlation(input_tracks_file, input_alignment_file, use_
                         if not np.allclose(hit_z_local[np.isfinite(hit_z_local)], 0.0) or not np.allclose(intersection_z_local[np.isfinite(intersection_z_local)], 0.0):
                             raise RuntimeError("Transformation into local coordinate system gives z != 0")
 
-                        limit_x_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                        limit_x_local_sel = np.ones_like(hit_x_local, dtype=bool)
                         if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[0]):
                             limit_x_local_sel &= hit_x_local >= fit_limit_x_local[0]
                         if fit_limit_x_local is not None and np.isfinite(fit_limit_x_local[1]):
                             limit_x_local_sel &= hit_x_local <= fit_limit_x_local[1]
 
-                        limit_y_local_sel = np.ones_like(hit_x_local, dtype=np.bool)
+                        limit_y_local_sel = np.ones_like(hit_x_local, dtype=bool)
                         if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[0]):
                             limit_y_local_sel &= hit_y_local >= fit_limit_y_local[0]
                         if fit_limit_y_local is not None and np.isfinite(fit_limit_y_local[1]):

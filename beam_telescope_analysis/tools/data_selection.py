@@ -4,7 +4,7 @@ from __future__ import division
 import logging
 import re
 import os
-from collections import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 import tables as tb
@@ -406,7 +406,7 @@ def select_tracks(telescope_configuration, input_tracks_file, select_duts, outpu
                 for tracks, index_chunk in analysis_utils.data_aligned_at_events(node, chunk_size=chunk_size):
                     n_tracks_chunk = tracks.shape[0]
                     if hit_mask != 0 or no_hit_mask != 0 or quality_mask != 0 or isolated_track_mask != 0 or isolated_hit_mask != 0:
-                        select = np.ones(n_tracks_chunk, dtype=np.bool)
+                        select = np.ones(n_tracks_chunk, dtype=bool)
                         if hit_mask != 0:
                             select &= ((tracks['hit_flag'] & hit_mask) == hit_mask)
                         if no_hit_mask != 0:
