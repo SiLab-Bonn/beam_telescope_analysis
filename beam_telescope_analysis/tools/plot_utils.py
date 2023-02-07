@@ -1302,11 +1302,18 @@ def efficiency_plots(telescope, hist_2d_edges, count_hits_2d_hist, count_tracks_
     in_pixel_mesh_alpha = 1.0
     in_pixel_mesh_line_style = '--'
 
-    widths_in_pixel_regions = [[20.0, 20.0], [10.0, 20.0], [10.0, 10.0]]  # in um
-    center_location_in_pixel_regions = [[25.0, 25.0], [0.0, 25.0], [0.0, 50.0]]  # in um
-
-    # widths_in_pixel_regions = [[50.0, 50.0]]  # in um
-    # center_location_in_pixel_regions = [[25.0, 25.0]]  # in um
+    center_location_in_pixel_regions = [  # in um
+        [actual_dut.column_size / 2., actual_dut.row_size / 2.],  # Pixel center
+        [actual_dut.column_size, actual_dut.row_size / 2.],  # Vertical edge between two pixels
+        [actual_dut.column_size, actual_dut.row_size],  # Corner between four pixels
+        [actual_dut.column_size / 2., actual_dut.row_size]  # Horizontal edge between two pixels
+    ]
+    widths_in_pixel_regions = [  # in um
+        [0.5 * actual_dut.column_size, 0.5 * actual_dut.row_size],
+        [0.3 * actual_dut.column_size, 0.5 * actual_dut.row_size],
+        [0.3 * actual_dut.column_size, 0.3 * actual_dut.row_size],
+        [0.5 * actual_dut.column_size, 0.3 * actual_dut.row_size]
+    ]
 
     fig = Figure()
     text = 'DUT%d:\n%s' % (actual_dut_index, actual_dut.name)
