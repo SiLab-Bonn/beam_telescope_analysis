@@ -5,11 +5,11 @@ on: push
 jobs:
   tests:
     name: Python ${{matrix.python-version}}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10']
+        python-version: ['3.10', '3.11']
     steps:
     - uses: nschloe/action-cached-lfs-checkout@v1  # cached git-lfs checkout
     # - uses: actions/checkout@v2
@@ -18,6 +18,8 @@ jobs:
     - name: Set up Anaconda ${{matrix.python-version}}
       uses: conda-incubator/setup-miniconda@v2
       with:
+        miniconda-version: "latest"
+        activate-environment: bta
         auto-update-conda: true
         python-version: ${{matrix.python-version}}
     - name: Install Conda dependencies
