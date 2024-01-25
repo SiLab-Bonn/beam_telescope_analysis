@@ -60,6 +60,6 @@ setup(
     include_dirs=[np.get_include()],
     cmdclass={'build_ext': build_ext_opt},
     keywords=['telescope', 'eudaq', 'mimosa26', 'psi46', 'fei4', 'alignment', 'testbeam', 'cern', "hodoscope", "beam-telescope", "pixelated-detectors"],
-    python_requires='>=2.7',
+    python_requires='>=3',
     platforms='any'
 )
